@@ -41,6 +41,8 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 | `ENV` | No | `development` \| `production`; gates `/docs`, logging |
 | `LANGGRAPH_CHECKPOINT_BACKEND` | No | Default `redis` |
 | `WEALTH_DISCLAIMER_TEXT` | No | Defaults to canonical disclaimer; override only with care |
+| `ALERT_DRIFT_PCT_THRESHOLD` | No | Default `25`; category spend > rolling-3mo avg by this % fires a drift alert |
+| `ALERT_INCOME_DROP_PCT_THRESHOLD` | No | Default `30`; income stream rolling-4wk avg dropping by this % fires an alert |
 
 ## File Structure
 

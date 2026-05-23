@@ -8,7 +8,17 @@ Live snapshot of where the build stands. Update at every issue close.
 
 ## Status
 
-**Phase**: Pre-build planning. Kickstart docs landed; `<PLACEHOLDER>` blocks in `docs/KICKSTART.md` Section 5 still to be filled.
+**Phase**: Pre-build planning. Kickstart docs landed. Section 5 placeholders resolved except for the 5-year goal (see Open TODOs).
+
+## North Star
+
+> "Tell me where I am in the wealth-building sequence and what my next move is."
+
+This is the day-one indispensable capability — anchored on the six-step sequence in `docs/WEALTH_PRINCIPLES.md`, computed by `vault/wealth_position.py`.
+
+## Open TODOs (Owner Input Required)
+
+- [ ] **5-year goal (`docs/KICKSTART.md` Section 5.1)** — owner to write concrete net worth / passive income / Roth / brokerage / career targets. Strategist (Issue 8) falls back to step-by-step sequence optimization without it, but loses long-horizon calibration. Fill before Issue 8 at the latest.
 
 ## Issues
 

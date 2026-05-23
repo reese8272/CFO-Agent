@@ -180,6 +180,8 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 | `ENV` | No | `development` \| `production`; gates `/docs`, logging |
 | `LANGGRAPH_CHECKPOINT_BACKEND` | No | Default `redis` |
 | `WEALTH_DISCLAIMER_TEXT` | No | Defaults to canonical disclaimer; override only with care |
+| `ALERT_DRIFT_PCT_THRESHOLD` | No | Default `25`; category spend > rolling-3mo avg by this % fires a drift alert |
+| `ALERT_INCOME_DROP_PCT_THRESHOLD` | No | Default `30`; income stream rolling-4wk avg dropping by this % fires an alert |
 
 ## File Structure
 
@@ -452,30 +454,41 @@ Each subsection answers a question from the brief. `<PLACEHOLDER>` markers are w
 ## 5.1 The Real Goal
 
 **Q: What does winning in 5 years look like?**
-A: `<PLACEHOLDER: Define concretely. Suggested format — Net worth: $___; Passive monthly income: $___; First rental property: yes/no; Business revenue: $___/yr; Roth balance: $___; Index fund balance: $___; Career: target role/comp.>`
+A: **TODO — owner to fill.** Templates were drafted (Career + Index Funds / First Rental + Saver / Coaching Business + Market) but the owner flagged them as not matching current life state. This is the product's strategic north star and must be the owner's own words. Until filled, the Strategist falls back to optimizing the wealth-building sequence (Section 4) one step at a time — that's a safe default but loses long-horizon calibration. Fill before Issue 8 (Strategist node) at the latest.
+
+Suggested format when filling:
+- Net worth: $___
+- Passive monthly income: $___/mo
+- First rental property by year: ___
+- Business revenue: $___/yr
+- Roth balance: $___
+- Index fund balance: $___
+- Career: target role / target comp / target date
 
 **Q: What's your actual monthly surplus right now?**
-A: `<PLACEHOLDER: The single most important number to start with. Total monthly inflow (all streams averaged) minus all required outflow (rent, minimums, recurring). If you don't know, computing this is Issue 4's first deliverable.>`
+A: **Unknown — computed by Issue 4's first deliverable.** Once the vault is populated (every account, income stream, recurring expense, minimum debt payment), the system computes surplus directly: `sum(rolling_4wk_avg of income_streams) − sum(typical_amount of active expenses) − sum(minimum_payment of active debts)`. Don't pre-fill a guess here — the whole point of the vault is to surface the real number.
 
 **Q: Most urgent wealth vehicle right now?**
-A: `<PLACEHOLDER: Pick one — Roth IRA, Solo 401k, debt payoff, emergency fund top-up, index fund start, real estate research, business — and write one sentence why.>`
+A: **TBD by Issue 5's `wealth_position` computation.** Once the vault has emergency fund, debt APRs, retirement balances, and YTD contributions, `vault/wealth_position.py` returns a deterministic step (1–6) and the next move falls out of it. Strong candidate to investigate first given the brief's 1099 income from DoorDash + coaching: the Solo 401(k) — most gig workers don't know they qualify, and contribution headroom there typically exceeds the Roth IRA limit by an order of magnitude. Agent confirms against current debt/emergency-fund state before recommending.
 
 ## 5.2 Data Completeness
 
 **Q: Every account, card, income stream, debt — list it.**
-A: This *is* the vault schema. Inferred from the brief:
-- **Income streams**: Cognizant W-2 (biweekly), DoorDash 1099 (~3 evenings/week, irregular), coaching cash (`<PLACEHOLDER: cadence + typical>`), `<PLACEHOLDER: any freelance/consulting>`
-- **Accounts**: `<PLACEHOLDER: list every checking, savings, HYSA, retirement, cash holding>`
-- **Cards**: `<PLACEHOLDER: each card — issuer, network, statement day, limit, category multipliers you remember>`
-- **Debts**: `<PLACEHOLDER: each debt — balance, APR, minimum, current strategy>`
-- **Real estate / assets**: `<PLACEHOLDER: home/rental equity, car, work equipment>`
-- **Goals**: `<PLACEHOLDER: 3–5 with target amount + deadline>`
+A: **Captured row-by-row by the vault in Issue 4** (CRUD endpoints + HTMX forms), not pre-typed here. This section is a completeness checklist for the owner — confirm you can name every:
+- **Income stream** (W-2, 1099, cash, gig, coaching, business) with cadence and typical amount
+- **Account** (checking, savings, HYSA, retirement at every institution, cash, business)
+- **Card** (issuer, network, statement day, due day, limit, category multipliers)
+- **Debt** (balance, APR, minimum, current strategy)
+- **Real estate / asset** with equity / value estimate
+- **Goal** with target amount and deadline
+
+Known from the brief: Cognizant W-2 (biweekly), DoorDash 1099 (~3 evenings/week, irregular), coaching cash. Everything else is filled into the vault during Issue 4. Don't dual-write a copy here — the vault is the source of truth.
 
 **Q: DoorDash + coaching income range and variability?**
-A: `<PLACEHOLDER: Best month, worst month, typical month for each. Used to set the rolling-4wk-avg forecast band.>`
+A: Captured in `income_streams.rolling_4wk_avg_encrypted` (computed) once the user logs 4+ weeks of actual receipts. Vault forms (Issue 4) accept best/worst/typical amounts at create time as a forecast prior until rolling data accumulates.
 
 **Q: Non-bank-account assets?**
-A: `<PLACEHOLDER: car (current value), work equipment depreciable, anything else with material value>`
+A: Captured in the `assets` and `real_estate` tables (Issue 2 schema, Issue 4 CRUD). Car value, work equipment, anything else material.
 
 ## 5.3 Wealth Strategy Layer
 
@@ -510,8 +523,8 @@ A: Proactive (Alert node):
 - Surplus detected (MTD inflow − committed outflow > threshold)
 - Minimum payment due within 3 days, no scheduled transfer
 - Roth or Solo 401k room unused with <90 days to year-end
-- Category spend exceeds rolling 3mo average by `<PLACEHOLDER: % threshold, e.g., 25%>`
-- Income stream rolling-4wk-avg drops `<PLACEHOLDER: e.g., 30%>`
+- Category spend exceeds rolling 3mo average by **25%** (env-tunable via `ALERT_DRIFT_PCT_THRESHOLD`)
+- Income stream rolling-4wk-avg drops **30%** (env-tunable via `ALERT_INCOME_DROP_PCT_THRESHOLD`)
 - Career off-pace: elapsed time / target time > delta-comp-achieved / delta-comp-target
 
 Reactive (chat only):
@@ -555,7 +568,7 @@ A: Yes — no GDPR/CCPA, no breach-notification obligation, no SOC2. The above p
 A: **Personal-only v1.** Schema includes `user_id` foreign keys so multi-user is mechanical later, but no additional auth, no sharing, no compliance work in v1.
 
 **Q: The one thing that would make this indispensable on day one?**
-A: `<PLACEHOLDER: Write the single sentence. If you can't articulate one, the agent has no north star — stop and figure this out first. Example from the brief: "Tell me what to do with this month's surplus, given my complete picture, and why.">`
+A: **"Tell me where I am in the wealth-building sequence and what my next move is."** Anchors every chat turn on Section 4's six steps. The agent always knows the current step (computed by `wealth_position`) and surfaces the next move. This makes the product unique vs trackers ("here's what you spent") and optimizers ("use this card") — both of which can't tell you *where you are* or *what to do next* in a sequence that compounds wealth.
 
 **Q: What does v1 look like?**
 A: Manual vault + chat agent + wealth-position computation + weekly digest + scenario modeling. **No Plaid.** Ship the loop that proves "complete context + good AI = a real CFO" using only manually-entered data. Plaid is a partial automation of that, not a prerequisite.

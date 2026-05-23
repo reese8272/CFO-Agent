@@ -17,6 +17,12 @@ Existing personal-finance tools are either *trackers* (Monarch, Copilot, YNAB), 
 
 The unlock isn't smarter AI. It's **complete context + good AI**.
 
+## North Star (Day-One Indispensable)
+
+> **"Tell me where I am in the wealth-building sequence and what my next move is."**
+
+This is the single capability that makes the product indispensable on day one. Anchors every chat turn on the six-step sequence in `docs/WEALTH_PRINCIPLES.md`. The agent always knows the current step (computed by `vault/wealth_position.py`) and surfaces the next move. Differentiates vs trackers ("here's what you spent") and optimizers ("use this card"), neither of which can tell you *where you are* or *what to do next* in a sequence that compounds wealth.
+
 ## Target User (v1)
 
 A single user — the developer/owner. **Personal use only.** Architecture must not preclude multi-user, but no auth-of-others, no sharing, and no compliance scope beyond a personal threat model in v1.
