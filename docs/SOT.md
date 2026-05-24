@@ -97,9 +97,11 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │   │   │                       # unused room, career off-pace, deduction gap)
 │   │   └── synthesizer.py      # Compose final response; commit to ONE move across
 │   │                           # both tracks; enforce CFO POV + disclaimer
-│   ├── principles.py           # Named wealth principles registry (debt avalanche,
-│   │                           # tax arbitrage, time-in-market, etc.)
-│   ├── prompts.py              # Centralized prompts, cached on vault snapshot
+│   ├── principles.py           # Universal principles + year-versioned tax constants
+│   ├── principles_real_estate.py  # Arena library: house hack, BRRRR, cap rate, etc.
+│   ├── principles_saas.py      # Arena library: MRR/ARR, churn, CAC/LTV, distribution
+│   ├── principles_investing.py # Arena library: three-fund, asset allocation, TLH
+│   ├── prompts.py              # Centralized prompts (incl. Coach Voice), cached
 │   └── tools.py                # Function-calling tools (scenario modeler, etc.)
 │
 ├── scenarios/
@@ -235,6 +237,16 @@ negotiation_milestones               # ADDED 2026-05-24 pivot
   id, kind (annual_review/contract_renewal/raise_eligibility/other),
   trigger_date, related_role, prep_notes_encrypted,
   status (upcoming/in_progress/completed/missed), completed_at, created_at
+
+net_worth_snapshots                  # ADDED 2026-05-24 coach-vision additions
+  id, snapshot_at,
+  assets_total_encrypted, liabilities_total_encrypted,
+  net_worth_encrypted (computed: assets - liabilities),
+  asset_breakdown_jsonb (cash/retirement/brokerage/real_estate_equity/
+                         business_value/other, each encrypted),
+  liability_breakdown_jsonb (mortgages/student_loans/credit_cards/auto/other,
+                             each encrypted),
+  source (manual/computed_from_vault), created_at
 
 transactions                         # Phase 2 (Plaid)
   id, account_id, posted_at, amount_encrypted, merchant,

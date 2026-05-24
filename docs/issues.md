@@ -26,7 +26,7 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 - **Depends on**: 1
 - **What**: SQLAlchemy models for every vault entity (see `docs/SOT.md` data model) + memory tables. Alembic wired. `crypto.py` with Fernet `encrypt()`/`decrypt()` from `VAULT_ENCRYPTION_KEY`. **Scope expanded 2026-05-24** (see `docs/DECISIONS.md`) to include the income-track entities.
 - **Acceptance criteria**:
-  - [ ] `alembic upgrade head` creates every table including `real_estate`, `business_income`, `retirement_accounts`, `career_position`, **`career_history`, `comp_benchmarks`, `side_income_economics`, `tax_deductions_1099`, `negotiation_milestones`**
+  - [ ] `alembic upgrade head` creates every table including `real_estate`, `business_income`, `retirement_accounts`, `career_position`, **`career_history`, `comp_benchmarks`, `side_income_economics`, `tax_deductions_1099`, `negotiation_milestones`, `net_worth_snapshots`**
   - [ ] Encrypted round-trip test passes
   - [ ] Missing `VAULT_ENCRYPTION_KEY` fails app start with a clear error
   - [ ] Audit log table append-only at the app layer
@@ -56,16 +56,17 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 
 ---
 
-## Issue 5: Wealth-position + income-position computation + endpoints
+## Issue 5: Wealth-position + income-position + net-worth-trajectory endpoints
 - [ ] Open
 - **Depends on**: 4
-- **What**: `vault/wealth_position.py` computes the user's step on the allocation track (1–6). `vault/income_position.py` computes the step on the income track (1–5). Both backed by `GET /wealth/position` and `GET /income/position`. `GET /wealth/trajectory` returns next-move + open gaps across both tracks. **Scope expanded 2026-05-24** to include the income track.
+- **What**: `vault/wealth_position.py` computes the user's step on the allocation track (1–6). `vault/income_position.py` computes the step on the income track (1–5). Both backed by `GET /wealth/position` and `GET /income/position`. `GET /wealth/trajectory` returns next-move + open gaps across both tracks. `GET /wealth/net_worth_trajectory` returns historical net worth from `net_worth_snapshots` plus the target curve to the configured 5-/10-year vision. **Scope expanded 2026-05-24** to include the income track and net-worth trajectory.
 - **Acceptance criteria**:
   - [ ] `wealth_position` returns a deterministic step (1–6) given any vault state
   - [ ] `income_position` returns a deterministic step (1–5) given any vault state
   - [ ] Unit tests cover boundary cases on both (e.g., emergency fund exactly at 3 months; lowest-margin stream exactly 30% below top)
   - [ ] Endpoints return `{step, step_name, next_move, open_gaps}`
   - [ ] Trajectory endpoint returns highest-leverage next move across both tracks
+  - [ ] Net-worth-trajectory endpoint returns `{snapshots, target_curve, pace_vs_target}`
   - [ ] No LLM call needed — pure data logic
 
 ---
@@ -97,12 +98,15 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ## Issue 8: Analyzer + Strategist + Coach nodes
 - [ ] Open
 - **Depends on**: 7
-- **What**: Add Analyzer (turn classification — routes to allocation/income/both), Strategist (allocation-side wealth-vehicle prioritization given `wealth_position`), Coach (principle citation). Conditional routing.
+- **What**: Add Analyzer (turn classification — routes to allocation/income/both), Strategist (allocation-side wealth-vehicle prioritization given `wealth_position`), Coach (principle citation, pulling from universal `agent/principles.py` plus arena-specific `principles_real_estate.py` / `principles_saas.py` / `principles_investing.py` based on turn context). Conditional routing. Synthesizer prompt encodes the Coach Voice from `docs/WEALTH_PRINCIPLES.md` and stamps every recommendation with a long-horizon clause (how this advances the 10-year vision).
 - **Acceptance criteria**:
   - [ ] "Where should I put $500 surplus" routes Analyzer → Strategist → Coach → Synthesizer
   - [ ] "Explain debt avalanche" routes Analyzer → Coach → Synthesizer
+  - [ ] "How do I get started in real estate?" routes Analyzer → Coach (loading `principles_real_estate`) → Synthesizer
   - [ ] Each node logs its own latency/tokens
   - [ ] Synthesizer commits to one recommendation; refuses to enumerate unless asked
+  - [ ] Every Synthesizer response includes one clause stamping the recommendation against the 10-year vision (target net worth / passive income / chosen path)
+  - [ ] Synthesizer voice matches the Coach Voice spec (eval-harness tone checks pass; no hustle-bro, no condescending explainer, no Suze-Orman finger-wagging)
 
 ---
 
@@ -136,13 +140,14 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ## Issue 10: Tracker + Alert nodes
 - [ ] Open
 - **Depends on**: 9
-- **What**: Tracker computes trajectory vs goals across both tracks (allocation + income), plus career off-pace. Alert fires on surplus, missed-payment risk, unused tax-advantaged room, drift, income drop, career off-pace, **deduction gap (a category empty within 60 days of tax-year close), upcoming negotiation milestone (30 days ahead)**. Both append to response when triggered; both persist to `patterns`.
+- **What**: Tracker computes trajectory vs goals across both tracks (allocation + income), **net worth vs target curve**, plus career off-pace. Alert fires on surplus, missed-payment risk, unused tax-advantaged room, drift, income drop, career off-pace, **deduction gap (a category empty within 60 days of tax-year close), upcoming negotiation milestone (30 days ahead), net-worth pace-behind-target**. Both append to response when triggered; both persist to `patterns`.
 - **Acceptance criteria**:
   - [ ] Surplus alert fires when threshold exceeded
   - [ ] Unused-Roth-room alert fires within 90 days of year-end if applicable
   - [ ] Career off-pace alert fires when elapsed-fraction > delta-achieved-fraction
   - [ ] Deduction-gap alert fires within 60 days of tax-year close if any 1099 deduction category is empty
   - [ ] Negotiation-milestone alert fires 30 days before trigger date
+  - [ ] Net-worth pace-behind alert fires when latest snapshot trails target curve by more than the configured threshold
   - [ ] Tests cover each path
 
 ---
@@ -162,11 +167,12 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ## Issue 12: Weekly digest cron + email
 - [ ] Open
 - **Depends on**: 11
-- **What**: APScheduler worker. `digest.py` pulls week's vault state + new patterns + wealth_position + trajectory and emails a Markdown summary.
+- **What**: APScheduler worker. `digest.py` pulls week's vault state + new patterns + wealth_position + income_position + net_worth_trajectory and emails a Markdown summary. **Leads with net worth + pace-vs-target** (the headline metric), then surplus / next move / alerts.
 - **Acceptance criteria**:
   - [ ] `POST /digest/run-now` generates and sends a digest
   - [ ] Cron fires weekly at configured time
-  - [ ] Digest includes: cash position, week-over-week change, current step + next move, new alerts, one action item
+  - [ ] Digest leads with net worth + week-over-week delta + pace vs target curve
+  - [ ] Digest includes: cash position, current step (allocation + income), next move, new alerts, one action item
   - [ ] End-to-end test with mocked SMTP
 
 ---

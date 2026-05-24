@@ -56,6 +56,9 @@ Step 5 — Negotiation Practice  Anchor high, ask in writing, every raise /
 
 The Coach node cites exactly one of these in one sentence per recommendation. The longer-form explanation is on demand only — the user asks "explain that more" and the entry below is expanded into a coaching paragraph.
 
+### Assets over liabilities
+Anything that puts money in your pocket without your active hours is an asset; anything that takes money out is a liability — the discipline is routing every surplus dollar toward the first category. A house you live in is a liability (mortgage, taxes, maintenance, opportunity cost on the down payment); a rental that cash-flows is an asset. A new car is a liability; a vehicle used in a deductible side business is partially an asset. This is the mental scaffold underneath the entire allocation track (Steps 5 and 6 explicitly) and the income track (career income and side businesses are assets that pay you). The Rich Dad framing, sharpened by Naval Ravikant's "specific knowledge + leverage + equity" and Codie Sanchez's "boring businesses that pay you while you sleep," is the lens every recommendation passes through.
+
 ### Emergency fund first
 Eliminates forced bad decisions under stress. Without 3–6 months of expenses in liquid cash, any setback (job loss, medical, car) forces high-APR debt or panic-sold investments. Step 1 of the sequence for a reason.
 
@@ -122,12 +125,36 @@ Year-versioned constants (Roth limit, Solo 401k limit, mileage rate, HSA limit) 
 
 ---
 
+## Arena-Specific Principle Libraries
+
+When the user asks about real estate, SaaS / indie business, or investing specifically, the Coach pulls from arena-specific principle modules in addition to the universal principles above. These live in:
+
+- `agent/principles_real_estate.py` — house hacking, BRRRR, cap rate, cash-on-cash, 1% rule, market analysis, REITs vs direct ownership, common mistakes
+- `agent/principles_saas.py` — pricing, MRR/ARR, churn (gross + net dollar retention), CAC/LTV, distribution-first thinking, bootstrapping vs VC, when to leave W-2
+- `agent/principles_investing.py` — three-fund portfolio (Bogleheads), target-date funds, tax-loss harvesting, asset allocation by age, rebalancing cadence
+
+Content for each module is sourced from the research workflow in `docs/RESEARCH_PROMPT.md` (output → `docs/RESEARCH_NOTES.md` → ported into the module files during Issue 6 / Issue 8).
+
+---
+
+## Coach Voice
+
+The Synthesizer system prompt encodes a specific tonal range, enforced through prompt engineering and verified by the eval harness in `tests/eval/`:
+
+**Voice references**: Naval Ravikant (compounding leverage, specific knowledge), Codie Sanchez (boring businesses pay), Patrick McKenzie (negotiation as a fundamental skill), Bogleheads (boring index discipline), Morgan Housel (psychology over math).
+
+**NOT**: hype, hustle-bro, get-rich-quick, magical thinking, condescending explainer, Suze-Orman-style finger-wagging.
+
+**Always**: encouraging, real, doesn't sugarcoat, names the long game, stamps every recommendation against how it advances the 10-year vision.
+
+---
+
 ## How the Agent Uses This
 
 - **Strategist** picks the highest-leverage move on the **allocation track** given `wealth_position`.
 - **Career** picks the highest-leverage move on the **income track** related to comp / switch / promotion / negotiation given `income_position` + `career_position` + `comp_benchmarks`.
 - **Income-Optimizer** ranks streams by net hourly and surfaces cut-or-scale recommendations.
 - **Tax-Optimizer** surfaces missed 1099 deductions and quarterly estimated tax suggestions.
-- **Coach** cites exactly one of the named principles above in a single sentence — drawn from either track.
-- **Synthesizer** commits to ONE recommendation across whatever nodes fired; refuses to enumerate options unless explicitly asked.
+- **Coach** cites exactly one of the named principles above (universal or arena-specific) in a single sentence.
+- **Synthesizer** commits to ONE recommendation across whatever nodes fired, stamps it against the user's 10-year vision, and speaks in the Coach Voice above; refuses to enumerate options unless explicitly asked.
 - **The agent's job is not to teach a class.** It cites the principle in one sentence per recommendation. The user can ask "explain that more" to get the longer lesson on demand.

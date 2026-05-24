@@ -8,7 +8,9 @@ Live snapshot of where the build stands. Update at every issue close.
 
 ## Status
 
-**Phase**: Build. Issue 1 shipped (repo scaffold + Docker Compose + `/health`). **Pivot landed 2026-05-24** — v1 reframed to "Personal CFO + Career Strategist" per `docs/DECISIONS.md`; PRD, SOT, WEALTH_PRINCIPLES, and issues all updated. Section 5 placeholders resolved except for the 5-year goal (see Open TODOs).
+**Phase**: Build. Issue 1 shipped (repo scaffold + Docker Compose + `/health`). **Pivot landed 2026-05-24** — v1 reframed to "Personal CFO + Career Strategist" per `docs/DECISIONS.md` entry 1. **Coach-vision additions landed 2026-05-24** — net worth as headline metric, Assets-over-liabilities principle, arena-specific principle libraries (real estate / SaaS / investing), Coach Voice spec, long-horizon trajectory stamping per `docs/DECISIONS.md` entry 2. **Research workflow seeded** — `docs/RESEARCH_PROMPT.md` ready to run through an AI researcher; output lands in `docs/RESEARCH_NOTES.md`; principles port into `WEALTH_PRINCIPLES.md` and `agent/principles*.py` during Issues 6 and 8.
+
+Section 5 placeholders resolved except for the 5-year goal (see Open TODOs).
 
 ## North Star
 
@@ -23,6 +25,7 @@ Synthesizer commits to ONE move across both tracks.
 ## Open TODOs (Owner Input Required)
 
 - [ ] **5-year goal (`docs/KICKSTART.md` Section 5.1)** — owner to write concrete net worth / passive income / Roth / brokerage / career targets. Strategist (Issue 8) falls back to step-by-step sequence optimization without it, but loses long-horizon calibration. Fill before Issue 8 at the latest.
+- [ ] **Run the research prompt** in `docs/RESEARCH_PROMPT.md` through an AI researcher (Claude with research, GPT deep research, Perplexity Pro, etc.). Drop the output into `docs/RESEARCH_NOTES.md`. Needed before Issue 8 so the Coach has a real principle library to cite.
 
 ## Issues
 

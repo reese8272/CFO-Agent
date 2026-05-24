@@ -89,6 +89,16 @@ A single user — the developer/owner. **Personal use only.** Architecture must 
 
 **Decision**: **User-entered comp benchmarks in v1, external API (Levels.fyi / BLS / Pew) deferred** — **Why**: Vendor coupling, API cost, and rate limits are not worth solving before we know the feature gets used. v1 takes user-entered benchmarks; the agent reasons against them and cites them by source.
 
+**Decision**: **Net worth as the headline metric, not just monthly surplus** — **Why**: The owner's stated destination is seven-figure net worth on a 10–15 year horizon. Monthly surplus is the input variable; net worth (and net worth trajectory vs target curve) is the output the agent optimizes against. Added entity `net_worth_snapshots`, endpoint `GET /wealth/net_worth_trajectory`, and trajectory-vs-target tracking in the Tracker node.
+
+**Decision**: **Arena-specific principle libraries** (real estate, SaaS, investing) **loaded by the Coach node** — **Why**: Universal personal-finance principles aren't enough when the user asks about house hacking, MRR pricing, or asset allocation by age. Each arena has its own canon. Modules in `agent/principles_real_estate.py`, `agent/principles_saas.py`, `agent/principles_investing.py`. Content sourced from the research workflow in `docs/RESEARCH_PROMPT.md`.
+
+**Decision**: **Coach voice encoded in the Synthesizer system prompt** — **Why**: The product's felt experience is "guru / coach who happens to be a CFO," not "calculator." Tonal range (Naval / Codie Sanchez / Patrick McKenzie / Bogleheads / Housel; NOT hustle-bro or Suze-Orman) lives in the Synthesizer prompt and is verified by tone checks in the eval harness.
+
+**Decision**: **Long-horizon trajectory stamp on every Synthesizer recommendation** — **Why**: Without it, the agent optimizes "best move this month" and loses sight of the 10-year vision. Every recommendation includes one clause on how it advances the vision (e.g., "this puts you ~$3.2k closer to year-5 net-worth target").
+
+**Decision**: **Research workflow as a project artifact** — **Why**: The principle library and year-versioned tax constants need substantive, sourced content — not invented by the LLM at runtime. `docs/RESEARCH_PROMPT.md` is run through an AI researcher; output lands in `docs/RESEARCH_NOTES.md`; cleanest principles port into `WEALTH_PRINCIPLES.md` and the arena modules during Issues 6 and 8.
+
 ## Out of Scope (v1)
 
 - Multi-user accounts, sharing, organization tier
@@ -117,6 +127,18 @@ A single user — the developer/owner. **Personal use only.** Architecture must 
 - [ ] `vault/income_position.py` returns a deterministic step (1–5) given any vault state.
 - [ ] Agent always surfaces "next move on the income track" when relevant.
 - [ ] On every turn the synthesizer commits to ONE highest-leverage move chosen across both tracks (not one per track).
+
+### Net Worth Trajectory (Headline Metric)
+- [ ] `net_worth_snapshots` entity stores point-in-time snapshots (assets, liabilities, computed net worth, breakdown).
+- [ ] `GET /wealth/net_worth_trajectory` returns historical net worth + target curve to the configured 5-/10-year vision.
+- [ ] Tracker computes pace-vs-target and fires an alert when behind by more than the configured threshold.
+- [ ] Weekly digest leads with net worth + delta + pace-vs-target.
+- [ ] Synthesizer stamps every recommendation with one clause on how it advances the long-horizon vision (e.g., "this puts you ~$3.2k closer to year-5 target").
+
+### Coach Voice & Arena Coaching
+- [ ] Synthesizer system prompt encodes the Coach Voice documented in `docs/WEALTH_PRINCIPLES.md` (Naval / Codie Sanchez / Patrick McKenzie / Bogleheads / Housel references; NOT hustle-bro or condescending).
+- [ ] Coach node loads from universal `agent/principles.py` plus the three arena modules (`principles_real_estate.py`, `principles_saas.py`, `principles_investing.py`) based on turn context.
+- [ ] Eval harness in `tests/eval/` includes tone checks alongside content checks (must-not-include "passive income course," "side hustle stack," etc.).
 
 ### Agent
 - [ ] Chat endpoint accepts a question, loads the full vault snapshot + active decisions + memory, runs LangGraph (Analyzer → Strategist → Coach → Tracker → Alert → Synthesizer), returns `{recommendation, reasoning, principle, disclaimer?}`.

@@ -52,4 +52,27 @@ Format:
 - Larger agent surface area → more LLM tokens per turn, more eval coverage needed in `tests/eval/`
 - External comp-benchmark API (Levels.fyi / BLS / Pew) deferred to a later issue; v1 takes user-entered benchmarks and lets the agent reason against them
 
+---
+
+## 2026-05-24 — Coach vision additions (small, additive, no re-pivot)
+
+**Context**: After the morning pivot to "Personal CFO + Career Strategist," the owner clarified the felt experience they want: *"a coach… a financial guru that can help me become a millionaire… meets me at my particular spot and helps me get into real estate, SaaS, maximizing investments wisely."* Mapping that against the post-pivot scope showed five gaps: (1) asset-vs-liability framing not in principles, (2) net worth not the headline metric, (3) no arena-specific coaching libraries (real estate / SaaS / investing), (4) no long-horizon trajectory in synthesizer reasoning, (5) no coach voice specified for the Synthesizer prompt.
+
+**Decision**: Layer these additions into the existing architecture without a third pivot. Specifically:
+
+- **New named principle**: *"Assets over liabilities"* — Rich Dad / Naval / Codie Sanchez lens. Top-tier foundational principle added to `docs/WEALTH_PRINCIPLES.md`.
+- **New schema entity**: `net_worth_snapshots` (assets, liabilities, computed net worth, breakdown JSONB, source). Folded into Issue 2.
+- **New endpoint**: `GET /wealth/net_worth_trajectory` returning historical net worth vs target curve. Folded into Issue 5.
+- **Arena-specific principle modules**: `agent/principles_real_estate.py`, `agent/principles_saas.py`, `agent/principles_investing.py`. Coach (Issue 8) loads from these in addition to `agent/principles.py` based on turn context. Content seeded from the research workflow in `docs/RESEARCH_PROMPT.md`.
+- **Long-horizon trajectory requirement**: Synthesizer (Issue 8) stamps every recommendation with how it advances the 10-year vision. Tracker (Issue 10) computes net-worth-trajectory-vs-target and alerts when behind pace.
+- **Coach voice**: Synthesizer system prompt encodes a specific tonal range — encouraging, real, doesn't sugarcoat, names the long game. References: Naval Ravikant, Codie Sanchez, Patrick McKenzie, Bogleheads, Morgan Housel. NOT: hype, hustle-bro, get-rich-quick, condescending explainer. Documented in `docs/WEALTH_PRINCIPLES.md`.
+- **Research workflow**: `docs/RESEARCH_PROMPT.md` created; the owner runs it through an AI researcher (Claude with research / GPT deep research / Perplexity), drops output into `docs/RESEARCH_NOTES.md`, and the cleanest principles + year-versioned constants are ported into the relevant modules during Issues 6 and 8.
+
+**Reasoning**: None of these requires architectural change. They're additive — one principle, one entity, one endpoint, three principle modules, two prompt-engineering requirements, one research artifact. No new issues; existing issues 2, 5, 8, 10, 12 scope-expand. Avoids a third pivot in a single day while still closing the gaps the owner named.
+
+**Trade-offs**:
+- Issues 2, 5, 8, 10, 12 grow modestly (each by one acceptance-criterion item)
+- Arena modules increase the Coach's prompt token usage (more cached profile content) — fine given Anthropic prompt caching
+- Coach voice as a prompt knob means tonal drift is possible; eval harness should add tone checks alongside content checks
+
 **Owner**: reesepludwick@gmail.com (approved 2026-05-24)
