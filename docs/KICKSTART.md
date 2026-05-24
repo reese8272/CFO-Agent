@@ -6,6 +6,8 @@
 **Status**: Pre-build planning. Drop this file into the new repo as `docs/KICKSTART.md`, fill the `<PLACEHOLDER>` blocks, then promote each section into its own doc (`docs/PRD.md`, `docs/SOT.md`, `docs/issues.md`, `CLAUDE.md`) before Issue 1.
 **Disclaimer (must appear in every interface and the system prompt)**: *This tool is for financial education and personal organization. It is not a licensed financial advisor. For tax strategy, real estate transactions, and investment decisions, consult a licensed professional.*
 
+> **⚠️ Superseded by pivot 2026-05-24.** v1 scope expanded from "Personal CFO" (allocation only) to "Personal CFO + Career Strategist" (allocation + income generation). This file is the historical kickstart record; the live source-of-truth lives in `docs/PRD.md`, `docs/SOT.md`, `docs/WEALTH_PRINCIPLES.md`, and `docs/issues.md`. See `docs/DECISIONS.md` entry 2026-05-24 for the pivot rationale.
+
 ---
 
 ## Table of Contents

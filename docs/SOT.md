@@ -67,10 +67,13 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 ├── vault/
 │   ├── models.py               # Account, Card, IncomeStream, Expense, Debt, Asset,
 │   │                           # RealEstate, BusinessIncome, RetirementAccount,
-│   │                           # Goal, CareerPosition
+│   │                           # Goal, CareerPosition, CareerHistory, CompBenchmark,
+│   │                           # SideIncomeEconomics, TaxDeduction1099,
+│   │                           # NegotiationMilestone
 │   ├── schemas.py              # Pydantic
 │   ├── crud.py                 # CRUD with encryption
-│   └── wealth_position.py      # Compute current step on wealth sequence
+│   ├── wealth_position.py      # Compute current step on allocation track (1–6)
+│   └── income_position.py      # Compute current step on income track (1–5)
 │
 ├── memory/
 │   ├── models.py               # Conversation, Message, Decision, Pattern
@@ -82,11 +85,18 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │   ├── state.py                # TypedDict
 │   ├── nodes/
 │   │   ├── analyzer.py         # Full-picture snapshot, turn classification
-│   │   ├── strategist.py       # Wealth-vehicle prioritization, debt vs invest tension
+│   │   ├── strategist.py       # Allocation-side: wealth-vehicle prioritization,
+│   │   │                       # debt vs invest tension
+│   │   ├── career.py           # Income-side: comp benchmarks, switch timing,
+│   │   │                       # promotion/raise prep, negotiation milestones
+│   │   ├── income_optimizer.py # Net hourly per stream, prune-or-scale recommendation
+│   │   ├── tax_optimizer.py    # 1099 deduction surfacing, quarterly tax estimation
 │   │   ├── coach.py            # Explains the why; names the principle
-│   │   ├── tracker.py          # Trajectory vs goals; drift detection
-│   │   ├── alert.py            # Proactive triggers (surplus, missed pmt risk, unused room)
-│   │   └── synthesizer.py      # Compose final response; enforce CFO POV + disclaimer
+│   │   ├── tracker.py          # Trajectory vs goals; drift + off-pace detection
+│   │   ├── alert.py            # Proactive triggers (surplus, missed pmt risk,
+│   │   │                       # unused room, career off-pace, deduction gap)
+│   │   └── synthesizer.py      # Compose final response; commit to ONE move across
+│   │                           # both tracks; enforce CFO POV + disclaimer
 │   ├── principles.py           # Named wealth principles registry (debt avalanche,
 │   │                           # tax arbitrage, time-in-market, etc.)
 │   ├── prompts.py              # Centralized prompts, cached on vault snapshot
@@ -199,6 +209,33 @@ career_position                      # NEW vs v1
   target_role, target_comp_total_encrypted, target_date,
   cert_or_milestone_jsonb, notes, updated_at
 
+career_history                       # ADDED 2026-05-24 pivot
+  id, role, employer, comp_total_encrypted, start_date, end_date,
+  reason_for_leaving (promoted/switched/laid_off/quit/other),
+  notes, created_at
+
+comp_benchmarks                      # ADDED 2026-05-24 pivot
+  id, role, metro, source (levels_fyi/bls/pew/pave/user/other),
+  comp_p50_encrypted, comp_p75_encrypted, comp_p90_encrypted,
+  as_of_date, notes, created_at
+
+side_income_economics                # ADDED 2026-05-24 pivot
+  id, income_stream_id (FK to income_streams),
+  period_start, period_end,
+  gross_encrypted, hours_worked,
+  expenses_jsonb (gas/food/depreciation/opportunity_cost/other, each encrypted),
+  net_encrypted (computed), net_hourly_encrypted (computed), created_at
+
+tax_deductions_1099                  # ADDED 2026-05-24 pivot
+  id, tax_year, category (mileage/home_office/equipment/education/other),
+  amount_encrypted, evidence_note_encrypted, created_at
+  # Mileage stored as miles * year-versioned IRS rate from agent/principles.py
+
+negotiation_milestones               # ADDED 2026-05-24 pivot
+  id, kind (annual_review/contract_renewal/raise_eligibility/other),
+  trigger_date, related_role, prep_notes_encrypted,
+  status (upcoming/in_progress/completed/missed), completed_at, created_at
+
 transactions                         # Phase 2 (Plaid)
   id, account_id, posted_at, amount_encrypted, merchant,
   category, raw_payload_jsonb
@@ -228,31 +265,34 @@ audit_log
 ```
                   ┌──────────────┐
    user turn  ──► │  Retrieval   │  vault snapshot + active decisions + recent patterns +
-                  └──────┬───────┘  wealth_position + relevant memory
+                  └──────┬───────┘  wealth_position + income_position + memory
                          ▼
                   ┌──────────────┐
-                  │   Analyzer   │  classify the turn; identify which downstream nodes fire
-                  └──────┬───────┘
+                  │   Analyzer   │  classify the turn; route to allocation node(s),
+                  └──────┬───────┘  income node(s), or both
                          ▼
-              ┌──────────┼──────────┐
-              ▼          ▼          ▼
-        ┌──────────┐ ┌──────┐ ┌──────────┐
-        │Strategist│ │Coach │ │   Alert  │   (conditional; one or more fire)
-        └────┬─────┘ └──┬───┘ └─────┬────┘
-             └──────────┼───────────┘
-                        ▼
-                 ┌──────────────┐
-                 │   Tracker    │  trajectory vs goals; off-pace flagging
-                 └──────┬───────┘
-                        ▼
-                 ┌──────────────┐
-                 │ Synthesizer  │  one committed recommendation; reasoning;
-                 └──────┬───────┘  named principle; disclaimer when required
-                        ▼
-                 ┌──────────────┐
-                 │   Persist    │  messages, new decisions, new patterns, audit
-                 └──────────────┘
+        ┌─────────┬──────┴──────┬────────────────┬───────────┬─────────┐
+        ▼         ▼             ▼                ▼           ▼         ▼
+  ┌──────────┐ ┌──────┐ ┌──────────────┐ ┌──────────────┐ ┌──────┐ ┌──────┐
+  │Strategist│ │Career│ │Income-       │ │Tax-          │ │Coach │ │Alert │
+  │(alloc)   │ │      │ │Optimizer     │ │Optimizer     │ │      │ │      │
+  └────┬─────┘ └──┬───┘ └──────┬───────┘ └──────┬───────┘ └──┬───┘ └──┬───┘
+       └──────────┴────────────┴────────────────┴───────────┴────────┘
+                                      ▼
+                            ┌──────────────┐
+                            │   Tracker    │  trajectory vs goals (both tracks);
+                            └──────┬───────┘  career off-pace; deduction gap
+                                   ▼
+                            ┌──────────────┐
+                            │ Synthesizer  │  ONE committed move across both tracks;
+                            └──────┬───────┘  named principle; disclaimer when required
+                                   ▼
+                            ┌──────────────┐
+                            │   Persist    │  messages, decisions, patterns, audit
+                            └──────────────┘
 ```
+
+The Strategist, Career, Income-Optimizer, and Tax-Optimizer nodes fire conditionally based on the Analyzer's turn classification. Most turns invoke only one or two; the Synthesizer always picks the single highest-leverage move across whatever fired.
 
 ## Security Posture (v1)
 

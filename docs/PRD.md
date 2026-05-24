@@ -9,7 +9,7 @@
 
 ## Problem Statement
 
-Existing personal-finance tools are either *trackers* (Monarch, Copilot, YNAB), *narrow optimizers* (MaxRewards, Credit Karma), or *shallow chatbots* (Cleo). None solve the **data completeness problem**: they can't see gig income at its source, cash income, real estate equity, retirement accounts at every institution, business P&L, or any record of the user's intentional decisions. With incomplete context, every recommendation is generic. With complete context — automated where possible, manual where required — a competent LLM becomes a real CFO: it knows where you are on the wealth-building sequence, calibrates advice to your specific irregular income, tracks trajectory toward 5-year goals, and explains the principle behind every move so the user builds judgment over time.
+Existing personal-finance tools are either *trackers* (Monarch, Copilot, YNAB), *narrow optimizers* (MaxRewards, Credit Karma), *shallow chatbots* (Cleo), or *career-only platforms* (Levels.fyi, Pave). None solve the **data completeness problem** across both wealth levers — they can't see gig income at its source, cash income, real estate equity, retirement accounts at every institution, business P&L, true net hourly across streams, 1099 deductions, comp benchmarks, or any record of the user's intentional decisions. With incomplete context, every recommendation is generic. With complete context — automated where possible, manual where required — a competent LLM becomes a real CFO + career strategist: it knows where you are on **both** the allocation sequence and the income-generation sequence, calibrates advice to your specific irregular income and career trajectory, tracks progress toward 5-year goals, and explains the principle behind every move so the user builds judgment over time.
 
 ## Core Insight
 
@@ -19,9 +19,14 @@ The unlock isn't smarter AI. It's **complete context + good AI**.
 
 ## North Star (Day-One Indispensable)
 
-> **"Tell me where I am in the wealth-building sequence and what my next move is."**
+> **"Tell me where I am — across allocation AND income — and what my single highest-leverage next move is."**
 
-This is the single capability that makes the product indispensable on day one. Anchors every chat turn on the six-step sequence in `docs/WEALTH_PRINCIPLES.md`. The agent always knows the current step (computed by `vault/wealth_position.py`) and surfaces the next move. Differentiates vs trackers ("here's what you spent") and optimizers ("use this card"), neither of which can tell you *where you are* or *what to do next* in a sequence that compounds wealth.
+The agent reasons across two compounding tracks at once:
+
+- **Allocation track** — the six-step wealth-building sequence in `docs/WEALTH_PRINCIPLES.md` (emergency fund → eliminate drag → tax-advantaged → market exposure → leverage → ownership). Computed by `vault/wealth_position.py`.
+- **Income track** — the five-step income-generation sequence in `docs/WEALTH_PRINCIPLES.md` (net-hourly truth → cut the bottom → career velocity → deduction discipline → negotiation). Computed by `vault/income_position.py`.
+
+On every turn the agent identifies the highest-leverage next move across both tracks and commits to one. This differentiates the product vs trackers ("here's what you spent"), optimizers ("use this card"), and career-only tools ("here's your market comp") — none of which can tell you *where you are* across both levers or *what to do next* in a way that compounds.
 
 ## Target User (v1)
 
@@ -29,11 +34,11 @@ A single user — the developer/owner. **Personal use only.** Architecture must 
 
 ## User Stories
 
+### Allocation-side stories
 - As the user, I want a single chat surface where I ask anything about my financial life and get a CFO-level answer that uses my complete picture.
 - As the user, I want a **complete manual vault** for everything Plaid can't reach: gig income (DoorDash), cash income (coaching), real estate equity, business income, retirement accounts, goals, decisions.
 - As the user, I want the agent to tell me **where I am in the wealth-building sequence** (emergency fund → eliminate high-interest debt → max tax-advantaged → market exposure → leverage → ownership) and what my **next move** is.
 - As the user, I want the agent to surface **tax-advantaged room I haven't used** — specifically the Solo 401(k) I qualify for via 1099 income, and Roth IRA capacity.
-- As the user, I want the agent to **track career trajectory** as a wealth lever — current comp, target role, target comp, time horizon — and factor career-income growth into the plan.
 - As the user, I want **scenario modeling** — "if I save $X/month, when do I hit Y? what if I drop DoorDash to 2 nights?"
 - As the user, I want the agent to **commit to a recommendation** (CFO with a point of view), not present a buffet of options.
 - As the user, I want the agent to **explain the principle** behind every move (debt avalanche, time-in-market, tax arbitrage, etc.) so I learn, not just comply.
@@ -41,6 +46,16 @@ A single user — the developer/owner. **Personal use only.** Architecture must 
 - As the user, I want a **weekly digest** — cash position, week-over-week change, trajectory vs goals, this week's next move.
 - As the user, I want **proactive alerts** for surplus detection ("$800 left this month — here's where it goes and why"), drift from plan, missed payment risk, and unused tax-advantaged room.
 - As the user, I want to **add Plaid live data** once the manual layer is solid, without restructuring the agent.
+
+### Income-side stories
+- As the user, I want **net hourly truth** across every income stream — gross minus stream-specific expenses (gas, food during shifts, depreciation, opportunity cost) divided by hours — so I can rank streams and cut the bottom.
+- As the user, I want the agent to **track career trajectory** — current comp, target role, target comp, time-in-role — and tell me when I'm off-pace.
+- As the user, I want **comp benchmarks** for my role and metro stored in the vault, and surfaced when I ask "what's market for me?"
+- As the user, I want the agent to **flag job-switch timing** — "you've been in this role 18 months; market data + your benchmark says a switch returns ~$X delta; here's the math."
+- As the user, I want **promotion- and raise-prep coaching** — what's missing from my case, what to anchor in the conversation, when to bring it up.
+- As the user, I want **1099 deduction discipline** — mileage, home-office %, equipment, education tracked per tax year, with the agent surfacing what I'm missing.
+- As the user, I want **quarterly estimated tax** guidance — what to send IRS this quarter to avoid the underpayment penalty.
+- As the user, I want the agent to **remember negotiation milestones** — upcoming reviews, contract renewals, raise-eligibility dates — and surface them proactively.
 
 ## Technical Decisions
 
@@ -68,6 +83,12 @@ A single user — the developer/owner. **Personal use only.** Architecture must 
 
 **Decision**: Defer Plaid until after Issue ~11 — **Why**: Plaid adds OAuth, token rotation, vendor coupling, and per-account cost. The manual layer must be proven valuable first; if it isn't, Plaid won't save it.
 
+**Decision**: **Two parallel tracks, not one** (allocation + income generation) — **Why**: The owner's stated goal ("make as much money as possible given my particular situation") has two compounding levers. The original PRD addressed only allocation. See `docs/DECISIONS.md` entry 2026-05-24 for full reasoning.
+
+**Decision**: **Income generation modeled as its own 5-step sequence** alongside the existing 6-step allocation sequence — **Why**: Mirrors the structure that already works for allocation. Lets the agent compute current position deterministically (`vault/income_position.py`) and the Strategist + Career nodes share a common reasoning shape.
+
+**Decision**: **User-entered comp benchmarks in v1, external API (Levels.fyi / BLS / Pew) deferred** — **Why**: Vendor coupling, API cost, and rate limits are not worth solving before we know the feature gets used. v1 takes user-entered benchmarks; the agent reasons against them and cites them by source.
+
 ## Out of Scope (v1)
 
 - Multi-user accounts, sharing, organization tier
@@ -82,14 +103,20 @@ A single user — the developer/owner. **Personal use only.** Architecture must 
 ## Acceptance Criteria (v1 MVP)
 
 ### Vault Completeness
-- [ ] Vault covers: accounts, cards, income streams (with `source_type` distinguishing W-2 / 1099 / cash / gig / coaching / business), recurring expenses, debts, assets, **real estate holdings (with equity)**, **business income/expenses**, **retirement accounts (Roth, 401k, IRA, Solo 401k)**, goals, decisions, **career_position** (current comp, target role, target comp, target date).
+- [ ] Vault covers: accounts, cards, income streams (with `source_type` distinguishing W-2 / 1099 / cash / gig / coaching / business), recurring expenses, debts, assets, **real estate holdings (with equity)**, **business income/expenses**, **retirement accounts (Roth, 401k, IRA, Solo 401k)**, goals, decisions, **career_position** (current comp, target role, target comp, target date), **career_history** (past roles + comp + duration), **comp_benchmarks** (role × metro × source), **side_income_economics** (per-stream gross/hours/expenses/net-hourly), **tax_deductions_1099** (mileage / home-office / equipment / education per tax year), **negotiation_milestones** (upcoming reviews / renewals / raise-eligibility dates).
 - [ ] User CRUDs every entity through a web form.
 - [ ] Sensitive fields encrypted at rest.
 
-### Wealth-Building Position
-- [ ] Agent computes the user's current step on the wealth-building sequence on every chat turn.
+### Wealth-Building Position (Allocation Track)
+- [ ] Agent computes the user's current step on the 6-step wealth-building sequence on every chat turn.
 - [ ] Agent always surfaces "next move given your position" when relevant.
 - [ ] Vault has a `wealth_position` view that is queryable directly (debug + tests).
+
+### Income-Generation Position (Income Track)
+- [ ] Agent computes the user's current step on the 5-step income-generation sequence on every chat turn.
+- [ ] `vault/income_position.py` returns a deterministic step (1–5) given any vault state.
+- [ ] Agent always surfaces "next move on the income track" when relevant.
+- [ ] On every turn the synthesizer commits to ONE highest-leverage move chosen across both tracks (not one per track).
 
 ### Agent
 - [ ] Chat endpoint accepts a question, loads the full vault snapshot + active decisions + memory, runs LangGraph (Analyzer → Strategist → Coach → Tracker → Alert → Synthesizer), returns `{recommendation, reasoning, principle, disclaimer?}`.
@@ -98,10 +125,24 @@ A single user — the developer/owner. **Personal use only.** Architecture must 
 - [ ] Every recommendation cites a named wealth principle (see `docs/WEALTH_PRINCIPLES.md`).
 - [ ] Decisions the user marks as committed persist and are respected in future turns.
 
-### Career Trajectory
-- [ ] Vault stores current role, current comp, target role, target comp, target date.
+### Career Coaching
+- [ ] Vault stores current role, current comp, target role, target comp, target date, full career history.
 - [ ] Strategist factors target comp into long-horizon planning.
 - [ ] Tracker flags if elapsed time vs delta-to-target comp is off-pace.
+- [ ] Career node returns a switch-timing recommendation given time-in-role + benchmark + delta.
+- [ ] Career node returns a promotion-prep checklist on request.
+- [ ] Negotiation milestones queryable; surfaced proactively within 30 days of trigger date.
+
+### Income-Stream Optimization
+- [ ] Net hourly computed per stream (gross − stream-specific expenses) / hours.
+- [ ] Income-Optimizer node ranks all active streams by net hourly on demand.
+- [ ] Cut-or-scale recommendation surfaced when a stream is more than 30% below the highest-margin stream.
+
+### 1099 Tax Optimization
+- [ ] Mileage, home-office %, equipment, education tracked per tax year.
+- [ ] Tax-Optimizer node computes total deductions and flags missing categories on demand.
+- [ ] Quarterly estimated tax suggestion uses year-versioned constants from `agent/principles.py`.
+- [ ] Disclaimer attached to every response touching tax specifics (enforced by structural test).
 
 ### Scenario Modeling
 - [ ] User can ask "if I save $X/month, when do I hit Y?" and get a deterministic computed answer with a one-paragraph reasoning trace.

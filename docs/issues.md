@@ -24,9 +24,9 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ## Issue 2: Postgres schema + Alembic + encryption helper
 - [ ] Open
 - **Depends on**: 1
-- **What**: SQLAlchemy models for every vault entity (see `docs/SOT.md` data model) + memory tables. Alembic wired. `crypto.py` with Fernet `encrypt()`/`decrypt()` from `VAULT_ENCRYPTION_KEY`.
+- **What**: SQLAlchemy models for every vault entity (see `docs/SOT.md` data model) + memory tables. Alembic wired. `crypto.py` with Fernet `encrypt()`/`decrypt()` from `VAULT_ENCRYPTION_KEY`. **Scope expanded 2026-05-24** (see `docs/DECISIONS.md`) to include the income-track entities.
 - **Acceptance criteria**:
-  - [ ] `alembic upgrade head` creates every table including `real_estate`, `business_income`, `retirement_accounts`, `career_position`
+  - [ ] `alembic upgrade head` creates every table including `real_estate`, `business_income`, `retirement_accounts`, `career_position`, **`career_history`, `comp_benchmarks`, `side_income_economics`, `tax_deductions_1099`, `negotiation_milestones`**
   - [ ] Encrypted round-trip test passes
   - [ ] Missing `VAULT_ENCRYPTION_KEY` fails app start with a clear error
   - [ ] Audit log table append-only at the app layer
@@ -47,23 +47,25 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ## Issue 4: Vault CRUD + minimal HTMX UI
 - [ ] Open
 - **Depends on**: 3
-- **What**: CRUD endpoints for every vault entity. HTMX forms in `static/vault.html`. Includes the new entities (real estate, business income, retirement accounts, career position).
+- **What**: CRUD endpoints for every vault entity. HTMX forms in `static/vault.html`. Includes both the original entities (real estate, business income, retirement accounts, career position) and the income-track entities added 2026-05-24 (career history, comp benchmarks, side-income economics, 1099 deductions, negotiation milestones).
 - **Acceptance criteria**:
   - [ ] Every entity from `docs/SOT.md` CRUDable via API
   - [ ] Closing an entity writes an audit log row
-  - [ ] HTMX form for at least cards + retirement accounts + career position renders and persists
+  - [ ] HTMX form for at least cards + retirement accounts + career position + **side-income economics + 1099 deductions** renders and persists
   - [ ] Tests cover CRUD happy paths + 404/401
 
 ---
 
-## Issue 5: Wealth-position computation + endpoint
+## Issue 5: Wealth-position + income-position computation + endpoints
 - [ ] Open
 - **Depends on**: 4
-- **What**: `vault/wealth_position.py` computes the user's current step on the wealth-building sequence (`docs/WEALTH_PRINCIPLES.md`). `GET /wealth/position` returns it. `GET /wealth/trajectory` returns next-move + open gaps.
+- **What**: `vault/wealth_position.py` computes the user's step on the allocation track (1–6). `vault/income_position.py` computes the step on the income track (1–5). Both backed by `GET /wealth/position` and `GET /income/position`. `GET /wealth/trajectory` returns next-move + open gaps across both tracks. **Scope expanded 2026-05-24** to include the income track.
 - **Acceptance criteria**:
-  - [ ] Function returns a deterministic step (1–6) given any vault state
-  - [ ] Unit tests cover boundary cases (e.g., emergency fund exactly at 3 months)
-  - [ ] Endpoint returns `{step, step_name, next_move, open_gaps}`
+  - [ ] `wealth_position` returns a deterministic step (1–6) given any vault state
+  - [ ] `income_position` returns a deterministic step (1–5) given any vault state
+  - [ ] Unit tests cover boundary cases on both (e.g., emergency fund exactly at 3 months; lowest-margin stream exactly 30% below top)
+  - [ ] Endpoints return `{step, step_name, next_move, open_gaps}`
+  - [ ] Trajectory endpoint returns highest-leverage next move across both tracks
   - [ ] No LLM call needed — pure data logic
 
 ---
@@ -95,12 +97,27 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ## Issue 8: Analyzer + Strategist + Coach nodes
 - [ ] Open
 - **Depends on**: 7
-- **What**: Add Analyzer (turn classification), Strategist (wealth-vehicle prioritization given `wealth_position`), Coach (principle citation). Conditional routing.
+- **What**: Add Analyzer (turn classification — routes to allocation/income/both), Strategist (allocation-side wealth-vehicle prioritization given `wealth_position`), Coach (principle citation). Conditional routing.
 - **Acceptance criteria**:
   - [ ] "Where should I put $500 surplus" routes Analyzer → Strategist → Coach → Synthesizer
   - [ ] "Explain debt avalanche" routes Analyzer → Coach → Synthesizer
   - [ ] Each node logs its own latency/tokens
   - [ ] Synthesizer commits to one recommendation; refuses to enumerate unless asked
+
+---
+
+## Issue 8b: Career + Income-Optimizer + Tax-Optimizer nodes
+- [ ] Open
+- **Depends on**: 8
+- **What**: Income-track nodes added by the 2026-05-24 pivot. **Career** node handles comp benchmarks / switch timing / promotion + raise prep / negotiation milestones, given `income_position` + `career_position` + `career_history` + `comp_benchmarks`. **Income-Optimizer** ranks streams by net hourly from `side_income_economics` and emits a cut-or-scale recommendation. **Tax-Optimizer** surfaces missed 1099 deductions from `tax_deductions_1099` and computes the next quarterly estimated tax suggestion using year-versioned constants in `agent/principles.py`. Analyzer extended to route to any combination of these nodes. May split into 8b/8c/8d during its Phase 1 CHECK if it's too big.
+- **Acceptance criteria**:
+  - [ ] "Should I take the Stripe contract or stay at Cognizant?" routes Analyzer → Career → Coach → Synthesizer with a switch-arbitrage recommendation
+  - [ ] "Which side gig should I drop?" routes Analyzer → Income-Optimizer → Coach → Synthesizer with the lowest-net-hourly stream named
+  - [ ] "Did I cover all my DoorDash mileage this year?" routes Analyzer → Tax-Optimizer → Synthesizer with a deduction gap report + disclaimer
+  - [ ] Synthesizer still commits to ONE recommendation when multiple income nodes fire
+  - [ ] Every income-track recommendation cites a named principle from `docs/WEALTH_PRINCIPLES.md` (job-switch arbitrage, side-income hourly truth, 1099 deduction discipline, quarterly estimated tax, or comp negotiation)
+  - [ ] Disclaimer attached to every tax-touching turn (structural test)
+  - [ ] Each node logs its own latency/tokens
 
 ---
 
@@ -119,11 +136,13 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ## Issue 10: Tracker + Alert nodes
 - [ ] Open
 - **Depends on**: 9
-- **What**: Tracker computes trajectory vs goals + career off-pace. Alert fires on surplus, missed-payment risk, unused tax-advantaged room, drift, income drop, career off-pace. Both append to response when triggered; both persist to `patterns`.
+- **What**: Tracker computes trajectory vs goals across both tracks (allocation + income), plus career off-pace. Alert fires on surplus, missed-payment risk, unused tax-advantaged room, drift, income drop, career off-pace, **deduction gap (a category empty within 60 days of tax-year close), upcoming negotiation milestone (30 days ahead)**. Both append to response when triggered; both persist to `patterns`.
 - **Acceptance criteria**:
   - [ ] Surplus alert fires when threshold exceeded
   - [ ] Unused-Roth-room alert fires within 90 days of year-end if applicable
   - [ ] Career off-pace alert fires when elapsed-fraction > delta-achieved-fraction
+  - [ ] Deduction-gap alert fires within 60 days of tax-year close if any 1099 deduction category is empty
+  - [ ] Negotiation-milestone alert fires 30 days before trigger date
   - [ ] Tests cover each path
 
 ---
