@@ -1,18 +1,25 @@
-"""Async SQLAlchemy engine for Postgres.
+"""Async SQLAlchemy engine, declarative Base, and session factory.
 
-Issue 1 uses this only for the /health ping. Issue 2 layers Alembic + ORM
-models on top of the same engine.
+Issue 1: engine + /health ping.
+Issue 2: declarative Base and async session factory for the ORM models.
 """
 import logging
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 
 from config import get_settings
 
 logger = logging.getLogger(__name__)
 
+
+class Base(DeclarativeBase):
+    """Shared declarative base for all ORM models."""
+
+
 _engine: AsyncEngine | None = None
+_sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_engine() -> AsyncEngine:
@@ -29,12 +36,21 @@ def get_engine() -> AsyncEngine:
     return _engine
 
 
+def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """Return the module-level session factory."""
+    global _sessionmaker
+    if _sessionmaker is None:
+        _sessionmaker = async_sessionmaker(get_engine(), expire_on_commit=False)
+    return _sessionmaker
+
+
 async def dispose_engine() -> None:
     """Dispose the engine and its connection pool. Called on app shutdown."""
-    global _engine
+    global _engine, _sessionmaker
     if _engine is not None:
         await _engine.dispose()
         _engine = None
+        _sessionmaker = None
         logger.info("postgres engine disposed")
 
 

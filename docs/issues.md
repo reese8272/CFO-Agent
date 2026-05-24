@@ -22,14 +22,14 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ---
 
 ## Issue 2: Postgres schema + Alembic + encryption helper
-- [ ] Open
+- [x] Closed (2026-05-24)
 - **Depends on**: 1
 - **What**: SQLAlchemy models for every vault entity (see `docs/SOT.md` data model) + memory tables. Alembic wired. `crypto.py` with Fernet `encrypt()`/`decrypt()` from `VAULT_ENCRYPTION_KEY`. **Scope expanded 2026-05-24** (see `docs/DECISIONS.md`) to include the income-track entities.
 - **Acceptance criteria**:
-  - [ ] `alembic upgrade head` creates every table including `real_estate`, `business_income`, `retirement_accounts`, `career_position`, **`career_history`, `comp_benchmarks`, `side_income_economics`, `tax_deductions_1099`, `negotiation_milestones`, `net_worth_snapshots`**
-  - [ ] Encrypted round-trip test passes
-  - [ ] Missing `VAULT_ENCRYPTION_KEY` fails app start with a clear error
-  - [ ] Audit log table append-only at the app layer
+  - [x] `alembic upgrade head` creates every table including `real_estate`, `business_income`, `retirement_accounts`, `career_position`, **`career_history`, `comp_benchmarks`, `side_income_economics`, `tax_deductions_1099`, `negotiation_milestones`, `net_worth_snapshots`** — verified, 22 tables created from a fresh DB
+  - [x] Encrypted round-trip test passes — `test_account_round_trip_encrypts_balance` writes a `Decimal`, reads it back as `Decimal`, asserts the raw DB column is Fernet ciphertext (starts with `gAAAAA`, doesn't contain the plaintext)
+  - [x] Missing `VAULT_ENCRYPTION_KEY` fails app start with a clear error — `test_missing_vault_encryption_key_fails_app_start` subprocess test
+  - [x] Audit log table append-only at the app layer — `before_update` + `before_delete` SQLAlchemy event listeners raise `AuditLogImmutableError`; insert succeeds, update + delete raise
 
 ---
 

@@ -32,8 +32,8 @@ Synthesizer commits to ONE move across both tracks.
 | # | Title | Status |
 |---|---|---|
 | 1 | Repo scaffold + Docker Compose + health endpoint | **Closed 2026-05-24** |
-| 2 | Postgres schema + Alembic + encryption helper *(scope expanded)* | Open (next) |
-| 3 | Single-user auth (JWT) | Open |
+| 2 | Postgres schema + Alembic + encryption helper *(scope expanded)* | **Closed 2026-05-24** |
+| 3 | Single-user auth (JWT) | Open (next) |
 | 4 | Vault CRUD + minimal HTMX UI *(scope expanded)* | Open |
 | 5 | Wealth-position + income-position computation + endpoints *(scope expanded)* | Open |
 | 6 | Anthropic singleton + retrieval node | Open |

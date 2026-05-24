@@ -76,3 +76,31 @@ Format:
 - Coach voice as a prompt knob means tonal drift is possible; eval harness should add tone checks alongside content checks
 
 **Owner**: reesepludwick@gmail.com (approved 2026-05-24)
+
+---
+
+## 2026-05-24 — Encryption boundary: TypeDecorators + naming convention
+
+**Context**: Issue 2 introduces the encryption boundary for sensitive vault data. Two approaches considered: (A) explicit `encrypt()`/`decrypt()` calls at the CRUD layer, (B) SQLAlchemy `TypeDecorator`s that transparently encrypt on write / decrypt on read at the ORM layer.
+
+**Decision**: Use SQLAlchemy `TypeDecorator`s. Three types defined in `crypto.py`:
+- `EncryptedString` — Python `str` ↔ Fernet-encrypted `bytea`
+- `EncryptedNumeric` — Python `Decimal` ↔ Fernet-encrypted `bytea` (string-serialized Decimal under the hood; money is always `Decimal`, never `float`)
+- `EncryptedJSON` — Python `dict` ↔ Fernet-encrypted `bytea` (JSON-serialized with `sort_keys=True` for determinism)
+
+**Naming convention**: DB column name stays `<field>_encrypted` (matches `docs/SOT.md` data model, signals to DBAs which fields are encrypted at a glance). Python attribute uses the clean name. Example: `account.current_balance` is a `Decimal` in code; the DB column is `current_balance_encrypted` holding bytea. Mapped via SQLAlchemy's column-name override in `mapped_column("current_balance_encrypted", EncryptedNumeric())`.
+
+**JSONB split by sensitivity**: native PG `JSONB` for non-sensitive metadata (card category multipliers, categorical tax treatment, career milestones). `EncryptedJSON` for sensitive payloads (audit-log before/after snapshots, net-worth asset/liability breakdowns, message vault-ref citations, pattern vault-refs).
+
+**Reasoning**:
+- TypeDecorator removes the entire class of "developer forgot to encrypt on this new endpoint" bugs — the safe path is the only path.
+- Satisfies CLAUDE.md's "every sensitive-field read uses `decrypt()`" because the decoder does it transparently, every read.
+- Keeps the key in env / app process — never touches the DB host's disk (unlike pgcrypto). Cleaner per `docs/THREAT_MODEL.md`.
+- Split JSONB strategy pays encryption cost only where the threat model requires it.
+
+**Trade-offs**:
+- Encrypted columns can't be queried with WHERE clauses on their plaintext value (expected and desired — these are user-private balances, not search keys).
+- Marginal CPU cost on every read (Fernet decrypt is microseconds; negligible at v1 scale).
+- Custom TypeDecorator code (~30 lines) instead of a third-party library — `sqlalchemy-utils.EncryptedType` was considered and ruled out (AES-only, sleepy project).
+
+**Owner**: reesepludwick@gmail.com (approved 2026-05-24)

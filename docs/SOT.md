@@ -153,6 +153,8 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 
 ## Data Model (initial)
 
+> **Column naming convention** (formalized 2026-05-24 in `docs/DECISIONS.md`): columns whose names end in `_encrypted` are stored as `bytea` holding Fernet ciphertext, and exposed in Python via clean attribute names. Example: DB column `accounts.current_balance_encrypted` (`bytea`) ↔ Python attribute `account.current_balance` (`Decimal`). Transparent encryption is handled by the `EncryptedString` / `EncryptedNumeric` / `EncryptedJSON` `TypeDecorator`s in `crypto.py`. Money is always `Decimal`, never `float`.
+
 ```
 accounts
   id, type (checking/savings/credit/loan/retirement/cash/business),
