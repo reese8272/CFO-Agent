@@ -44,15 +44,47 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 
 ---
 
-## Issue 4: Vault CRUD + minimal HTMX UI
+## Issue 4: Vault CRUD + ergonomic HTMX UI
 - [ ] Open
 - **Depends on**: 3
-- **What**: CRUD endpoints for every vault entity. HTMX forms in `static/vault.html`. Includes both the original entities (real estate, business income, retirement accounts, career position) and the income-track entities added 2026-05-24 (career history, comp benchmarks, side-income economics, 1099 deductions, negotiation milestones).
+- **What**: CRUD endpoints for every vault entity. HTMX forms in `static/vault.html`. Includes both the original entities (real estate, business income, retirement accounts, career position) and the income-track entities added 2026-05-24 (career history, comp benchmarks, side-income economics, 1099 deductions, negotiation milestones). **Acceptance tightened 2026-05-24** (see `docs/DECISIONS.md` "Free-first data ingestion strategy") — manual is the primary input mode, so forms must be ergonomic enough for 10+ accounts.
 - **Acceptance criteria**:
   - [ ] Every entity from `docs/SOT.md` CRUDable via API
   - [ ] Closing an entity writes an audit log row
-  - [ ] HTMX form for at least cards + retirement accounts + career position + **side-income economics + 1099 deductions** renders and persists
+  - [ ] HTMX forms render and persist for at least cards + retirement accounts + career position + **side-income economics + side-income events + 1099 deductions**
+  - [ ] Forms support duplicate-last-entry, keyboard-only flow, sane defaults pulled from prior month, batch entry for side-business sessions (one form, multiple rows)
+  - [ ] **Steady-state manual workload measured at <30 min/month** for a 10+ account vault (timed walkthrough documented in test plan)
   - [ ] Tests cover CRUD happy paths + 404/401
+
+---
+
+## Issue 4b: Free data automation layer (yfinance + Zestimate + holdings)
+- [ ] Open
+- **Depends on**: 4
+- **What**: Added 2026-05-24 to the free-first ingestion strategy (see `docs/DECISIONS.md`). New `holdings` table for per-share investment tracking. New `side_income_event` table for per-shift / per-session granularity that rolls up to `side_income_economics`. `integrations/market_data.py` wraps `yfinance` (with Alpha Vantage fallback) for ticker price lookup; `integrations/property_data.py` wraps Zillow Zestimate for property value estimates. On-demand refresh endpoints; cron scheduling deferred to Issue 12.
+- **Acceptance criteria**:
+  - [ ] Alembic migration adds `holdings` and `side_income_event` tables; encrypted columns round-trip
+  - [ ] `POST /holdings/refresh-prices` pulls latest price for every distinct ticker in `holdings`, updates `last_known_price` + `last_priced_at`
+  - [ ] `POST /holdings/{id}/refresh-price` refreshes a single holding
+  - [ ] `POST /real_estate/refresh-values` pulls Zestimate for every `real_estate.address`, updates `current_value`
+  - [ ] CRUD endpoints for `holdings` and `side_income_event` (forms in Issue 4 cover the entry UX)
+  - [ ] Current portfolio value computable from `sum(holdings.share_count × last_known_price)` per account
+  - [ ] Tests: yfinance and Zestimate calls mocked at the network boundary; refresh-prices populates `last_known_price` correctly; failed price lookups don't blow up the whole refresh (per-ticker error isolation)
+  - [ ] Synthesizer disclaimer attached when Zestimate is cited (it's an estimate, not an appraisal)
+
+---
+
+## Issue 4c: CSV / OFX import
+- [ ] Open
+- **Depends on**: 4b
+- **What**: Added 2026-05-24 to the free-first ingestion strategy. Bulk-upload CSV or OFX statements from any institution that exports them (most banks, credit cards, brokerages do). User uploads the file, picks the target account, classifies any unmapped categories, and the parser populates the vault. Replaces Plaid as the primary aggregation tool for v1.
+- **Acceptance criteria**:
+  - [ ] `POST /import/transactions` accepts CSV (multiple bank/card formats) and OFX
+  - [ ] User selects target `account_id` and the parser maps rows to transactions (or to balance updates for balance-only accounts)
+  - [ ] Duplicate detection: re-importing the same file does not double-insert (idempotent on a hash of date + amount + merchant)
+  - [ ] Unmapped categories surface a one-click classifier UI that learns from prior classifications
+  - [ ] Audit log row per import batch
+  - [ ] Tests cover at least 3 institutional CSV formats (one bank, one card, one brokerage) + 1 OFX file
 
 ---
 
@@ -177,11 +209,12 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 
 ---
 
-## Issue 13: Plaid integration (deferred — open separately)
-- [ ] Open
+## Issue 13: Plaid integration (deferred indefinitely 2026-05-24)
+- [ ] Open — **not on the v1 roadmap**; preserved as a documented escape hatch if owner budget tolerance changes
 - **Depends on**: 12
+- **Status**: Per `docs/DECISIONS.md` "Free-first data ingestion strategy" (2026-05-24), Issue 4c (CSV/OFX import) is the substitute for v1. Plaid pricing (~$15–30/mo at 10+ accounts) exceeds owner budget. Spec preserved below in case priorities shift.
 - **What**: Plaid Link flow, link-token endpoint, item exchange, account + transaction sync, webhook handler.
-- **Acceptance criteria**:
+- **Acceptance criteria** (if/when revived):
   - [ ] User links an institution via Plaid Link
   - [ ] Linked accounts and transactions populate the vault (does not overwrite manual entries — linked status is separate)
   - [ ] `ITEM_LOGIN_REQUIRED` surfaces a re-link prompt

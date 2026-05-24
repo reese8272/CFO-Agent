@@ -17,7 +17,9 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 | LLM | Anthropic SDK; default `claude-sonnet-4-6`, `claude-opus-4-7` for long-horizon strategy turns | Prompt caching on vault snapshot mandatory |
 | Vault + memory DB | PostgreSQL 16 | Relational + JSONB for flexible card-benefit & decision blobs |
 | Session / agent state | Redis 7 | LangGraph checkpointer + short-lived caches |
-| Account aggregation | Plaid API (deferred to Issue 11+) | Tokens encrypted at rest |
+| Market data | `yfinance` (Yahoo Finance, free, no auth) for stock/ETF prices; Alpha Vantage as fallback | Daily price refresh for `holdings.ticker` |
+| Real estate data | Zillow Zestimate (free tier, rate-limited) for property value estimates | Quarterly refresh per `real_estate.address` |
+| Account aggregation | Plaid API — **deferred indefinitely 2026-05-24** (see `docs/DECISIONS.md`); CSV/OFX import is the substitute | Plaid spec preserved as documented escape hatch |
 | Auth | Single-user JWT in v1; OAuth2 surface preserved for future | bcrypt + PyJWT |
 | Encryption at rest | `cryptography` Fernet on sensitive columns | Key from `VAULT_ENCRYPTION_KEY` |
 | Frontend | Vanilla HTML + HTMX | Chat, vault forms, goal progress view, digest view, scenario modeler |
@@ -108,14 +110,22 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │   ├── engine.py               # Deterministic forward-projection math
 │   └── models.py               # ScenarioInput / ScenarioOutput
 │
+├── integrations/               # Free Tier-1 data integrations
+│   ├── market_data.py          # yfinance ticker price lookup (with Alpha Vantage fallback)
+│   ├── property_data.py        # Zillow Zestimate address → value
+│   └── csv_import.py           # CSV/OFX parsing for bulk statement upload
+│
 ├── routers/
 │   ├── chat.py                 # POST /chat
 │   ├── vault.py                # CRUD on all vault entities
 │   ├── memory.py               # Decisions + patterns CRUD
 │   ├── digest.py               # GET /digest/latest, POST /digest/run-now
 │   ├── scenarios.py            # POST /scenarios/run
-│   ├── wealth.py               # GET /wealth/position, GET /wealth/trajectory
-│   └── plaid.py                # (phase 2) Link, webhook, sync
+│   ├── wealth.py               # GET /wealth/position, GET /wealth/trajectory,
+│   │                           # GET /wealth/net_worth_trajectory
+│   ├── holdings.py             # CRUD holdings + POST /holdings/refresh-prices
+│   ├── imports.py              # POST /import/<entity_type> CSV/OFX bulk ingest
+│   └── plaid.py                # (deferred indefinitely 2026-05-24) Link, webhook, sync
 │
 ├── worker/
 │   └── cron.py                 # APScheduler — weekly digest, quarterly alerts
@@ -229,6 +239,26 @@ side_income_economics                # ADDED 2026-05-24 pivot
   gross_encrypted, hours_worked,
   expenses_jsonb (gas/food/depreciation/opportunity_cost/other, each encrypted),
   net_encrypted (computed), net_hourly_encrypted (computed), created_at
+
+side_income_event                    # ADDED 2026-05-24 free-first ingestion
+  id, income_stream_id (FK to income_streams),
+  occurred_at, duration_minutes,
+  gross_encrypted,
+  stream_specific_jsonb (encrypted — e.g. DoorDash order count, tip breakdown,
+                         coaching session topic),
+  notes, created_at
+  # Per-shift / per-session granularity. Rolls up to side_income_economics aggregates.
+
+holdings                             # ADDED 2026-05-24 free-first ingestion
+  id, account_id (FK to accounts),
+  ticker (e.g. "VTI", "VXUS", "BND"),
+  share_count_encrypted, cost_basis_encrypted (total purchase cost),
+  purchase_date,
+  last_known_price (Numeric, unencrypted — public market data),
+  last_priced_at (datetime),
+  notes, created_at
+  # Per-share investment tracking. Daily price refresh via yfinance fills
+  # last_known_price; current portfolio value = sum(share_count * last_known_price).
 
 tax_deductions_1099                  # ADDED 2026-05-24 pivot
   id, tax_year, category (mileage/home_office/equipment/education/other),

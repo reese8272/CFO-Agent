@@ -8,7 +8,7 @@ Live snapshot of where the build stands. Update at every issue close.
 
 ## Status
 
-**Phase**: Build. Issue 1 shipped (repo scaffold + Docker Compose + `/health`). **Pivot landed 2026-05-24** — v1 reframed to "Personal CFO + Career Strategist" per `docs/DECISIONS.md` entry 1. **Coach-vision additions landed 2026-05-24** — net worth as headline metric, Assets-over-liabilities principle, arena-specific principle libraries (real estate / SaaS / investing), Coach Voice spec, long-horizon trajectory stamping per `docs/DECISIONS.md` entry 2. **Research workflow seeded** — `docs/RESEARCH_PROMPT.md` ready to run through an AI researcher; output lands in `docs/RESEARCH_NOTES.md`; principles port into `WEALTH_PRINCIPLES.md` and `agent/principles*.py` during Issues 6 and 8.
+**Phase**: Build. Issues 1 and 2 shipped (repo scaffold + Docker Compose + `/health`; 22-table Postgres schema + Alembic + Fernet encryption). **Pivot landed 2026-05-24** — v1 reframed to "Personal CFO + Career Strategist" per `docs/DECISIONS.md` entry 1. **Coach-vision additions landed 2026-05-24** — net worth as headline metric, Assets-over-liabilities principle, arena-specific principle libraries, Coach Voice spec, long-horizon trajectory stamping per `docs/DECISIONS.md` entry 2. **Encryption boundary chosen 2026-05-24** — SQLAlchemy TypeDecorators + clean Python attribute names over `*_encrypted` DB columns per `docs/DECISIONS.md` entry 3. **Free-first data ingestion strategy 2026-05-24** — Plaid deferred indefinitely; yfinance + Zestimate + CSV/OFX import substitute per `docs/DECISIONS.md` entry 4. **Research workflow complete** — `docs/RESEARCH_NOTES.md` holds the 11-domain principle library; ports into `WEALTH_PRINCIPLES.md` + `agent/principles*.py` during Issues 6 and 8.
 
 Section 5 placeholders resolved except for the 5-year goal (see Open TODOs).
 
@@ -34,17 +34,19 @@ Synthesizer commits to ONE move across both tracks.
 | 1 | Repo scaffold + Docker Compose + health endpoint | **Closed 2026-05-24** |
 | 2 | Postgres schema + Alembic + encryption helper *(scope expanded)* | **Closed 2026-05-24** |
 | 3 | Single-user auth (JWT) | Open (next) |
-| 4 | Vault CRUD + minimal HTMX UI *(scope expanded)* | Open |
-| 5 | Wealth-position + income-position computation + endpoints *(scope expanded)* | Open |
+| 4 | Vault CRUD + ergonomic HTMX UI *(scope expanded + tightened)* | Open |
+| **4b** | **Free data automation layer (yfinance + Zestimate + holdings)** *(new — 2026-05-24 free-first)* | Open |
+| **4c** | **CSV / OFX import** *(new — 2026-05-24 free-first, replaces Plaid for v1)* | Open |
+| 5 | Wealth-position + income-position + net-worth-trajectory endpoints *(scope expanded)* | Open |
 | 6 | Anthropic singleton + retrieval node | Open |
 | 7 | Minimal LangGraph — Retrieval → Synthesizer → Persist | Open |
-| 8 | Analyzer + Strategist + Coach nodes | Open |
+| 8 | Analyzer + Strategist + Coach nodes *(scope expanded — arena principles + voice + long-horizon stamping)* | Open |
 | **8b** | **Career + Income-Optimizer + Tax-Optimizer nodes** *(new — 2026-05-24 pivot)* | Open |
 | 9 | Decisions persistence + retrieval respects them | Open |
 | 10 | Tracker + Alert nodes *(scope expanded)* | Open |
 | 11 | Scenario modeling engine + endpoint + UI | Open |
 | 12 | Weekly digest cron + email | Open |
-| 13 | Plaid integration (deferred) | Open |
+| 13 | Plaid integration | **Deferred indefinitely 2026-05-24** — preserved as escape hatch |
 
 ## Blocked
 

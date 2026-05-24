@@ -104,3 +104,41 @@ Format:
 - Custom TypeDecorator code (~30 lines) instead of a third-party library — `sqlalchemy-utils.EncryptedType` was considered and ruled out (AES-only, sleepy project).
 
 **Owner**: reesepludwick@gmail.com (approved 2026-05-24)
+
+---
+
+## 2026-05-24 — Free-first data ingestion strategy (Plaid deferred indefinitely)
+
+**Context**: After Issue 2 closed, owner clarified the operational reality: 10+ accounts total, $0/month tooling budget, mixed granularity (balance-only for cards/banks, transaction-level for side businesses), wants SoFi-style per-share investment tracking. Plaid pricing (~$15–30/mo at this account count) exceeds the budget. Manual entry is accepted as the primary mode.
+
+**Decision**: Drop Plaid from the v1 critical path. Build a **free Tier-1 automation layer** that uses public free APIs (yfinance for stock/ETF prices, Zillow Zestimate for real estate values) on top of manual entry. Add CSV/OFX import as the bulk-loading shortcut where institutions support it. The agent works fully without any per-account OAuth.
+
+*Schema additions:*
+- `holdings` — per-share investment tracking (account_id FK, ticker, share_count_encrypted, cost_basis_encrypted, purchase_date, last_known_price, last_priced_at). Enables SoFi-style live portfolio value via daily price refresh.
+- `side_income_event` — per-shift / per-session granularity for DoorDash, coaching, freelance. Rolls up to the existing `side_income_economics` period aggregates.
+
+*Free integrations (Tier 1):*
+- **`yfinance`** (or Alpha Vantage as fallback) — daily price refresh for distinct tickers in `holdings`. No auth, no cost.
+- **Zillow Zestimate** — quarterly value refresh for each `real_estate` row's address. Free tier, rate-limited.
+
+*Backlog changes:*
+- New **Issue 4b** — Free data automation layer (holdings table + side_income_event + yfinance + Zestimate + on-demand refresh endpoints). Lands before Issue 5 so wealth_position can compute against live values.
+- New **Issue 4c** — CSV/OFX import. Most banks/cards/brokerages export to CSV; bulk import is the primary aggregation tool in the absence of Plaid.
+- **Issue 4** acceptance tightened: steady-state manual workload must be <30 min/month with the right forms (duplicate-last-entry, keyboard-only, batch entry for side-business sessions, sane defaults).
+- **Issue 13 (Plaid)** demoted to "deferred indefinitely" — kept in the backlog as a documented escape hatch if the owner's budget tolerance changes; not assumed for v1.
+
+*Plaid status*: documented option, not a roadmap commitment. If owner ever wants automated bank/card refresh, Issue 13 spec is preserved and ready to pick up.
+
+**Reasoning**:
+- Free APIs cover the highest-leverage automation: investment values (the part that changes fastest and matters most for net-worth trajectory) and real estate values (the part that's annoying to look up manually). Everything else manual is feasible at this account count.
+- CSV import is a one-time engineering cost that pays back every month for the life of the product.
+- Keeping Plaid in the backlog (not removing it) preserves optionality without committing to the ongoing cost.
+- 10+ accounts at $0/month is a real constraint — many "personal CFO" products silently assume Plaid; designing around the constraint produces a more durable v1.
+
+**Trade-offs**:
+- More upfront work on the CSV importer and the vault entry forms (Issue 4 + 4c).
+- No automatic transaction-level data for bank/card spend — must come from CSV upload or be skipped.
+- yfinance is unofficial (Yahoo Finance reverse-engineered); could break. Alpha Vantage is the documented fallback. Both free.
+- Zestimate accuracy varies by market; flag in the agent's response that the value is an estimate, not an appraisal.
+
+**Owner**: reesepludwick@gmail.com (approved 2026-05-24)
