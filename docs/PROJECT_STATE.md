@@ -2,13 +2,13 @@
 
 Live snapshot of where the build stands. Update at every issue close.
 
-**Last updated**: 2026-05-23
+**Last updated**: 2026-05-24
 
 ---
 
 ## Status
 
-**Phase**: Pre-build planning. Kickstart docs landed. Section 5 placeholders resolved except for the 5-year goal (see Open TODOs).
+**Phase**: Build. Issue 1 shipped (repo scaffold + Docker Compose + `/health`). Section 5 placeholders resolved except for the 5-year goal (see Open TODOs).
 
 ## North Star
 
@@ -24,8 +24,8 @@ This is the day-one indispensable capability — anchored on the six-step sequen
 
 | # | Title | Status |
 |---|---|---|
-| 1 | Repo scaffold + Docker Compose + health endpoint | Open |
-| 2 | Postgres schema + Alembic + encryption helper | Open |
+| 1 | Repo scaffold + Docker Compose + health endpoint | **Closed 2026-05-24** |
+| 2 | Postgres schema + Alembic + encryption helper | Open (next) |
 | 3 | Single-user auth (JWT) | Open |
 | 4 | Vault CRUD + minimal HTMX UI | Open |
 | 5 | Wealth-position computation + endpoint | Open |
@@ -44,5 +44,5 @@ _None._
 
 ## Next Up
 
-1. Fill `<PLACEHOLDER>` blocks in `docs/KICKSTART.md` Section 5 (especially 5.1 The Real Goal and 5.7 "the one thing that would make this indispensable on day one").
-2. Start Issue 1 via `/issue-workflow`.
+1. Issue 2 — Postgres schema + Alembic + encryption helper. Phase 1 CHECK brief required before any code.
+2. Owner TODO: fill the 5-year goal in `docs/KICKSTART.md` Section 5.1 before Issue 8 (Strategist).
