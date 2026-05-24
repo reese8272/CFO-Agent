@@ -25,7 +25,7 @@ Synthesizer commits to ONE move across both tracks.
 ## Open TODOs (Owner Input Required)
 
 - [ ] **5-year goal (`docs/KICKSTART.md` Section 5.1)** — owner to write concrete net worth / passive income / Roth / brokerage / career targets. Strategist (Issue 8) falls back to step-by-step sequence optimization without it, but loses long-horizon calibration. Fill before Issue 8 at the latest.
-- [ ] **Run the research prompt** in `docs/RESEARCH_PROMPT.md` through an AI researcher (Claude with research, GPT deep research, Perplexity Pro, etc.). Drop the output into `docs/RESEARCH_NOTES.md`. Needed before Issue 8 so the Coach has a real principle library to cite.
+- [x] **Run the research prompt** — completed 2026-05-24. Output landed in `docs/RESEARCH_NOTES.md` (11 domains, ~50 named principles, all 2026 tax constants verified against IRS Rev. Proc. 2025-32 / Notice 2025-67 / Rev. Proc. 2025-19 / Notice 2026-10, plus Top 10 / Top 5 books / Red Flags). Content ports into `WEALTH_PRINCIPLES.md`, `agent/principles.py`, and the three arena modules during Issues 6 and 8.
 
 ## Issues
 
