@@ -107,6 +107,25 @@ Format:
 
 ---
 
+## 2026-05-25 — Property AVM: Zillow Zestimate → RentCast
+
+**Context**: Issue 4b spec (and `docs/DECISIONS.md` entry 4 — "Free-first data ingestion strategy") named Zillow Zestimate as the free property value source. Pre-build research confirmed Zillow's public API has been fully dead since 2021; no individual-developer access path exists in 2026. Bridge Interactive (Zillow's successor API) is restricted to MLS-affiliated brokerages. Third-party Zillow-scraper wrappers on RapidAPI are legally grey, fragile, and violate ToS.
+
+**Decision**: Replace Zillow Zestimate with **RentCast** (`rentcast.io/api`). Free tier: 50 calls/month, no credit card required. Endpoint: `GET https://api.rentcast.io/v1/avm/value?address=<addr>`. Returns `price`, `priceRangeLow`, `priceRangeHigh`. New env var: `RENTCAST_API_KEY` (optional — if absent, refresh endpoint returns 503 with a clear message; app still starts and runs).
+
+Secondary option documented but not implemented: FHFA House Price Index (truly free, no API key) as a multiplier to inflate a known last-sale-price forward by metro appreciation rate. Deferred — requires the user to populate `purchase_price` and the FHFA metro code; adds complexity for uncertain accuracy gain at v1 scale.
+
+**Reasoning**: RentCast is the current industry-standard free-tier AVM for individual developers in 2026. 50 calls/month is more than sufficient for a single-user tool refreshing a handful of properties once a month. The disclaimer requirement ("estimate, not an appraisal") applies equally to any AVM source.
+
+**Trade-offs**:
+- Requires a free RentCast account + API key (one-time setup, no ongoing cost).
+- 50 calls/month cap — irrelevant at v1 scale (personal tool, handful of properties).
+- RentCast may change free tier terms; FHFA HPI is the zero-dependency fallback if that happens.
+
+**Source**: Pre-build research (2026-05-25) — Zillapi blog, Zillow Group developer docs, RentCast API docs, Homesage AVM comparison.
+
+---
+
 ## 2026-05-24 — Free-first data ingestion strategy (Plaid deferred indefinitely)
 
 **Context**: After Issue 2 closed, owner clarified the operational reality: 10+ accounts total, $0/month tooling budget, mixed granularity (balance-only for cards/banks, transaction-level for side businesses), wants SoFi-style per-share investment tracking. Plaid pricing (~$15–30/mo at this account count) exceeds the budget. Manual entry is accepted as the primary mode.

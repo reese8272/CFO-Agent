@@ -2,7 +2,7 @@
 
 Live snapshot of where the build stands. Update at every issue close.
 
-**Last updated**: 2026-05-24
+**Last updated**: 2026-05-25
 
 ---
 
@@ -34,8 +34,8 @@ Synthesizer commits to ONE move across both tracks.
 | 1 | Repo scaffold + Docker Compose + health endpoint | **Closed 2026-05-24** |
 | 2 | Postgres schema + Alembic + encryption helper *(scope expanded)* | **Closed 2026-05-24** |
 | 3 | Single-user auth (JWT) — register-once + token + get_current_user | **Closed 2026-05-25** |
-| 4 | Vault CRUD + ergonomic HTMX UI *(scope expanded + tightened)* | Open |
-| **4b** | **Free data automation layer (yfinance + Zestimate + holdings)** *(new — 2026-05-24 free-first)* | Open |
+| 4 | Vault CRUD + ergonomic HTMX UI *(scope expanded + tightened)* | **Closed 2026-05-25** |
+| **4b** | **Free data automation layer (yfinance + RentCast AVM + holdings)** *(new — 2026-05-24 free-first)* | **Closed 2026-05-25** |
 | **4c** | **CSV / OFX import** *(new — 2026-05-24 free-first, replaces Plaid for v1)* | Open |
 | 5 | Wealth-position + income-position + net-worth-trajectory endpoints *(scope expanded)* | Open |
 | 6 | Anthropic singleton + retrieval node | Open |
@@ -54,5 +54,6 @@ _None._
 
 ## Next Up
 
-1. Issue 4 — Vault CRUD + ergonomic HTMX UI. Phase 1 CHECK brief required before any code. Acceptance tightened 2026-05-24 (<30 min/month manual workload; see `docs/DECISIONS.md` free-first strategy).
+1. Issue 4c — CSV/OFX import. Phase 1 CHECK brief required before any code.
 2. Owner TODO: fill the 5-year goal in `docs/KICKSTART.md` Section 5.1 before Issue 8 (Strategist).
+3. Pre-deploy gate: timed walkthrough of vault.html with running app to confirm <30 min/month workload target.

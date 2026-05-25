@@ -3,6 +3,7 @@ import json
 import subprocess
 import sys
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -88,7 +89,7 @@ def test_missing_vault_encryption_key_fails_app_start() -> None:
         [sys.executable, "-c", script],
         capture_output=True,
         text=True,
-        cwd="/home/user/CFO-Agent",
+        cwd=str(Path(__file__).parent.parent),
     )
     assert result.returncode != 0
     assert "vault_encryption_key" in result.stderr.lower() or "field required" in result.stderr.lower()

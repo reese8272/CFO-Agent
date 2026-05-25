@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal CFO — Vault</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .tab-btn { @apply px-4 py-2 text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent hover:border-gray-500 transition-colors; }
+    .tab-btn.active { @apply text-white border-blue-500; }
+    .form-label { @apply block text-xs text-gray-400 mb-1; }
+    .form-input { @apply w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500; }
+    .btn-primary { @apply bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded transition-colors; }
+    .btn-ghost { @apply text-gray-400 hover:text-white text-sm px-3 py-2 rounded border border-gray-700 hover:border-gray-500 transition-colors; }
+  </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+
+  <div class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <h1 class="text-lg font-semibold">Personal CFO — Vault</h1>
+    <p class="text-xs text-gray-500 max-w-lg text-right">
+      For financial education and personal organization only. Not licensed financial advice.
+      Consult a licensed professional for tax, real estate, and investment decisions.
+    </p>
+  </div>
+
+  <div class="flex">
+    <!-- Sidebar nav -->
+    <nav class="w-52 shrink-0 border-r border-gray-800 h-screen sticky top-0 pt-4 overflow-y-auto" id="sidebar">
+      <p class="px-4 text-xs text-gray-500 uppercase tracking-wider mb-2">Accounts & Credit</p>
+      <button class="tab-btn w-full text-left active" onclick="showTab('accounts', this)">Accounts</button>
+      <button class="tab-btn w-full text-left" onclick="showTab('cards', this)">Cards</button>
+
+      <p class="px-4 text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2">Income</p>
+      <button class="tab-btn w-full text-left" onclick="showTab('income-streams', this)">Income Streams</button>
+      <button class="tab-btn w-full text-left" onclick="showTab('side-income-economics', this)">Side Income</button>
+      <button class="tab-btn w-full text-left" onclick="showTab('business-income', this)">Business</button>
+
+      <p class="px-4 text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2">Spending & Debt</p>
+      <button class="tab-btn w-full text-left" onclick="showTab('expenses', this)">Expenses</button>
+      <button class="tab-btn w-full text-left" onclick="showTab('debts', this)">Debts</button>
+
+      <p class="px-4 text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2">Assets</p>
+      <button class="tab-btn w-full text-left" onclick="showTab('assets', this)">Other Assets</button>
+      <button class="tab-btn w-full text-left" onclick="showTab('real-estate', this)">Real Estate</button>
+      <button class="tab-btn w-full text-left" onclick="showTab('retirement-accounts', this)">Retirement</button>
+      <button class="tab-btn w-full text-left" onclick="showTab('net-worth-snapshots', this)">Net Worth</button>
+
+      <p class="px-4 text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2">Career</p>
+      <button class="tab-btn w-full text-left" onclick="showTab('career-position', this)">Current Position</button>
+      <button class="tab-btn w-full text-left" onclick="showTab('career-history', this)">History</button>
+      <button class="tab-btn w-full text-left" onclick="showTab('comp-benchmarks', this)">Benchmarks</button>
+      <button class="tab-btn w-full text-left" onclick="showTab('negotiation-milestones', this)">Milestones</button>
+
+      <p class="px-4 text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2">Tax</p>
+      <button class="tab-btn w-full text-left" onclick="showTab('tax-deductions', this)">1099 Deductions</button>
+
+      <p class="px-4 text-xs text-gray-500 uppercase tracking-wider mt-4 mb-2">Goals</p>
+      <button class="tab-btn w-full text-left" onclick="showTab('goals', this)">Goals</button>
+    </nav>
+
+    <!-- Main content area -->
+    <main class="flex-1 p-6 overflow-y-auto">
+
+      <!-- ================================================================
+           ACCOUNTS
+      ================================================================ -->
+      <section id="tab-accounts" class="tab-section">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Accounts</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-accounts')">Duplicate last</button>
+        </div>
+
+        <form id="form-accounts"
+              hx-post="/vault/accounts"
+              hx-target="#list-accounts tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Institution</label>
+            <input name="institution" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Nickname</label>
+            <input name="nickname" required class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">Type</label>
+            <select name="type" class="form-input" tabindex="3">
+              <option value="checking">Checking</option>
+              <option value="savings">Savings</option>
+              <option value="credit">Credit</option>
+              <option value="loan">Loan</option>
+              <option value="retirement">Retirement</option>
+              <option value="cash">Cash</option>
+              <option value="business">Business</option>
+            </select></div>
+          <div><label class="form-label">Balance ($)</label>
+            <input name="current_balance" type="number" step="0.01" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">Status</label>
+            <select name="status" class="form-input" tabindex="5">
+              <option value="active">Active</option>
+              <option value="closed">Closed</option>
+            </select></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="6">Add Account</button>
+          </div>
+        </form>
+
+        <div id="list-accounts">
+          <table class="w-full text-sm">
+            <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+              <th class="text-left px-3 py-2">Institution</th>
+              <th class="text-left px-3 py-2">Nickname</th>
+              <th class="text-left px-3 py-2">Type</th>
+              <th class="text-left px-3 py-2">Balance</th>
+              <th class="text-left px-3 py-2">Status</th>
+              <th class="px-3 py-2"></th>
+            </tr></thead>
+            <tbody hx-get="/vault/accounts" hx-trigger="load" hx-swap="innerHTML"
+                   hx-headers='{"Accept": "text/html"}'></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           CARDS
+      ================================================================ -->
+      <section id="tab-cards" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Cards</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-cards')">Duplicate last</button>
+        </div>
+
+        <form id="form-cards"
+              hx-post="/vault/cards"
+              hx-target="#list-cards tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Account ID</label>
+            <input name="account_id" type="number" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Issuer</label>
+            <input name="issuer" required class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">Network</label>
+            <select name="network" class="form-input" tabindex="3">
+              <option value="visa">Visa</option>
+              <option value="mastercard">Mastercard</option>
+              <option value="amex">Amex</option>
+              <option value="discover">Discover</option>
+            </select></div>
+          <div><label class="form-label">Last 4</label>
+            <input name="last4" maxlength="4" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">Credit Limit ($)</label>
+            <input name="credit_limit" type="number" step="0.01" class="form-input" tabindex="5" /></div>
+          <div><label class="form-label">Statement Day</label>
+            <input name="statement_day" type="number" min="1" max="31" class="form-input" tabindex="6" /></div>
+          <div><label class="form-label">Due Day</label>
+            <input name="due_day" type="number" min="1" max="31" class="form-input" tabindex="7" /></div>
+          <div class="flex items-center gap-2 pt-5">
+            <input name="autopay" type="checkbox" value="true" id="autopay" tabindex="8" class="w-4 h-4" />
+            <label for="autopay" class="form-label mb-0">Autopay on</label>
+          </div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="9">Add Card</button>
+          </div>
+        </form>
+
+        <div id="list-cards">
+          <table class="w-full text-sm">
+            <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+              <th class="text-left px-3 py-2">Issuer</th>
+              <th class="text-left px-3 py-2">Network</th>
+              <th class="text-left px-3 py-2">Last 4</th>
+              <th class="text-left px-3 py-2">Limit</th>
+              <th class="text-left px-3 py-2">Status</th>
+              <th class="px-3 py-2"></th>
+            </tr></thead>
+            <tbody hx-get="/vault/cards" hx-trigger="load" hx-swap="innerHTML"
+                   hx-headers='{"Accept": "text/html"}'></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           INCOME STREAMS
+      ================================================================ -->
+      <section id="tab-income-streams" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Income Streams</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-income-streams')">Duplicate last</button>
+        </div>
+
+        <form id="form-income-streams"
+              hx-post="/vault/income-streams"
+              hx-target="#list-income-streams tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Source</label>
+            <input name="source" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Type</label>
+            <select name="source_type" class="form-input" tabindex="2">
+              <option value="w2">W-2</option>
+              <option value="1099">1099</option>
+              <option value="gig">Gig</option>
+              <option value="coaching">Coaching</option>
+              <option value="business">Business</option>
+              <option value="cash">Cash</option>
+              <option value="other">Other</option>
+            </select></div>
+          <div><label class="form-label">Cadence</label>
+            <select name="cadence" class="form-input" tabindex="3">
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Biweekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="irregular">Irregular</option>
+            </select></div>
+          <div><label class="form-label">Typical Gross ($)</label>
+            <input name="typical_gross_amount" type="number" step="0.01" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">Notes</label>
+            <input name="notes" class="form-input" tabindex="5" /></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="6">Add Stream</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-income-streams">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Source</th>
+            <th class="text-left px-3 py-2">Type</th>
+            <th class="text-left px-3 py-2">Cadence</th>
+            <th class="text-left px-3 py-2">Typical Gross</th>
+            <th class="text-left px-3 py-2">Status</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/income-streams" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           SIDE INCOME ECONOMICS (batch entry)
+      ================================================================ -->
+      <section id="tab-side-income-economics" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Side Income Economics</h2>
+          <button class="btn-ghost" onclick="addSideIncomeRow()">+ Add Row</button>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">
+          Log a period (weekly/monthly) for each gig. Expenses break down your true net hourly rate.
+        </p>
+
+        <div id="sie-rows" class="space-y-3 mb-4"></div>
+
+        <button class="btn-ghost text-xs" onclick="addSideIncomeRow()">+ another period</button>
+
+        <div class="mt-4">
+          <button class="btn-primary" onclick="submitSideIncomeRows()">Save All Rows</button>
+        </div>
+
+        <table class="w-full text-sm mt-6" id="list-side-income-economics">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Stream ID</th>
+            <th class="text-left px-3 py-2">Period Start</th>
+            <th class="text-left px-3 py-2">Period End</th>
+            <th class="text-left px-3 py-2">Gross</th>
+            <th class="text-left px-3 py-2">Hours</th>
+            <th class="text-left px-3 py-2">Net</th>
+            <th class="text-left px-3 py-2">Net/hr</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/side-income-economics" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           BUSINESS INCOME
+      ================================================================ -->
+      <section id="tab-business-income" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Business Income</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-business-income')">Duplicate last</button>
+        </div>
+
+        <form id="form-business-income"
+              hx-post="/vault/business-income"
+              hx-target="#list-business-income tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Business Name</label>
+            <input name="business_name" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Entity Type</label>
+            <select name="entity_type" class="form-input" tabindex="2">
+              <option value="sole_prop">Sole Prop</option>
+              <option value="llc">LLC</option>
+              <option value="scorp">S-Corp</option>
+              <option value="other">Other</option>
+            </select></div>
+          <div><label class="form-label">Monthly Revenue ($)</label>
+            <input name="monthly_revenue" type="number" step="0.01" class="form-input" tabindex="3" /></div>
+          <div><label class="form-label">Monthly Expenses ($)</label>
+            <input name="monthly_expenses" type="number" step="0.01" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">Net Margin ($)</label>
+            <input name="net_margin" type="number" step="0.01" class="form-input" tabindex="5" /></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="6">Add Business</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-business-income">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Name</th>
+            <th class="text-left px-3 py-2">Entity</th>
+            <th class="text-left px-3 py-2">Revenue</th>
+            <th class="text-left px-3 py-2">Margin</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/business-income" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           EXPENSES
+      ================================================================ -->
+      <section id="tab-expenses" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Expenses</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-expenses')">Duplicate last</button>
+        </div>
+
+        <form id="form-expenses"
+              hx-post="/vault/expenses"
+              hx-target="#list-expenses tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Name</label>
+            <input name="name" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Category</label>
+            <input name="category" required class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">Cadence</label>
+            <select name="cadence" class="form-input" tabindex="3">
+              <option value="monthly">Monthly</option>
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Biweekly</option>
+              <option value="annual">Annual</option>
+            </select></div>
+          <div><label class="form-label">Typical Amount ($)</label>
+            <input name="typical_amount" type="number" step="0.01" class="form-input" tabindex="4" /></div>
+          <div class="flex items-center gap-2 pt-5">
+            <input name="active" type="checkbox" checked value="true" id="exp-active" tabindex="5" class="w-4 h-4" />
+            <label for="exp-active" class="form-label mb-0">Active</label>
+          </div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="6">Add Expense</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-expenses">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Name</th>
+            <th class="text-left px-3 py-2">Category</th>
+            <th class="text-left px-3 py-2">Cadence</th>
+            <th class="text-left px-3 py-2">Amount</th>
+            <th class="text-left px-3 py-2">Active</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/expenses" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           DEBTS
+      ================================================================ -->
+      <section id="tab-debts" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Debts</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-debts')">Duplicate last</button>
+        </div>
+
+        <form id="form-debts"
+              hx-post="/vault/debts"
+              hx-target="#list-debts tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Name</label>
+            <input name="name" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Balance ($)</label>
+            <input name="balance" type="number" step="0.01" class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">APR (%)</label>
+            <input name="apr" type="number" step="0.01" class="form-input" tabindex="3" /></div>
+          <div><label class="form-label">Min Payment ($)</label>
+            <input name="minimum_payment" type="number" step="0.01" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">Strategy</label>
+            <select name="strategy" class="form-input" tabindex="5">
+              <option value="avalanche">Avalanche</option>
+              <option value="snowball">Snowball</option>
+              <option value="custom">Custom</option>
+            </select></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="6">Add Debt</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-debts">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Name</th>
+            <th class="text-left px-3 py-2">Balance</th>
+            <th class="text-left px-3 py-2">APR</th>
+            <th class="text-left px-3 py-2">Min Payment</th>
+            <th class="text-left px-3 py-2">Strategy</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/debts" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           ASSETS
+      ================================================================ -->
+      <section id="tab-assets" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Other Assets</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-assets')">Duplicate last</button>
+        </div>
+
+        <form id="form-assets"
+              hx-post="/vault/assets"
+              hx-target="#list-assets tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Kind</label>
+            <select name="kind" class="form-input" tabindex="1" autofocus>
+              <option value="vehicle">Vehicle</option>
+              <option value="equipment">Equipment</option>
+              <option value="other">Other</option>
+            </select></div>
+          <div><label class="form-label">Nickname</label>
+            <input name="nickname" required class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">Value Estimate ($)</label>
+            <input name="value_estimate" type="number" step="0.01" class="form-input" tabindex="3" /></div>
+          <div class="col-span-2"><label class="form-label">Notes</label>
+            <input name="notes" class="form-input" tabindex="4" /></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="5">Add Asset</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-assets">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Kind</th>
+            <th class="text-left px-3 py-2">Nickname</th>
+            <th class="text-left px-3 py-2">Value</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/assets" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           REAL ESTATE
+      ================================================================ -->
+      <section id="tab-real-estate" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Real Estate</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-real-estate')">Duplicate last</button>
+        </div>
+
+        <form id="form-real-estate"
+              hx-post="/vault/real-estate"
+              hx-target="#list-real-estate tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div class="col-span-2"><label class="form-label">Address</label>
+            <input name="address" class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Property Type</label>
+            <select name="property_type" class="form-input" tabindex="2">
+              <option value="primary">Primary</option>
+              <option value="rental">Rental</option>
+              <option value="other">Other</option>
+            </select></div>
+          <div><label class="form-label">Purchase Price ($)</label>
+            <input name="purchase_price" type="number" step="0.01" class="form-input" tabindex="3" /></div>
+          <div><label class="form-label">Current Value ($)</label>
+            <input name="current_value" type="number" step="0.01" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">Mortgage Balance ($)</label>
+            <input name="mortgage_balance" type="number" step="0.01" class="form-input" tabindex="5" /></div>
+          <div><label class="form-label">Mortgage APR (%)</label>
+            <input name="mortgage_apr" type="number" step="0.001" class="form-input" tabindex="6" /></div>
+          <div><label class="form-label">Monthly Payment ($)</label>
+            <input name="monthly_payment" type="number" step="0.01" class="form-input" tabindex="7" /></div>
+          <div><label class="form-label">Monthly Rent ($)</label>
+            <input name="monthly_rent" type="number" step="0.01" class="form-input" tabindex="8" /></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="9">Add Property</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-real-estate">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Address</th>
+            <th class="text-left px-3 py-2">Type</th>
+            <th class="text-left px-3 py-2">Value</th>
+            <th class="text-left px-3 py-2">Equity</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/real-estate" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           RETIREMENT ACCOUNTS
+      ================================================================ -->
+      <section id="tab-retirement-accounts" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Retirement Accounts</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-retirement-accounts')">Duplicate last</button>
+        </div>
+
+        <form id="form-retirement-accounts"
+              hx-post="/vault/retirement-accounts"
+              hx-target="#list-retirement-accounts tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Kind</label>
+            <select name="kind" class="form-input" tabindex="1" autofocus>
+              <option value="roth_ira">Roth IRA</option>
+              <option value="traditional_ira">Traditional IRA</option>
+              <option value="401k">401(k)</option>
+              <option value="solo_401k">Solo 401(k)</option>
+              <option value="sep_ira">SEP IRA</option>
+              <option value="hsa">HSA</option>
+            </select></div>
+          <div><label class="form-label">Institution</label>
+            <input name="institution" required class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">Balance ($)</label>
+            <input name="balance" type="number" step="0.01" class="form-input" tabindex="3" /></div>
+          <div><label class="form-label">YTD Contribution ($)</label>
+            <input name="ytd_contribution" type="number" step="0.01" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">Limit Remaining ($)</label>
+            <input name="ytd_contribution_limit_remaining" type="number" step="0.01" class="form-input" tabindex="5" /></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="6">Add Account</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-retirement-accounts">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Kind</th>
+            <th class="text-left px-3 py-2">Institution</th>
+            <th class="text-left px-3 py-2">Balance</th>
+            <th class="text-left px-3 py-2">YTD Contrib</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/retirement-accounts" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           NET WORTH SNAPSHOTS
+      ================================================================ -->
+      <section id="tab-net-worth-snapshots" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Net Worth Snapshots</h2>
+        </div>
+
+        <form id="form-net-worth-snapshots"
+              hx-post="/vault/net-worth-snapshots"
+              hx-target="#list-net-worth-snapshots tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Snapshot Date</label>
+            <input name="snapshot_at" type="datetime-local" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Total Assets ($)</label>
+            <input name="assets_total" type="number" step="0.01" class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">Total Liabilities ($)</label>
+            <input name="liabilities_total" type="number" step="0.01" class="form-input" tabindex="3" /></div>
+          <div><label class="form-label">Net Worth ($)</label>
+            <input name="net_worth" type="number" step="0.01" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">Source</label>
+            <select name="source" class="form-input" tabindex="5">
+              <option value="manual">Manual</option>
+              <option value="computed_from_vault">Computed</option>
+            </select></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="6">Add Snapshot</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-net-worth-snapshots">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Date</th>
+            <th class="text-left px-3 py-2">Assets</th>
+            <th class="text-left px-3 py-2">Liabilities</th>
+            <th class="text-left px-3 py-2">Net Worth</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/net-worth-snapshots" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           CAREER POSITION
+      ================================================================ -->
+      <section id="tab-career-position" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Current Position</h2>
+        </div>
+
+        <form id="form-career-position"
+              hx-post="/vault/career-position"
+              hx-target="#list-career-position tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Current Role</label>
+            <input name="current_role" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Current Employer</label>
+            <input name="current_employer" required class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">Total Comp ($)</label>
+            <input name="current_comp_total" type="number" step="0.01" class="form-input" tabindex="3" /></div>
+          <div><label class="form-label">Target Role</label>
+            <input name="target_role" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">Target Comp ($)</label>
+            <input name="target_comp_total" type="number" step="0.01" class="form-input" tabindex="5" /></div>
+          <div><label class="form-label">Target Date</label>
+            <input name="target_date" type="date" class="form-input" tabindex="6" /></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="7">Save</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-career-position">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Role</th>
+            <th class="text-left px-3 py-2">Employer</th>
+            <th class="text-left px-3 py-2">Comp</th>
+            <th class="text-left px-3 py-2">Target Role</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/career-position" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           CAREER HISTORY
+      ================================================================ -->
+      <section id="tab-career-history" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Career History</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-career-history')">Duplicate last</button>
+        </div>
+
+        <form id="form-career-history"
+              hx-post="/vault/career-history"
+              hx-target="#list-career-history tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Role</label>
+            <input name="role" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Employer</label>
+            <input name="employer" required class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">Total Comp ($)</label>
+            <input name="comp_total" type="number" step="0.01" class="form-input" tabindex="3" /></div>
+          <div><label class="form-label">Start Date</label>
+            <input name="start_date" type="date" required class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">End Date</label>
+            <input name="end_date" type="date" class="form-input" tabindex="5" /></div>
+          <div><label class="form-label">Reason for Leaving</label>
+            <select name="reason_for_leaving" class="form-input" tabindex="6">
+              <option value="">—</option>
+              <option value="promoted">Promoted</option>
+              <option value="switched">Switched</option>
+              <option value="laid_off">Laid off</option>
+              <option value="quit">Quit</option>
+              <option value="other">Other</option>
+            </select></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="7">Add Entry</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-career-history">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Role</th>
+            <th class="text-left px-3 py-2">Employer</th>
+            <th class="text-left px-3 py-2">Comp</th>
+            <th class="text-left px-3 py-2">Start</th>
+            <th class="text-left px-3 py-2">End</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/career-history" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           COMP BENCHMARKS
+      ================================================================ -->
+      <section id="tab-comp-benchmarks" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Comp Benchmarks</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-comp-benchmarks')">Duplicate last</button>
+        </div>
+
+        <form id="form-comp-benchmarks"
+              hx-post="/vault/comp-benchmarks"
+              hx-target="#list-comp-benchmarks tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Role</label>
+            <input name="role" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Metro</label>
+            <input name="metro" required class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">Source</label>
+            <select name="source" class="form-input" tabindex="3">
+              <option value="levels_fyi">Levels.fyi</option>
+              <option value="bls">BLS</option>
+              <option value="pew">Pew</option>
+              <option value="pave">Pave</option>
+              <option value="user">User</option>
+              <option value="other">Other</option>
+            </select></div>
+          <div><label class="form-label">P50 ($)</label>
+            <input name="comp_p50" type="number" step="0.01" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">P75 ($)</label>
+            <input name="comp_p75" type="number" step="0.01" class="form-input" tabindex="5" /></div>
+          <div><label class="form-label">P90 ($)</label>
+            <input name="comp_p90" type="number" step="0.01" class="form-input" tabindex="6" /></div>
+          <div><label class="form-label">As of Date</label>
+            <input name="as_of_date" type="date" required class="form-input" tabindex="7" /></div>
+          <div class="flex items-end col-span-2">
+            <button type="submit" class="btn-primary" tabindex="8">Add Benchmark</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-comp-benchmarks">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Role</th>
+            <th class="text-left px-3 py-2">Metro</th>
+            <th class="text-left px-3 py-2">Source</th>
+            <th class="text-left px-3 py-2">P50</th>
+            <th class="text-left px-3 py-2">P75</th>
+            <th class="text-left px-3 py-2">P90</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/comp-benchmarks" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           NEGOTIATION MILESTONES
+      ================================================================ -->
+      <section id="tab-negotiation-milestones" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Negotiation Milestones</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-negotiation-milestones')">Duplicate last</button>
+        </div>
+
+        <form id="form-negotiation-milestones"
+              hx-post="/vault/negotiation-milestones"
+              hx-target="#list-negotiation-milestones tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Kind</label>
+            <select name="kind" class="form-input" tabindex="1" autofocus>
+              <option value="annual_review">Annual Review</option>
+              <option value="contract_renewal">Contract Renewal</option>
+              <option value="raise_eligibility">Raise Eligibility</option>
+              <option value="other">Other</option>
+            </select></div>
+          <div><label class="form-label">Trigger Date</label>
+            <input name="trigger_date" type="date" required class="form-input" tabindex="2" /></div>
+          <div><label class="form-label">Related Role</label>
+            <input name="related_role" class="form-input" tabindex="3" /></div>
+          <div class="col-span-2"><label class="form-label">Prep Notes</label>
+            <input name="prep_notes" class="form-input" tabindex="4" /></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="5">Add Milestone</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-negotiation-milestones">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Kind</th>
+            <th class="text-left px-3 py-2">Date</th>
+            <th class="text-left px-3 py-2">Role</th>
+            <th class="text-left px-3 py-2">Status</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/negotiation-milestones" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           TAX DEDUCTIONS 1099
+      ================================================================ -->
+      <section id="tab-tax-deductions" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">1099 Deductions</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-tax-deductions')">Duplicate last</button>
+        </div>
+        <p class="text-xs text-yellow-500 mb-4">
+          For education and tracking only. Consult a CPA for tax filing.
+        </p>
+
+        <form id="form-tax-deductions"
+              hx-post="/vault/tax-deductions"
+              hx-target="#list-tax-deductions tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div><label class="form-label">Tax Year</label>
+            <input name="tax_year" type="number" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Category</label>
+            <select name="category" class="form-input" tabindex="2">
+              <option value="mileage">Mileage</option>
+              <option value="home_office">Home Office</option>
+              <option value="equipment">Equipment</option>
+              <option value="education">Education</option>
+              <option value="other">Other</option>
+            </select></div>
+          <div><label class="form-label">Amount ($)</label>
+            <input name="amount" type="number" step="0.01" class="form-input" tabindex="3" /></div>
+          <div class="col-span-2"><label class="form-label">Evidence Note</label>
+            <input name="evidence_note" class="form-input" tabindex="4" /></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="5">Add Deduction</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-tax-deductions">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Year</th>
+            <th class="text-left px-3 py-2">Category</th>
+            <th class="text-left px-3 py-2">Amount</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/tax-deductions" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+      <!-- ================================================================
+           GOALS
+      ================================================================ -->
+      <section id="tab-goals" class="tab-section hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Goals</h2>
+          <button class="btn-ghost" onclick="duplicateLast('form-goals')">Duplicate last</button>
+        </div>
+
+        <form id="form-goals"
+              hx-post="/vault/goals"
+              hx-target="#list-goals tbody"
+              hx-swap="beforeend"
+              hx-on::after-request="this.reset(); focusFirst(this)"
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+          <div class="col-span-2"><label class="form-label">Title</label>
+            <input name="title" required class="form-input" tabindex="1" autofocus /></div>
+          <div><label class="form-label">Kind</label>
+            <select name="kind" class="form-input" tabindex="2">
+              <option value="emergency_fund">Emergency Fund</option>
+              <option value="debt_payoff">Debt Payoff</option>
+              <option value="roth_max">Roth Max</option>
+              <option value="solo_401k_max">Solo 401k Max</option>
+              <option value="index_fund_contribution">Index Fund</option>
+              <option value="real_estate_down">RE Down Payment</option>
+              <option value="business_milestone">Business Milestone</option>
+              <option value="net_worth">Net Worth</option>
+              <option value="custom">Custom</option>
+            </select></div>
+          <div><label class="form-label">Target Amount ($)</label>
+            <input name="target_amount" type="number" step="0.01" class="form-input" tabindex="3" /></div>
+          <div><label class="form-label">Current Amount ($)</label>
+            <input name="current_amount" type="number" step="0.01" class="form-input" tabindex="4" /></div>
+          <div><label class="form-label">Deadline</label>
+            <input name="deadline" type="date" class="form-input" tabindex="5" /></div>
+          <div class="flex items-end">
+            <button type="submit" class="btn-primary w-full" tabindex="6">Add Goal</button>
+          </div>
+        </form>
+
+        <table class="w-full text-sm" id="list-goals">
+          <thead><tr class="text-xs text-gray-500 border-b border-gray-700">
+            <th class="text-left px-3 py-2">Title</th>
+            <th class="text-left px-3 py-2">Kind</th>
+            <th class="text-left px-3 py-2">Target</th>
+            <th class="text-left px-3 py-2">Status</th>
+            <th class="px-3 py-2"></th>
+          </tr></thead>
+          <tbody hx-get="/vault/goals" hx-trigger="load" hx-swap="innerHTML"
+                 hx-headers='{"Accept": "text/html"}'></tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    // ---------------------------------------------------------------------------
+    // Tab switching
+    // ---------------------------------------------------------------------------
+    function showTab(name, btn) {
+      document.querySelectorAll('.tab-section').forEach(s => s.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.remove('hidden');
+      btn.classList.add('active');
+    }
+
+    // ---------------------------------------------------------------------------
+    // Focus first input in a form after reset
+    // ---------------------------------------------------------------------------
+    function focusFirst(form) {
+      const first = form.querySelector('input:not([type=hidden]), select');
+      if (first) first.focus();
+    }
+
+    // ---------------------------------------------------------------------------
+    // Duplicate last: copies values from the last submitted row's inputs
+    // into the current form. Works for simple text/number/select/date inputs.
+    // ---------------------------------------------------------------------------
+    function duplicateLast(formId) {
+      const form = document.getElementById(formId);
+      if (!form) return;
+      const lastValues = JSON.parse(sessionStorage.getItem('last_' + formId) || 'null');
+      if (!lastValues) return;
+      form.querySelectorAll('input, select').forEach(el => {
+        if (el.name && lastValues[el.name] !== undefined) {
+          if (el.type === 'checkbox') {
+            el.checked = lastValues[el.name] === 'true';
+          } else {
+            el.value = lastValues[el.name];
+          }
+        }
+      });
+    }
+
+    // Save form values to sessionStorage before each submission so
+    // duplicateLast() can replay them.
+    document.addEventListener('htmx:beforeRequest', function(evt) {
+      const form = evt.detail.elt;
+      if (form.tagName !== 'FORM') return;
+      const values = {};
+      new FormData(form).forEach((v, k) => { values[k] = v; });
+      sessionStorage.setItem('last_' + form.id, JSON.stringify(values));
+    });
+
+    // ---------------------------------------------------------------------------
+    // Batch side-income row entry
+    // ---------------------------------------------------------------------------
+    let sieRowCount = 0;
+
+    function addSideIncomeRow() {
+      sieRowCount++;
+      const n = sieRowCount;
+      const row = document.createElement('div');
+      row.className = 'grid grid-cols-7 gap-2 p-3 bg-gray-800 rounded-lg items-end';
+      row.id = 'sie-row-' + n;
+      row.innerHTML = `
+        <div><label class="form-label">Stream ID</label>
+          <input class="form-input sie-field" name="income_stream_id" type="number" tabindex="${n * 10 + 1}" /></div>
+        <div><label class="form-label">Period Start</label>
+          <input class="form-input sie-field" name="period_start" type="date" tabindex="${n * 10 + 2}" /></div>
+        <div><label class="form-label">Period End</label>
+          <input class="form-input sie-field" name="period_end" type="date" tabindex="${n * 10 + 3}" /></div>
+        <div><label class="form-label">Gross ($)</label>
+          <input class="form-input sie-field" name="gross" type="number" step="0.01" tabindex="${n * 10 + 4}" /></div>
+        <div><label class="form-label">Hours</label>
+          <input class="form-input sie-field" name="hours_worked" type="number" step="0.01" tabindex="${n * 10 + 5}" /></div>
+        <div><label class="form-label">Net ($)</label>
+          <input class="form-input sie-field" name="net" type="number" step="0.01" tabindex="${n * 10 + 6}" /></div>
+        <button type="button" onclick="document.getElementById('sie-row-${n}').remove()"
+                class="text-red-400 hover:text-red-300 text-xs pb-2">remove</button>
+      `;
+      document.getElementById('sie-rows').appendChild(row);
+      row.querySelector('input').focus();
+    }
+
+    async function submitSideIncomeRows() {
+      const token = localStorage.getItem('cfo_token');
+      const rows = document.querySelectorAll('#sie-rows > div');
+      const results = [];
+      for (const row of rows) {
+        const payload = {};
+        row.querySelectorAll('.sie-field').forEach(el => {
+          if (el.value) payload[el.name] = el.type === 'number' ? parseFloat(el.value) : el.value;
+        });
+        if (!payload.income_stream_id) continue;
+        const resp = await fetch('/vault/side-income-economics', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+          },
+          body: JSON.stringify(payload),
+        });
+        if (resp.ok) results.push(await resp.json());
+      }
+      document.getElementById('sie-rows').innerHTML = '';
+      sieRowCount = 0;
+      htmx.trigger('#list-side-income-economics tbody', 'load');
+    }
+
+    // ---------------------------------------------------------------------------
+    // Auth token injection for HTMX requests
+    // ---------------------------------------------------------------------------
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+      const token = localStorage.getItem('cfo_token');
+      if (token) evt.detail.headers['Authorization'] = 'Bearer ' + token;
+    });
+  </script>
+</body>
+</html>

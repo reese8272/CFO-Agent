@@ -9,12 +9,16 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 import auth
 import clients
 import db
 from config import get_settings
 from disclaimer import get_disclaimer
+from routers import vault as vault_router
+from routers.holdings import router as holdings_router, side_event_router
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +51,12 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(vault_router.router)
+app.include_router(holdings_router)
+app.include_router(side_event_router)
+
+_static_dir = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 
 @app.get("/health")

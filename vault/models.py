@@ -380,6 +380,46 @@ class NetWorthSnapshot(Base):
     )
 
 
+class Holdings(Base):
+    __tablename__ = "holdings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"))
+    ticker: Mapped[str] = mapped_column(String(16))
+    share_count: Mapped[Decimal | None] = mapped_column(
+        "share_count_encrypted", EncryptedNumeric(), nullable=True
+    )
+    cost_basis: Mapped[Decimal | None] = mapped_column(
+        "cost_basis_encrypted", EncryptedNumeric(), nullable=True
+    )
+    purchase_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_known_price: Mapped[Decimal | None] = mapped_column(
+        "last_known_price", EncryptedNumeric(), nullable=True
+    )
+    last_priced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SideIncomeEvent(Base):
+    __tablename__ = "side_income_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    income_stream_id: Mapped[int] = mapped_column(ForeignKey("income_streams.id"))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gross: Mapped[Decimal | None] = mapped_column(
+        "gross_encrypted", EncryptedNumeric(), nullable=True
+    )
+    stream_specific_jsonb: Mapped[dict | None] = mapped_column(EncryptedJSON(), nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
 

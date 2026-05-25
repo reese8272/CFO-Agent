@@ -112,19 +112,19 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │
 ├── integrations/               # Free Tier-1 data integrations
 │   ├── market_data.py          # yfinance ticker price lookup (with Alpha Vantage fallback)
-│   ├── property_data.py        # Zillow Zestimate address → value
-│   └── csv_import.py           # CSV/OFX parsing for bulk statement upload
+│   ├── property_data.py        # RentCast AVM address → value estimate (replaces Zillow — see DECISIONS.md)
+│   └── csv_import.py           # CSV/OFX parsing for bulk statement upload (Issue 4c)
 │
 ├── routers/
 │   ├── chat.py                 # POST /chat
-│   ├── vault.py                # CRUD on all vault entities
+│   ├── vault.py                # CRUD on all vault entities + POST /vault/real-estate/refresh-values
+│   ├── holdings.py             # CRUD holdings + POST /holdings/refresh-prices + side-income-events CRUD
 │   ├── memory.py               # Decisions + patterns CRUD
 │   ├── digest.py               # GET /digest/latest, POST /digest/run-now
 │   ├── scenarios.py            # POST /scenarios/run
 │   ├── wealth.py               # GET /wealth/position, GET /wealth/trajectory,
 │   │                           # GET /wealth/net_worth_trajectory
-│   ├── holdings.py             # CRUD holdings + POST /holdings/refresh-prices
-│   ├── imports.py              # POST /import/<entity_type> CSV/OFX bulk ingest
+│   ├── imports.py              # POST /import/<entity_type> CSV/OFX bulk ingest (Issue 4c)
 │   └── plaid.py                # (deferred indefinitely 2026-05-24) Link, webhook, sync
 │
 ├── worker/
