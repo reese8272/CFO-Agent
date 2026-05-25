@@ -29,10 +29,22 @@ for _key, _value in _TEST_DEFAULTS.items():
     os.environ.setdefault(_key, _value)
 
 
+import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import create_engine, text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
+from config import get_settings  # noqa: E402
 from db import get_sessionmaker  # noqa: E402
+
+# Vault tables wiped between tests; CASCADE clears FK-dependent rows in any order.
+_VAULT_TABLES = (
+    "audit_log", "users", "accounts", "cards", "income_streams", "expenses", "debts",
+    "assets", "real_estate", "business_income", "retirement_accounts", "goals",
+    "career_position", "career_history", "comp_benchmarks", "side_income_economics",
+    "tax_deductions_1099", "negotiation_milestones", "net_worth_snapshots",
+)
 
 
 @pytest_asyncio.fixture
@@ -43,3 +55,32 @@ async def session() -> AsyncSession:
             yield s
         finally:
             await s.rollback()
+
+
+@pytest.fixture(scope="module")
+def client() -> TestClient:
+    """App-bound TestClient (runs lifespan: engine + redis)."""
+    from main import app
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def _wipe_vault() -> None:
+    """Truncate vault + users via a throwaway sync engine (no event-loop collision)."""
+    engine = create_engine(get_settings().database_url)
+    with engine.begin() as conn:
+        conn.execute(
+            text(f"TRUNCATE TABLE {', '.join(_VAULT_TABLES)} RESTART IDENTITY CASCADE")
+        )
+    engine.dispose()
+
+
+@pytest.fixture
+def auth_headers(client: TestClient) -> dict[str, str]:
+    """Clean vault, register the single user, return a bearer-auth header."""
+    _wipe_vault()
+    resp = client.post(
+        "/auth/register", json={"username": "owner", "password": "supersecret123"}
+    )
+    return {"Authorization": f"Bearer {resp.json()['access_token']}"}

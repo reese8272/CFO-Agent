@@ -14,6 +14,29 @@ Format:
 
 ---
 
+## 2026-05-25 — Issue 4 vault CRUD: router factory, computed-field scope, side_income_event form deferral
+
+**Context**: Issue 4 builds CRUD for 17 structurally-identical encrypted vault entities plus the ergonomic HTMX entry UI. Three implementation choices needed settling before the build.
+
+**Decision**:
+1. **Typed router factory over per-entity routers.** Generic async CRUD in `vault/crud.py` parameterized by model + schemas; a `make_crud_router(EntitySpec)` factory in `routers/vault.py` emits a five-verb resource per entity, all behind `get_current_user`. The factory is the single place mutations happen, so auth + audit + encryption can't be forgotten on a new entity. Pydantic schemas are still hand-written per entity (`vault/schemas.py`) — the API boundary is the validation/security surface — while the PATCH schema is generated all-optional from the create schema.
+2. **Audit in the factory.** Every create/update/delete writes an append-only `audit_log` row; before/after snapshots are JSON-safe dicts stored through the existing `EncryptedJSON` column, so the snapshots are themselves Fernet-encrypted at rest (asserted in `tests/test_vault.py`).
+3. **Computed fields: derive trivial arithmetic on write, defer the rest.** `equity_estimate`, `net_margin`, `net`, `net_hourly`, `net_worth` are computed server-side via `compute_*` callbacks and excluded from the create/update schemas (response-only). Fields needing rolling windows or year-versioned tax constants — `income_streams.rolling_4wk_avg`, `retirement_accounts.ytd_contribution_limit_remaining`, `goals.current_amount` — stay nullable for their owning issues (5 / 8) to populate.
+4. **side_income_event form deferred to Issue 4b.** Issue 4's acceptance listed a "side-income events" form, but the `side_income_event` table + endpoints are assigned to 4b. Building the form against a non-existent backing table would violate the serial `4 → 4b` order, so the form ships in 4b alongside its table. Issue 4 still delivers forms for cards, retirement accounts, career position, side-income **economics**, and 1099 deductions.
+
+**Reasoning**: 17 near-identical entities make a factory the DRY/KISS choice (≈1500 lines of boilerplate avoided) while explicit schemas keep the finance validation boundary honest. Deriving only self-contained arithmetic keeps Issue 4 focused on CRUD without prematurely owning logic that belongs to the position/agent issues.
+
+**Trade-offs**:
+- The factory uses live Pydantic classes in handler signatures, so `routers/vault.py` must not use `from __future__ import annotations` (documented in-file).
+- JSONB money breakdowns (side-income expenses, net-worth splits) are stored as Decimal-preserving strings because `EncryptedJSON` serializes with `json.dumps`; the Out schemas coerce them back to `Decimal` on read.
+- New file `routers/vault_ui.py` (HTMX fragment endpoints) added to the canonical tree in `docs/SOT.md`.
+
+**Verification**: 45/45 pytest pass against local Postgres 16 + Redis 7 (sandbox: venv + local `pg_ctl` cluster, registry-pulled docker unavailable). HTMX UI verified at the endpoint level via `TestClient`; full in-browser walkthrough + the <30 min/month timed measurement pending local `docker compose up` (Gate 2).
+
+**Owner**: reesepludwick@gmail.com (approved 2026-05-25)
+
+---
+
 ## 2026-05-24 — Pivot v1 from "Personal CFO" to "Personal CFO + Career Strategist"
 
 **Context**: Owner question during the Issue 1 → Issue 2 transition: *"Does what I'm trying to accomplish here make sense? It's how can I make as much money as possible given my particular situation."* Original PRD focused heavily on **allocation** ("given a dollar, where does it go?") and lightly on **income generation** ("how do I make more dollars?"). For the stated goal, income generation is roughly half the equation and the owner's earning mix (W-2 + DoorDash + coaching) has unusually high upside on the income side.

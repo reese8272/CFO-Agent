@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Personal CFO — Vault</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"></script>
+  <style>
+    :root { font-family: system-ui, sans-serif; }
+    body { margin: 0; color: #1a1a1a; background: #fafafa; }
+    header { background: #11304a; color: #fff; padding: 10px 16px; display: flex;
+             align-items: center; justify-content: space-between; }
+    nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px; background: #eef2f6; }
+    nav button { padding: 6px 10px; border: 1px solid #c3cdd6; background: #fff;
+                 border-radius: 6px; cursor: pointer; }
+    main { padding: 16px; max-width: 900px; }
+    .vform { display: flex; flex-wrap: wrap; gap: 10px; align-items: end;
+             padding: 12px; background: #fff; border: 1px solid #e0e6ec; border-radius: 8px; }
+    .fld { display: flex; flex-direction: column; font-size: 12px; gap: 3px; }
+    .fld input, .fld select { padding: 5px; border: 1px solid #c3cdd6; border-radius: 5px; }
+    .actions { display: flex; gap: 8px; }
+    .actions button { padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    ul.rows { list-style: none; padding: 0; margin: 14px 0; }
+    .row { padding: 8px 10px; border-bottom: 1px solid #e8edf1; font-size: 13px;
+           display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .rid { font-weight: 600; color: #11304a; }
+    .del { margin-left: auto; color: #a00; background: none; border: none; cursor: pointer; }
+    #login { max-width: 320px; padding: 16px; }
+    #login input { display: block; width: 100%; margin: 6px 0; padding: 8px; }
+    .disclaimer { font-size: 11px; color: #667; padding: 12px 16px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Personal CFO — Vault</strong>
+    <button id="logout" class="hidden" onclick="logout()">Log out</button>
+  </header>
+
+  <section id="login">
+    <h2>Sign in</h2>
+    <input id="u" placeholder="username" autofocus>
+    <input id="p" type="password" placeholder="password">
+    <button onclick="login()">Sign in</button>
+    <p id="loginerr" style="color:#a00"></p>
+  </section>
+
+  <div id="app" class="hidden">
+    <nav>
+      <button hx-get="/ui/cards/section" hx-target="#content">Cards</button>
+      <button hx-get="/ui/retirement_accounts/section" hx-target="#content">Retirement</button>
+      <button hx-get="/ui/career_position/section" hx-target="#content">Career</button>
+      <button hx-get="/ui/side_income_economics/section" hx-target="#content">Side income</button>
+      <button onclick="showBatch()">Side income (batch)</button>
+      <button hx-get="/ui/tax_deductions_1099/section" hx-target="#content">1099 deductions</button>
+    </nav>
+    <main id="content"><p>Pick a section above.</p></main>
+  </div>
+
+  <p class="disclaimer">
+    This tool is for financial education and personal organization. It is not a licensed
+    financial advisor. For tax strategy, real estate transactions, and investment decisions,
+    consult a licensed professional.
+  </p>
+
+  <script>
+    const tokenKey = "cfo_token";
+    function token() { return localStorage.getItem(tokenKey); }
+
+    document.body.addEventListener("htmx:configRequest", (e) => {
+      const t = token();
+      if (t) e.detail.headers["Authorization"] = "Bearer " + t;
+    });
+    document.body.addEventListener("htmx:responseError", (e) => {
+      if (e.detail.xhr.status === 401) logout();
+    });
+
+    async function login() {
+      const body = new URLSearchParams({
+        username: document.getElementById("u").value,
+        password: document.getElementById("p").value,
+      });
+      const r = await fetch("/auth/token", { method: "POST", body });
+      if (!r.ok) { document.getElementById("loginerr").textContent = "Sign-in failed"; return; }
+      const data = await r.json();
+      localStorage.setItem(tokenKey, data.access_token);
+      showApp();
+    }
+    function logout() { localStorage.removeItem(tokenKey); showApp(); }
+    function showApp() {
+      const authed = !!token();
+      document.getElementById("login").classList.toggle("hidden", authed);
+      document.getElementById("app").classList.toggle("hidden", !authed);
+      document.getElementById("logout").classList.toggle("hidden", !authed);
+    }
+
+    // Batch entry for side-income: clone a row, submit all rows in one request.
+    function showBatch() {
+      const c = document.getElementById("content");
+      c.innerHTML = `
+        <h2>Side-Income — batch entry</h2>
+        <form hx-post="/ui/side_income_economics/batch"
+              hx-target="#side_income_economics-list" hx-swap="afterbegin">
+          <div id="batch-rows"></div>
+          <div class="actions">
+            <button type="button" onclick="addBatchRow()">+ add row</button>
+            <button type="submit">Save all</button>
+          </div>
+        </form>
+        <ul id="side_income_economics-list" class="rows"></ul>`;
+      addBatchRow();
+    }
+    let batchIdx = 0;
+    function addBatchRow() {
+      const i = batchIdx++;
+      const div = document.createElement("div");
+      div.className = "vform";
+      div.innerHTML = `
+        <label class="fld">Stream ID<input name="income_stream_id-${i}" type="number" required></label>
+        <label class="fld">Start<input name="period_start-${i}" type="date" required></label>
+        <label class="fld">End<input name="period_end-${i}" type="date" required></label>
+        <label class="fld">Gross<input name="gross-${i}" type="number" step="0.01"></label>
+        <label class="fld">Hours<input name="hours_worked-${i}" type="number" step="0.01"></label>
+        <label class="fld">Gas<input name="exp_gas-${i}" type="number" step="0.01"></label>
+        <label class="fld">Food<input name="exp_food-${i}" type="number" step="0.01"></label>`;
+      document.getElementById("batch-rows").appendChild(div);
+    }
+
+    showApp();
+  </script>
+</body>
+</html>

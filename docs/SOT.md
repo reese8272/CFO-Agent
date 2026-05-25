@@ -117,7 +117,8 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │
 ├── routers/
 │   ├── chat.py                 # POST /chat
-│   ├── vault.py                # CRUD on all vault entities
+│   ├── vault.py                # CRUD on all vault entities (router factory)
+│   ├── vault_ui.py             # HTMX fragment endpoints for ergonomic vault entry
 │   ├── memory.py               # Decisions + patterns CRUD
 │   ├── digest.py               # GET /digest/latest, POST /digest/run-now
 │   ├── scenarios.py            # POST /scenarios/run

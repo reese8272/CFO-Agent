@@ -15,6 +15,7 @@ import clients
 import db
 from config import get_settings
 from disclaimer import get_disclaimer
+from routers import vault, vault_ui
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,8 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(vault.router)
+app.include_router(vault_ui.router)
 
 
 @app.get("/health")
