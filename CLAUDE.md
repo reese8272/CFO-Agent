@@ -22,6 +22,7 @@ Before writing a single line of code, read these files in order:
 4. `docs/DECISIONS.md` — any deviations from PRD already made
 5. `docs/THREAT_MODEL.md` — security posture (data is sensitive)
 6. `docs/WEALTH_PRINCIPLES.md` — named principles the Coach cites
+7. `docs/CONTRACTS.md` — frozen interfaces (agent state, node I/O, endpoints, principle-key registry); do not diverge without amending it first
 
 If any are missing or stale, flag it before proceeding.
 
