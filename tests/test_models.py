@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import inspect, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import auth  # noqa: F401 — register the User model with Base.metadata
 import memory.models  # noqa: F401
 import vault.models  # noqa: F401
 from db import Base, get_engine
@@ -33,6 +34,7 @@ EXPECTED_TABLES = {
     "retirement_accounts",
     "side_income_economics",
     "tax_deductions_1099",
+    "users",
 }
 
 

@@ -34,13 +34,14 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ---
 
 ## Issue 3: Single-user auth (JWT)
-- [ ] Open
+- [x] Closed (2026-05-25)
 - **Depends on**: 2
-- **What**: `/auth/register` (rejects after first user), `/auth/token`, `get_current_user` dependency. bcrypt + PyJWT.
+- **What**: `/auth/register` (rejects after first user), `/auth/token`, `get_current_user` dependency. bcrypt + PyJWT. Implemented in `auth.py` (User model + router); `get_session` async DB dependency added to `db.py`; `users` table migration `7f3a9c2b5e81`.
 - **Acceptance criteria**:
-  - [ ] Register allowed once, 409 thereafter
-  - [ ] Token endpoint returns valid JWT with configured expiry
-  - [ ] Protected routes 401 without token
+  - [x] Register allowed once, 409 thereafter — `test_register_first_succeeds_then_409`
+  - [x] Token endpoint returns valid JWT with configured expiry — `test_token_issued_and_protects_route` (+ `test_expired_token_rejected` confirms `exp` is enforced)
+  - [x] Protected routes 401 without token — `test_token_issued_and_protects_route` (no header → 401), plus bad-password / unknown-user / malformed-token 401 cases
+- **Verification**: 26/26 pytest pass against local Postgres 16 + Redis 7 (docker registry rate-limited in sandbox; ran against local `pg_ctl` cluster + `redis-server`).
 
 ---
 

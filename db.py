@@ -4,6 +4,7 @@ Issue 1: engine + /health ping.
 Issue 2: declarative Base and async session factory for the ORM models.
 """
 import logging
+from typing import AsyncIterator
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
@@ -42,6 +43,19 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
     if _sessionmaker is None:
         _sessionmaker = async_sessionmaker(get_engine(), expire_on_commit=False)
     return _sessionmaker
+
+
+async def get_session() -> AsyncIterator[AsyncSession]:
+    """FastAPI dependency yielding an async session; rolls back on error, always closes.
+
+    Routes commit explicitly so the unit of work is visible at the call site.
+    """
+    async with get_sessionmaker()() as session:
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
 
 
 async def dispose_engine() -> None:

@@ -10,6 +10,7 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+import auth
 import clients
 import db
 from config import get_settings
@@ -44,6 +45,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.include_router(auth.router)
 
 
 @app.get("/health")

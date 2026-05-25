@@ -302,6 +302,12 @@ patterns                             # Agent-detected drift / opportunities / al
 
 audit_log
   id, at, actor, action, entity_type, entity_id, before_jsonb, after_jsonb
+
+users                                # ADDED 2026-05-25 (Issue 3 — single-user auth)
+  id, username (unique), password_hash (bcrypt), created_at
+  # Single row enforced at the app layer: POST /auth/register 409s once a user exists.
+  # password_hash is a one-way bcrypt hash (not Fernet); username is a login
+  # identifier, stored plaintext so it can be queried at login.
 ```
 
 ## Agent Architecture (LangGraph)

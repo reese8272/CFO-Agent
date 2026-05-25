@@ -22,6 +22,7 @@ from config import get_settings  # noqa: E402
 from db import Base  # noqa: E402
 import vault.models  # noqa: E402, F401 — register models with Base.metadata
 import memory.models  # noqa: E402, F401 — register models with Base.metadata
+import auth  # noqa: E402, F401 — register the User model with Base.metadata
 
 alembic_config = context.config
 
