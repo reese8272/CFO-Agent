@@ -1,12 +1,14 @@
 """Intake router — financial onboarding wizard endpoints.
 
-POST /intake/submit  — accepts full intake payload, populates vault, archives submission,
-                       computes initial financial snapshot
-GET  /intake/status  — returns whether intake is complete + latest snapshot summary
-GET  /intake/snapshot — returns latest financial snapshot (full analysis)
+POST /intake/submit          — accepts full intake payload, populates vault, archives, computes snapshot
+POST /intake/interview       — single turn of the CFO-led conversational intake interview
+POST /intake/extract         — extracts structured IntakeSubmitPayload from a completed conversation
+GET  /intake/status          — returns whether intake is complete + latest snapshot summary
+GET  /intake/snapshot        — returns latest financial snapshot (full analysis)
 POST /intake/snapshot/refresh — recomputes snapshot from current vault state
-GET  /intake/archive — returns the original intake submission
+GET  /intake/archive         — returns the original intake submission
 """
+import json
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -18,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import User, get_current_user
+from clients import get_anthropic
 from db import get_session
 from vault.financial_snapshot import compute_and_store_snapshot
 from vault.models import (
@@ -452,3 +455,276 @@ async def get_intake_archive(
         }
         for r in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# CFO-led conversational intake
+# ---------------------------------------------------------------------------
+
+_INTERVIEW_SYSTEM = """You are a Personal CFO conducting a warm, efficient financial intake interview. \
+Your goal is to understand someone's complete financial picture through natural conversation — not a form.
+
+Work through these areas. You don't need to go in order, and you can combine questions naturally:
+- Life context: approximate age, state of residence, household size, tax filing status
+- Goals: what does financial success look like in 5 and 10 years?
+- Income: all sources — W-2 salary, freelance, gig apps, business, rental
+- Bank accounts & cash: checking, savings, emergency fund (rough balances are fine)
+- Debt: every debt they carry — credit cards, student loans, car, personal loans (rough balances fine; \
+  if they don't know the rate, that's OK, just move on)
+- Retirement & investments: 401k, Roth IRA, brokerage, HSA
+- Real estate: do they own property?
+- Tax situation: 1099/self-employment income? Known deductions?
+
+Rules:
+- Be warm and direct — one topic at a time, open-ended first ("Tell me about your debt situation")
+- Exact numbers are never required — estimates, ranges, and "I'm not sure" are all fine
+- Keep each reply to 2-3 sentences max
+- If they don't know something, acknowledge it briefly and move on
+- Do NOT repeat questions they've already answered
+- Once you have covered income, debt, assets, and goals at minimum, AND you have asked \
+  about each area at least once, append exactly [INTAKE_COMPLETE] at the end of your reply
+
+Do not append [INTAKE_COMPLETE] until all areas above have been addressed at least once."""
+
+_EXTRACT_TOOL = {
+    "name": "extract_intake_payload",
+    "description": "Extract all financial data from the conversation into a structured intake payload.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "life_context": {
+                "type": "object",
+                "properties": {
+                    "age": {"type": ["integer", "null"]},
+                    "household_size": {"type": "integer"},
+                    "dependents": {"type": "integer"},
+                    "state_of_residence": {"type": ["string", "null"], "description": "2-letter state code"},
+                    "tax_filing_status": {"type": ["string", "null"], "enum": ["single", "married_filing_jointly", "married_filing_separately", "head_of_household", None]},
+                    "last_year_agi": {"type": ["number", "null"]},
+                    "has_hsa_eligible_plan": {"type": "boolean"},
+                },
+                "required": ["household_size", "dependents", "has_hsa_eligible_plan"],
+            },
+            "goals": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "kind": {"type": "string", "enum": ["net_worth", "income", "passive_income", "other"]},
+                        "target_amount": {"type": ["number", "null"]},
+                        "deadline": {"type": ["string", "null"], "description": "YYYY-MM-DD"},
+                        "priority": {"type": ["integer", "null"]},
+                    },
+                    "required": ["title", "kind"],
+                },
+            },
+            "career": {
+                "type": ["object", "null"],
+                "properties": {
+                    "current_role": {"type": "string"},
+                    "current_employer": {"type": "string"},
+                    "current_base_salary": {"type": ["number", "null"]},
+                    "current_bonus": {"type": ["number", "null"]},
+                    "current_equity_annual": {"type": ["number", "null"]},
+                    "target_comp": {"type": ["number", "null"]},
+                    "target_date": {"type": ["string", "null"]},
+                },
+                "required": ["current_role", "current_employer"],
+            },
+            "primary_income": {
+                "type": ["object", "null"],
+                "properties": {
+                    "source": {"type": "string"},
+                    "source_type": {"type": "string", "enum": ["w2", "1099", "cash", "gig", "business", "other"]},
+                    "cadence": {"type": "string", "enum": ["weekly", "biweekly", "monthly", "irregular"]},
+                    "typical_gross_amount": {"type": ["number", "null"], "description": "Monthly gross amount"},
+                },
+                "required": ["source", "source_type", "cadence"],
+            },
+            "side_incomes": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "source": {"type": "string"},
+                        "source_type": {"type": "string", "enum": ["w2", "1099", "cash", "gig", "business", "other"]},
+                        "cadence": {"type": "string", "enum": ["weekly", "biweekly", "monthly", "irregular"]},
+                        "typical_gross_amount": {"type": ["number", "null"]},
+                        "hours_per_week": {"type": ["number", "null"]},
+                        "monthly_expenses": {"type": ["number", "null"]},
+                    },
+                    "required": ["source", "source_type", "cadence"],
+                },
+            },
+            "accounts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "nickname": {"type": "string"},
+                        "institution": {"type": "string"},
+                        "type": {"type": "string", "enum": ["checking", "savings", "cash"]},
+                        "current_balance": {"type": ["number", "null"]},
+                        "is_emergency_fund": {"type": "boolean"},
+                    },
+                    "required": ["nickname", "institution", "type", "is_emergency_fund"],
+                },
+            },
+            "monthly_spend": {"type": ["number", "null"]},
+            "debts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "balance": {"type": ["number", "null"]},
+                        "apr": {"type": ["number", "null"]},
+                        "minimum_payment": {"type": ["number", "null"]},
+                        "strategy": {"type": "string", "enum": ["avalanche", "snowball", "custom"]},
+                    },
+                    "required": ["name", "strategy"],
+                },
+            },
+            "retirement_accounts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["401k", "roth_ira", "traditional_ira", "hsa", "solo_401k"]},
+                        "institution": {"type": "string"},
+                        "balance": {"type": ["number", "null"]},
+                        "ytd_contribution": {"type": ["number", "null"]},
+                        "employer_match_pct": {"type": ["number", "null"]},
+                        "employer_match_up_to_pct": {"type": ["number", "null"]},
+                    },
+                    "required": ["kind", "institution"],
+                },
+            },
+            "brokerage_accounts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "nickname": {"type": "string"},
+                        "institution": {"type": "string"},
+                        "current_balance": {"type": ["number", "null"]},
+                        "holdings": {"type": "array", "items": {"type": "object"}},
+                    },
+                    "required": ["nickname", "institution"],
+                },
+            },
+            "real_estate": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "property_type": {"type": "string", "enum": ["primary", "rental", "vacation", "land"]},
+                        "address": {"type": ["string", "null"]},
+                        "purchase_price": {"type": ["number", "null"]},
+                        "current_value": {"type": ["number", "null"]},
+                        "mortgage_balance": {"type": ["number", "null"]},
+                        "mortgage_apr": {"type": ["number", "null"]},
+                        "monthly_payment": {"type": ["number", "null"]},
+                        "monthly_rent": {"type": ["number", "null"]},
+                    },
+                    "required": ["property_type"],
+                },
+            },
+            "tax_deductions": {
+                "type": "object",
+                "properties": {
+                    "has_1099_income": {"type": "boolean"},
+                    "business_miles_ytd": {"type": ["number", "null"]},
+                    "home_office_sqft": {"type": ["integer", "null"]},
+                    "equipment_purchased": {"type": ["number", "null"]},
+                    "education_training": {"type": ["number", "null"]},
+                    "other_deductible": {"type": ["number", "null"]},
+                    "paying_quarterly_estimated_tax": {"type": "boolean"},
+                },
+                "required": ["has_1099_income", "paying_quarterly_estimated_tax"],
+            },
+        },
+        "required": ["life_context", "goals", "side_incomes", "accounts", "debts",
+                     "retirement_accounts", "brokerage_accounts", "real_estate", "tax_deductions"],
+    },
+}
+
+_EXTRACT_SYSTEM = """Extract every piece of financial data from this intake conversation into the \
+extract_intake_payload tool. Be generous with estimates — if someone said "around $50k in student loans" \
+use 50000. If something was not mentioned, use null or empty arrays. \
+Convert annual salary to monthly for typical_gross_amount (annual / 12). \
+Default strategy to "avalanche" for debts. Default household_size to 1 and dependents to 0 \
+if not stated."""
+
+_MODEL = "claude-sonnet-4-6"
+
+
+class InterviewTurnRequest(BaseModel):
+    message: str
+    history: list[dict] = []
+
+
+class InterviewTurnResponse(BaseModel):
+    reply: str
+    history: list[dict]
+    complete: bool
+
+
+class ExtractRequest(BaseModel):
+    history: list[dict]
+
+
+@router.post("/interview", response_model=InterviewTurnResponse)
+async def intake_interview(
+    body: InterviewTurnRequest,
+    current_user: CurrentUser,
+) -> InterviewTurnResponse:
+    client = get_anthropic()
+    history = list(body.history)
+    history.append({"role": "user", "content": body.message})
+
+    response = await client.messages.create(
+        model=_MODEL,
+        max_tokens=512,
+        system=_INTERVIEW_SYSTEM,
+        messages=history,
+    )
+
+    reply_text: str = response.content[0].text if response.content else ""
+    complete = "[INTAKE_COMPLETE]" in reply_text
+    clean_reply = reply_text.replace("[INTAKE_COMPLETE]", "").strip()
+
+    history.append({"role": "assistant", "content": clean_reply})
+    logger.info("interview turn (user=%s, complete=%s, turns=%d)", current_user.username, complete, len(history))
+    return InterviewTurnResponse(reply=clean_reply, history=history, complete=complete)
+
+
+@router.post("/extract", response_model=dict)
+async def extract_intake(
+    body: ExtractRequest,
+    current_user: CurrentUser,
+) -> dict:
+    """Run structured extraction on a completed interview conversation."""
+    client = get_anthropic()
+
+    transcript = "\n".join(
+        f"{'User' if m['role'] == 'user' else 'CFO'}: {m['content']}"
+        for m in body.history
+    )
+
+    response = await client.messages.create(
+        model=_MODEL,
+        max_tokens=4096,
+        system=_EXTRACT_SYSTEM,
+        messages=[{"role": "user", "content": f"Intake conversation:\n\n{transcript}"}],
+        tools=[_EXTRACT_TOOL],
+        tool_choice={"type": "tool", "name": "extract_intake_payload"},
+    )
+
+    for block in response.content:
+        if block.type == "tool_use" and block.name == "extract_intake_payload":
+            logger.info("intake extraction complete (user=%s)", current_user.username)
+            return block.input
+
+    raise HTTPException(status_code=500, detail="Extraction failed — no structured output returned.")

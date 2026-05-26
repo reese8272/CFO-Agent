@@ -618,6 +618,80 @@
       line-height: 1.5;
     }
 
+    /* ── Mode selector ── */
+    .mode-selector {
+      display: flex; gap: 0.75rem; margin-bottom: 2rem;
+    }
+    .mode-btn {
+      flex: 1; padding: 1rem 1.25rem; border-radius: 12px; cursor: pointer;
+      border: 2px solid var(--surface-border); background: var(--surface);
+      color: var(--surface-muted); font-family: 'Inter', sans-serif;
+      text-align: left; transition: border-color 0.15s, color 0.15s;
+    }
+    .mode-btn.active { border-color: var(--sage); color: var(--surface-text); }
+    .mode-btn:hover:not(.active) { border-color: var(--sage-dark); }
+    .mode-btn-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.2rem; }
+    .mode-btn-desc { font-size: 0.72rem; line-height: 1.4; }
+    .mode-btn .mode-badge {
+      display: inline-block; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; background: var(--sage-dark); color: var(--surface-text);
+      border-radius: 4px; padding: 0.1rem 0.4rem; margin-left: 0.4rem; vertical-align: middle;
+    }
+
+    /* ── CFO Interview chat view ── */
+    #interview-view { display: none; }
+    .interview-wrap { max-width: 680px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .interview-messages {
+      min-height: 300px; max-height: 55vh; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 0.85rem;
+      padding: 1.25rem; background: var(--surface);
+      border: 1px solid var(--surface-border); border-radius: 12px;
+      margin-bottom: 1rem;
+    }
+    .iv-msg { max-width: 85%; }
+    .iv-msg.user { align-self: flex-end; }
+    .iv-msg.agent { align-self: flex-start; }
+    .iv-bubble {
+      padding: 0.65rem 0.9rem; border-radius: 12px;
+      font-size: 0.85rem; line-height: 1.6; white-space: pre-wrap;
+    }
+    .iv-msg.user .iv-bubble { background: #2E3D36; color: #E4EDE6; border-bottom-right-radius: 3px; }
+    .iv-msg.agent .iv-bubble {
+      background: rgba(255,255,255,0.05); color: var(--surface-text);
+      border: 1px solid var(--surface-border); border-bottom-left-radius: 3px;
+    }
+    .iv-typing { display: none; align-self: flex-start; padding: 0.65rem 0.9rem; }
+    .iv-typing.visible { display: flex; gap: 4px; align-items: center; }
+    .iv-typing span {
+      width: 7px; height: 7px; background: var(--surface-muted); border-radius: 50%;
+      animation: cfoBounce 1.2s infinite;
+    }
+    .iv-typing span:nth-child(2) { animation-delay: 0.2s; }
+    .iv-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    .iv-input-row { display: flex; gap: 0.6rem; }
+    .iv-input {
+      flex: 1; background: var(--surface); border: 1px solid var(--surface-border);
+      border-radius: 10px; padding: 0.65rem 0.9rem; color: var(--surface-text);
+      font-family: 'Inter', sans-serif; font-size: 0.875rem; resize: none;
+      outline: none; transition: border-color 0.15s; min-height: 44px; max-height: 120px;
+    }
+    .iv-input:focus { border-color: var(--sage); }
+    .iv-input::placeholder { color: var(--surface-muted); opacity: 0.6; }
+    .iv-send {
+      background: var(--sage-dark); border: none; border-radius: 10px;
+      padding: 0 1.25rem; color: var(--surface-text); cursor: pointer;
+      font-size: 0.85rem; font-family: 'Inter', sans-serif; font-weight: 500;
+      transition: background 0.15s; align-self: flex-end; height: 44px;
+    }
+    .iv-send:hover { background: var(--sage); }
+    .iv-send:disabled { background: var(--surface-border); color: var(--surface-muted); cursor: wait; }
+
+    .iv-status {
+      font-size: 0.75rem; color: var(--text-dim); text-align: center;
+      margin-top: 0.75rem; min-height: 1.2em;
+    }
+
     /* ── "No X" checkbox skip style ── */
     .skip-toggle-wrap {
       display: flex;
@@ -652,6 +726,18 @@
       <div class="intake-header">
         <h1 class="intake-title">Financial Intake</h1>
         <p class="intake-sub">Complete your profile so your CFO has the full picture. Takes about 10 minutes.</p>
+      </div>
+
+      <!-- Mode selector -->
+      <div class="mode-selector">
+        <button class="mode-btn active" id="mode-form-btn" onclick="setMode('form')">
+          <div class="mode-btn-title">Fill out the form</div>
+          <div class="mode-btn-desc">Go section by section at your own pace. Best when you have your numbers handy.</div>
+        </button>
+        <button class="mode-btn" id="mode-chat-btn" onclick="setMode('chat')">
+          <div class="mode-btn-title">Chat with your CFO <span class="mode-badge">Recommended</span></div>
+          <div class="mode-btn-desc">Describe what you know in plain language. Your CFO asks the questions, then fills the form for you.</div>
+        </button>
       </div>
 
       <!-- Already-completed banner -->
@@ -1110,6 +1196,21 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       INTERVIEW VIEW (CFO-led conversational intake)
+  ════════════════════════════════════════════════ -->
+  <div id="interview-view">
+    <div class="interview-wrap">
+      <div class="interview-messages" id="iv-messages"></div>
+      <div class="iv-typing" id="iv-typing"><span></span><span></span><span></span></div>
+      <div class="iv-input-row">
+        <textarea class="iv-input" id="iv-input" placeholder="Type your answer…" rows="1"></textarea>
+        <button class="iv-send" id="iv-send" onclick="ivSend()">Send</button>
+      </div>
+      <div class="iv-status" id="iv-status"></div>
     </div>
   </div>
 
@@ -2183,6 +2284,151 @@
       div.textContent = String(s);
       return div.innerHTML;
     }
+
+    // ══════════════════════════════════════════════════
+    // Mode selector
+    // ══════════════════════════════════════════════════
+    function setMode(mode) {
+      const isChat = mode === 'chat';
+      document.getElementById('mode-form-btn').classList.toggle('active', !isChat);
+      document.getElementById('mode-chat-btn').classList.toggle('active', isChat);
+
+      // Show/hide the progress bar and section navigator (form-only)
+      const progressBar = document.querySelector('.progress-bar-wrap');
+      if (progressBar) progressBar.style.display = isChat ? 'none' : '';
+
+      // Show/hide sections
+      document.querySelectorAll('.section-card').forEach(el => { el.style.display = isChat ? 'none' : ''; });
+      document.querySelector('.nav-buttons') && (document.querySelector('.nav-buttons').style.display = isChat ? 'none' : '');
+      document.getElementById('global-error').style.display = 'none';
+
+      document.getElementById('interview-view').style.display = isChat ? 'block' : 'none';
+
+      if (isChat && document.getElementById('iv-messages').children.length === 0) {
+        ivStart();
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    // CFO Interview (chat-first mode)
+    // ══════════════════════════════════════════════════
+    let ivHistory = [];
+    let ivThinking = false;
+
+    async function ivStart() {
+      // Kick off with an empty user message to get the CFO's opening question
+      await ivCallApi('');
+    }
+
+    function ivAppend(role, text) {
+      const msgs = document.getElementById('iv-messages');
+      const wrap = document.createElement('div');
+      wrap.className = 'iv-msg ' + role;
+      const bubble = document.createElement('div');
+      bubble.className = 'iv-bubble';
+      bubble.textContent = text;
+      wrap.appendChild(bubble);
+      msgs.appendChild(wrap);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    async function ivSend() {
+      if (ivThinking) return;
+      const input = document.getElementById('iv-input');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      input.style.height = '';
+      ivAppend('user', text);
+      await ivCallApi(text);
+    }
+
+    async function ivCallApi(message) {
+      ivThinking = true;
+      document.getElementById('iv-send').disabled = true;
+      document.getElementById('iv-typing').classList.add('visible');
+      document.getElementById('iv-status').textContent = '';
+
+      try {
+        const resp = await fetch('/intake/interview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ message, history: ivHistory }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          ivAppend('agent', 'Something went wrong — ' + (err.detail || 'please try again.'));
+          return;
+        }
+        const data = await resp.json();
+        ivHistory = data.history;
+        ivAppend('agent', data.reply);
+
+        if (data.complete) {
+          ivExtractAndSubmit();
+        }
+      } catch (e) {
+        ivAppend('agent', 'Network error — check your connection and try again.');
+      } finally {
+        ivThinking = false;
+        document.getElementById('iv-send').disabled = false;
+        document.getElementById('iv-typing').classList.remove('visible');
+        document.getElementById('iv-input').focus();
+      }
+    }
+
+    async function ivExtractAndSubmit() {
+      document.getElementById('iv-input').disabled = true;
+      document.getElementById('iv-send').disabled = true;
+      document.getElementById('iv-status').textContent = 'Building your financial profile…';
+
+      try {
+        // Step 1: extract structured payload from conversation
+        const extractResp = await fetch('/intake/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ history: ivHistory }),
+        });
+        if (!extractResp.ok) {
+          const err = await extractResp.json().catch(() => ({}));
+          document.getElementById('iv-status').textContent = 'Extraction failed: ' + (err.detail || 'unknown error');
+          return;
+        }
+        const payload = await extractResp.json();
+
+        document.getElementById('iv-status').textContent = 'Submitting your profile…';
+
+        // Step 2: submit extracted payload to /intake/submit
+        const submitResp = await fetch('/intake/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify(payload),
+        });
+        if (!submitResp.ok) {
+          const err = await submitResp.json().catch(() => ({}));
+          const detail = Array.isArray(err.detail)
+            ? err.detail.map(e => e.msg || JSON.stringify(e)).join('; ')
+            : (err.detail || 'Submission failed');
+          document.getElementById('iv-status').textContent = 'Submit error: ' + detail;
+          return;
+        }
+        const snap = await submitResp.json();
+        localStorage.removeItem('cfo_intake_data');
+        document.getElementById('iv-status').textContent = '';
+        renderResults(snap);
+        showResults();
+      } catch (e) {
+        document.getElementById('iv-status').textContent = 'Network error: ' + e.message;
+      }
+    }
+
+    document.getElementById('iv-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ivSend(); }
+    });
+    document.getElementById('iv-input').addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
 
     // ══════════════════════════════════════════════════
     // CFO Chat Drawer
