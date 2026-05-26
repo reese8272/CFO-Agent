@@ -4,6 +4,7 @@ Fires when Analyzer detects a career-related turn.
 """
 from __future__ import annotations
 import logging
+import time
 from clients import get_anthropic
 from agent.state import AgentState, NodeProposal
 from agent.principles import PRINCIPLES
@@ -59,6 +60,7 @@ async def career_node(state: AgentState) -> dict:
         f"User question: {state['user_message']}"
     )
 
+    t0 = time.monotonic()
     response = await client.messages.create(
         model=MODEL,
         max_tokens=MAX_TOKENS,
@@ -68,6 +70,7 @@ async def career_node(state: AgentState) -> dict:
         tool_choice={"type": "tool", "name": "propose_career_move"},
         extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
     )
+    latency_ms = int((time.monotonic() - t0) * 1000)
     tool_block = next(b for b in response.content if b.type == "tool_use")
     r = tool_block.input
 
@@ -79,5 +82,9 @@ async def career_node(state: AgentState) -> dict:
         rationale=r["rationale"],
         requires_disclaimer=bool(r["requires_disclaimer"]),
     )
-    logger.info("career: principle=%s score=%.2f", r["principle"], r["leverage_score"])
+    logger.info(
+        "career: principle=%s score=%.2f tokens_in=%d tokens_out=%d latency_ms=%d",
+        r["principle"], r["leverage_score"],
+        response.usage.input_tokens, response.usage.output_tokens, latency_ms,
+    )
     return {"proposals": [proposal]}

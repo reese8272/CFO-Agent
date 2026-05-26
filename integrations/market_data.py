@@ -51,6 +51,8 @@ def _fetch_yfinance(ticker: str) -> Decimal | None:
 
 def _fetch_alpha_vantage(ticker: str, api_key: str) -> Decimal | None:
     try:
+        # Alpha Vantage free tier requires the API key as a query parameter — no header option exists.
+        # Never log `resp.url` or the params dict here; the key would appear in the log.
         resp = requests.get(
             _ALPHA_VANTAGE_URL,
             params={"function": "GLOBAL_QUOTE", "symbol": ticker, "apikey": api_key},

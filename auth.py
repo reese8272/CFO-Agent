@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
@@ -21,6 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from config import get_settings
 from db import Base, get_session
+from rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,9 @@ def _create_access_token(user_id: int) -> str:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("3/hour")
 async def register(
+    request: Request,
     body: RegisterRequest,
     session: AsyncSession = Depends(get_session),
 ) -> TokenResponse:
@@ -101,7 +104,9 @@ async def register(
 
 
 @router.post("/token", response_model=TokenResponse)
+@limiter.limit("10/minute")
 async def login(
+    request: Request,
     form: OAuth2PasswordRequestForm = Depends(),
     session: AsyncSession = Depends(get_session),
 ) -> TokenResponse:

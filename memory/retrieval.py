@@ -253,4 +253,4 @@ def _build_vault_snapshot(full_wealth: VaultWealthPosition, full_income: VaultIn
 def _round100(val: object) -> Decimal:
     """Round to nearest 100 for prompt safety."""
     d = Decimal(str(val))
-    return Decimal(str(int(math.ceil(float(d) / 100) * 100)))
+    return Decimal(str(int(round(float(d) / 100)) * 100))

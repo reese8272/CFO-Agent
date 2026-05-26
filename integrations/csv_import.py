@@ -2,9 +2,14 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+
+logger = logging.getLogger(__name__)
+
+_DATE_FORMATS = ["%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%Y/%m/%d"]
 
 
 @dataclass
@@ -13,6 +18,49 @@ class ParsedRow:
     amount: Decimal
     description: str
     raw: dict
+
+
+def _parse_date(date_str: str) -> datetime | None:
+    """Try each format in _DATE_FORMATS; return None if none match."""
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(date_str.strip(), fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_amount(row: dict) -> Decimal | None:
+    """Resolve amount from debit/credit columns or a signed amount column.
+
+    When separate debit/credit columns exist, computes credit - debit so that
+    credits are positive and debits are negative (standard bank convention).
+    Handles parenthetical negatives like (123.45) → -123.45.
+    """
+    def _clean(s: str) -> str:
+        s = s.strip().replace(",", "").replace("$", "")
+        if s.startswith("(") and s.endswith(")"):
+            s = "-" + s[1:-1]
+        return s
+
+    debit_str = row.get("debit", "").strip()
+    credit_str = row.get("credit", "").strip()
+
+    if debit_str or credit_str:
+        try:
+            debit = Decimal(_clean(debit_str)) if debit_str else Decimal("0")
+            credit = Decimal(_clean(credit_str)) if credit_str else Decimal("0")
+            return credit - debit
+        except InvalidOperation:
+            return None
+
+    amount_str = row.get("amount", "").strip()
+    if not amount_str:
+        return Decimal("0")
+    try:
+        return Decimal(_clean(amount_str))
+    except InvalidOperation:
+        return None
 
 
 def compute_hash(account_id: int, occurred_at: datetime, amount: Decimal, description: str) -> str:
@@ -36,19 +84,17 @@ def parse_csv(content: bytes) -> list[ParsedRow]:
             or row.get("transaction date")
             or ""
         )
-        amount_str = row.get("amount") or row.get("debit") or row.get("credit") or "0"
         desc = row.get("description") or row.get("memo") or row.get("payee") or ""
-        try:
-            dt = datetime.fromisoformat(date_str.replace("/", "-"))
-        except ValueError:
+        dt = _parse_date(date_str)
+        if dt is None:
+            logger.debug("csv_import: skipping row with unparseable date %r", date_str)
             continue
-        try:
-            amount = Decimal(amount_str.replace(",", "").replace("$", ""))
-        except InvalidOperation:
+        amount = _parse_amount(row)
+        if amount is None:
             continue
         rows.append(
             ParsedRow(
-                occurred_at=dt.replace(tzinfo=timezone.utc),
+                occurred_at=dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt,
                 amount=amount,
                 description=desc,
                 raw=raw,

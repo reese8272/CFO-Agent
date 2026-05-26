@@ -7,16 +7,19 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from slowapi.errors import RateLimitExceeded
 
 import auth
 import clients
 import db
 from config import get_settings
 from disclaimer import get_disclaimer
+from rate_limit import limiter
 from routers import vault as vault_router
 from routers.holdings import router as holdings_router, side_event_router
 from routers.imports import router as imports_router
@@ -59,6 +62,21 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+settings = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse({"detail": "rate limit exceeded"}, status_code=429)
 
 app.include_router(auth.router)
 app.include_router(vault_router.router)
