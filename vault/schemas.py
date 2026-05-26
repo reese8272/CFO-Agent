@@ -613,3 +613,69 @@ class TransactionRead(BaseModel):
     category: Optional[str] = None
     import_batch_id: Optional[int] = None
     import_hash: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# UserProfile
+# ---------------------------------------------------------------------------
+
+class UserProfileCreate(_Base):
+    age: Optional[int] = None
+    household_size: int = 1
+    dependents: int = 0
+    state_of_residence: Optional[str] = None
+    tax_filing_status: Optional[str] = None
+    last_year_agi: Optional[Decimal] = None
+    has_hsa_eligible_plan: bool = False
+    intake_completed_at: Optional[datetime] = None
+
+
+class UserProfileUpdate(_Base):
+    age: Optional[int] = None
+    household_size: Optional[int] = None
+    dependents: Optional[int] = None
+    state_of_residence: Optional[str] = None
+    tax_filing_status: Optional[str] = None
+    last_year_agi: Optional[Decimal] = None
+    has_hsa_eligible_plan: Optional[bool] = None
+    intake_completed_at: Optional[datetime] = None
+
+
+class UserProfileRead(UserProfileCreate):
+    id: int
+    updated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# FinancialSnapshot
+# ---------------------------------------------------------------------------
+
+class FinancialSnapshotRead(_Base):
+    id: int
+    computed_at: datetime
+    net_worth: Optional[Decimal] = None
+    total_assets: Optional[Decimal] = None
+    total_liabilities: Optional[Decimal] = None
+    total_monthly_income: Optional[Decimal] = None
+    total_monthly_expenses: Optional[Decimal] = None
+    allocation_step: int
+    income_step: int
+    savings_rate_pct: Optional[Decimal] = None
+    debt_to_income_ratio: Optional[Decimal] = None
+    emergency_months_covered: Optional[Decimal] = None
+    roth_utilization_pct: Optional[Decimal] = None
+    k401_match_capture_pct: Optional[Decimal] = None
+    hsa_utilization_pct: Optional[Decimal] = None
+    career_comp_vs_p50_pct: Optional[Decimal] = None
+    analysis_jsonb: Optional[dict] = None
+    vault_hash: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# IntakeSubmission
+# ---------------------------------------------------------------------------
+
+class IntakeSubmissionRead(_Base):
+    id: int
+    submitted_at: datetime
+    snapshot_id: Optional[int] = None

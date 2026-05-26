@@ -486,3 +486,84 @@ class Transaction(Base):
     )
     import_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profile"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    household_size: Mapped[int] = mapped_column(Integer, default=1)
+    dependents: Mapped[int] = mapped_column(Integer, default=0)
+    state_of_residence: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    tax_filing_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_year_agi: Mapped[Decimal | None] = mapped_column(
+        "last_year_agi_encrypted", EncryptedNumeric(), nullable=True
+    )
+    has_hsa_eligible_plan: Mapped[bool] = mapped_column(default=False)
+    intake_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class FinancialSnapshot(Base):
+    __tablename__ = "financial_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    net_worth: Mapped[Decimal | None] = mapped_column(
+        "net_worth_encrypted", EncryptedNumeric(), nullable=True
+    )
+    total_assets: Mapped[Decimal | None] = mapped_column(
+        "total_assets_encrypted", EncryptedNumeric(), nullable=True
+    )
+    total_liabilities: Mapped[Decimal | None] = mapped_column(
+        "total_liabilities_encrypted", EncryptedNumeric(), nullable=True
+    )
+    total_monthly_income: Mapped[Decimal | None] = mapped_column(
+        "total_monthly_income_encrypted", EncryptedNumeric(), nullable=True
+    )
+    total_monthly_expenses: Mapped[Decimal | None] = mapped_column(
+        "total_monthly_expenses_encrypted", EncryptedNumeric(), nullable=True
+    )
+    allocation_step: Mapped[int] = mapped_column(Integer, default=0)
+    income_step: Mapped[int] = mapped_column(Integer, default=0)
+    savings_rate_pct: Mapped[Decimal | None] = mapped_column(
+        "savings_rate_pct_encrypted", EncryptedNumeric(), nullable=True
+    )
+    debt_to_income_ratio: Mapped[Decimal | None] = mapped_column(
+        "debt_to_income_ratio_encrypted", EncryptedNumeric(), nullable=True
+    )
+    emergency_months_covered: Mapped[Decimal | None] = mapped_column(
+        "emergency_months_covered_encrypted", EncryptedNumeric(), nullable=True
+    )
+    roth_utilization_pct: Mapped[Decimal | None] = mapped_column(
+        "roth_utilization_pct_encrypted", EncryptedNumeric(), nullable=True
+    )
+    k401_match_capture_pct: Mapped[Decimal | None] = mapped_column(
+        "k401_match_capture_pct_encrypted", EncryptedNumeric(), nullable=True
+    )
+    hsa_utilization_pct: Mapped[Decimal | None] = mapped_column(
+        "hsa_utilization_pct_encrypted", EncryptedNumeric(), nullable=True
+    )
+    career_comp_vs_p50_pct: Mapped[Decimal | None] = mapped_column(
+        "career_comp_vs_p50_pct_encrypted", EncryptedNumeric(), nullable=True
+    )
+    analysis_jsonb: Mapped[dict | None] = mapped_column(EncryptedJSON(), nullable=True)
+    vault_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class IntakeSubmission(Base):
+    __tablename__ = "intake_submissions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    raw_data: Mapped[dict | None] = mapped_column(EncryptedJSON(), nullable=True)
+    snapshot_id: Mapped[int | None] = mapped_column(
+        ForeignKey("financial_snapshots.id"), nullable=True
+    )
