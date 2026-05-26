@@ -4,6 +4,7 @@ pydantic-settings reads `.env` via python-dotenv under the hood and validates
 on instantiation, so the app fails fast on missing required values.
 """
 from functools import lru_cache
+from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,11 +24,11 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(..., min_length=32)
     vault_encryption_key: str = Field(..., min_length=1)
     digest_recipient: str = Field(..., min_length=1)
-    smtp_host: str = Field(..., min_length=1)
-    smtp_port: int = Field(...)
-    smtp_user: str = Field(..., min_length=1)
-    smtp_password: str = Field(..., min_length=1)
-    smtp_from: str = Field(..., min_length=1)
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from: Optional[str] = None
 
     jwt_expiry_minutes: int = 60
     llm_timeout_seconds: int = 120

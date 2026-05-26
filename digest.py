@@ -122,7 +122,8 @@ async def generate_digest(session: AsyncSession) -> str:
 
 
 def _send_email_sync(subject: str, body: str, settings) -> None:
-    """Send a plain-text + markdown MIME email via SMTP (called in a thread)."""
+    if not all([settings.smtp_host, settings.smtp_user, settings.smtp_password, settings.smtp_from]):
+        raise RuntimeError("SMTP is not configured — set SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_FROM")
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = settings.smtp_from
