@@ -456,16 +456,66 @@ Each subsection answers a question from the brief. `<PLACEHOLDER>` markers are w
 ## 5.1 The Real Goal
 
 **Q: What does winning in 5 years look like?**
-A: **TODO — owner to fill.** Templates were drafted (Career + Index Funds / First Rental + Saver / Coaching Business + Market) but the owner flagged them as not matching current life state. This is the product's strategic north star and must be the owner's own words. Until filled, the Strategist falls back to optimizing the wealth-building sequence (Section 4) one step at a time — that's a safe default but loses long-horizon calibration. Fill before Issue 8 (Strategist node) at the latest.
+A: **Filled 2026-05-25.**
 
-Suggested format when filling:
-- Net worth: $___
-- Passive monthly income: $___/mo
-- First rental property by year: ___
-- Business revenue: $___/yr
-- Roth balance: $___
-- Index fund balance: $___
-- Career: target role / target comp / target date
+### The headline number
+- **Net worth target**: $1,000,000 by 2031
+- **Passive / product monthly income**: $3,000–$5,000/month
+- **Total annual income**: $200,000–$300,000/yr (W-2 growth + SaaS revenue)
+
+### The five levers
+
+**1. W-2 career — maximize via switches**
+- Current: ~$80,000/yr base at Cognizant
+- Strategy: job-switch every 2–4 years to capture the 10–15% delta documented in comp research. No fixed role target — "wherever the road takes me" — but the Strategist will flag when it's time to move based on elapsed time vs comp delta achieved.
+- 5-year target: $130,000–$150,000/yr W-2 base via at least one strategic switch
+
+**2. SaaS / product business — the asymmetric lever**
+- Current: wheretoliv.com in development (pre-revenue); second app concept in progress
+- Model: subscription software + outright product sales. Owner does NOT want to be tied to client work / coaching / services — the products must run without him.
+- 5-year target: $60,000–$120,000/yr product revenue ($5,000–$10,000/mo MRR)
+- This is the path to $1M net worth. Without meaningful SaaS revenue, the realistic 5-year trajectory lands at $300,000–$500,000. The Strategist should flag SaaS progress as the highest-leverage variable.
+
+**3. Roth IRA — max every year the situation allows**
+- Current: Roth IRA open and partially funded
+- 5-year target: $35,000–$50,000 Roth balance ($7,000/yr × 5 + growth)
+- Non-negotiable once high-interest debt is cleared
+
+**4. Index fund brokerage — steady compounding**
+- 5-year target: $100,000–$200,000 in total market index funds (VTI / VXUS or equivalent)
+- Funded from monthly surplus after Roth max and emergency fund top-up
+
+**5. Primary residence — own within 5 years**
+- Current: selling existing home (expected ~$100,000+ in proceeds after payoff and costs); will rent short-term
+- 5-year target: own primary residence (not an investment property — personal home first)
+- Investment property / rental: secondary priority, only after primary residence is secured
+- Index funds and SaaS take priority over rental property speculation
+
+### Immediate context (the starting-line realities)
+- **House sale proceeds ($100k+)**: deploy in this order — (1) kill high-interest debt, (2) top up emergency fund to 3 months, (3) invest remainder per wealth position step
+- **Emergency fund**: will be funded within 2 months from house proceeds
+- **DoorDash**: exit ASAP — it's a drag on time that should go to building products
+- **Coaching**: not a priority and not a desired income stream
+- **Debt**: student loans + car loan + credit card debt — high-APR cards are the first target
+
+### What the Strategist uses this for
+- Tracker compares current net worth trajectory vs the $1M / 2031 target
+- Career alert fires when elapsed-fraction of the job-switch window exceeds comp-delta-achieved
+- Roth room alert fires in Q4 if Roth not maxed
+- SaaS revenue is tracked via `business_income` vault entries; when it's $0 for 90+ days, the agent surfaces it as the highest-leverage unfunded lever
+- The agent will commit to ONE move per turn toward this vision — not enumerate options unless asked
+
+### DB entries to create when vault is populated
+After the house closes and vault is live, create these rows:
+```
+goals table:
+  kind=net_worth, title="$1M net worth by 2031-05-25", target_amount=1000000, deadline=2031-05-25, status=active, priority=1
+
+career_position table:
+  current_role="Software Engineer / Analyst", current_employer="Cognizant", current_comp_total=80000,
+  target_role="Senior / next-step role (TBD by job market)", target_comp_total=140000, target_date=2029-05-25
+  (Strategist will flag job-switch window when ~2-3 years in current role)
+```
 
 **Q: What's your actual monthly surplus right now?**
 A: **Unknown — computed by Issue 4's first deliverable.** Once the vault is populated (every account, income stream, recurring expense, minimum debt payment), the system computes surplus directly: `sum(rolling_4wk_avg of income_streams) − sum(typical_amount of active expenses) − sum(minimum_payment of active debts)`. Don't pre-fill a guess here — the whole point of the vault is to surface the real number.

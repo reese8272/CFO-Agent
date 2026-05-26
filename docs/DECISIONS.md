@@ -14,6 +14,42 @@ Format:
 
 ---
 
+## 2026-05-25 — Issue 14: audit log actor passed as User ORM object (bug fix)
+
+**What changed**: All 57 `actor=user` call sites in `routers/vault.py` and `routers/holdings.py` changed to `actor=user.username`. The `vault/crud.py` signature declares `actor: str`; passing the ORM object caused `psycopg.ProgrammingError: cannot adapt type 'User'` at commit time.
+**Why**: The router dependency `get_current_user` returns a `User` object. The original code passed it directly; the audit log's `actor` column (plain `String`) requires a scalar string.
+**Source**: Issue 14 test run (2026-05-25) — error surfaced on first live-DB run of `test_holdings_crud`.
+**Date**: 2026-05-25
+
+---
+
+## 2026-05-25 — AgentState extended with is_decision + decision_summary for Issue 9
+
+**What changed**: Added `is_decision: bool` and `decision_summary: str | None` to the Synthesizer terminal output section of `agent/state.py`. Also added these fields to `RESPONSE_TOOL` in `agent/prompts.py` and to the synthesizer_node return dict.
+**Why**: Issue 9 requires the Synthesizer to flag user-stated intents so persist_node can write Decision rows without a second LLM call. This is the minimal CONTRACTS.md amendment — no node I/O contracts change, only terminal fields added.
+**Source**: Issue 9 approved approach (main conversation 2026-05-25).
+**Date**: 2026-05-25
+
+---
+
+## 2026-05-25 — agent/state.py replaced with CONTRACTS.md-frozen version for Issue 7
+
+**What changed**: The `agent/state.py` written in Issue 5 was a simplified scaffold (`WealthPosition` as full ladder, `IncomePosition` as full ladder, simple `AgentState`). Replaced with the CONTRACTS.md §1-frozen version: compact `WealthPosition`/`IncomePosition` (step/step_name/rationale/next_move only), `Annotated[list[NodeProposal], operator.add]` reducer for proposals, `NotRequired[dict]` for `net_worth_pace`, and all Synthesizer/Analyzer terminal output keys. The full-ladder types (`WealthLadder`, `IncomeLadder`, `AllocationGap`, `IncomeStep`) are now defined locally in `vault/wealth_position.py` and `vault/income_position.py` respectively. `memory/retrieval.py` bridges them to the compact AgentState types via `_bridge_wealth` and `_bridge_income`.
+**Why**: Issue 7 requires the LangGraph `StateGraph(AgentState)` to use the frozen contract so downstream Issues 8/8b can be built in parallel against a stable state shape.
+**Source**: CONTRACTS.md §1; Issue 7 build (2026-05-25).
+**Date**: 2026-05-25
+
+---
+
+## 2026-05-25 — transactions table promoted to v1 for CSV/OFX import
+
+**What changed**: Added `import_hash` (SHA-256 dedup key), `category`, `import_batch_id`, `notes` columns to the `transactions` table. The table was previously a stub ("Phase 2 — Plaid") in `docs/SOT.md` with no ORM model. Also added two new tables: `import_batches` (batch-level audit trail per upload) and `category_mappings` (learnable pattern-to-category classifier). `Transaction` ORM model created in `vault/models.py` with a unique constraint on `import_hash`.
+**Why**: Issue 4c requires dedup-safe import; promoting the stub to a real table avoids creating a parallel shadow table. The stub schema (`posted_at`, `amount_encrypted`, `merchant`, `raw_payload_jsonb`) was replaced with a cleaner import-oriented schema — `occurred_at`, plain `Numeric` for `amount` (transactions are not user-private in the same way balances are; hash is the sensitivity boundary), `description`, `category`, `import_hash`, `import_batch_id`, `notes`. Migration `b5e2a9c3f107` guards against columns that may already exist for forward compatibility.
+**Source**: Issue 4c approved approach (main conversation 2026-05-25).
+**Date**: 2026-05-25
+
+---
+
 ## 2026-05-24 — Pivot v1 from "Personal CFO" to "Personal CFO + Career Strategist"
 
 **Context**: Owner question during the Issue 1 → Issue 2 transition: *"Does what I'm trying to accomplish here make sense? It's how can I make as much money as possible given my particular situation."* Original PRD focused heavily on **allocation** ("given a dollar, where does it go?") and lightly on **income generation** ("how do I make more dollars?"). For the stated goal, income generation is roughly half the equation and the owner's earning mix (W-2 + DoorDash + coaching) has unusually high upside on the income side.

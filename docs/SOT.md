@@ -1,6 +1,6 @@
 # SOT — Source of Truth
 
-**Last updated**: 2026-05-23
+**Last updated**: 2026-05-25 (v1 feature-complete)
 
 This describes how the personal-cfo agent **will be built**. Update on every architectural change. Conflicts with `docs/PRD.md`: this file wins — log divergence in `docs/DECISIONS.md`.
 
@@ -74,8 +74,8 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │   │                           # NegotiationMilestone
 │   ├── schemas.py              # Pydantic
 │   ├── crud.py                 # CRUD with encryption
-│   ├── wealth_position.py      # Compute current step on allocation track (1–6)
-│   └── income_position.py      # Compute current step on income track (1–5)
+│   ├── wealth_position.py      # 6-step allocation ladder computation (Issue 5)
+│   └── income_position.py      # 5-step income ladder computation (Issue 5)
 │
 ├── memory/
 │   ├── models.py               # Conversation, Message, Decision, Pattern
@@ -84,7 +84,7 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │
 ├── agent/
 │   ├── graph.py                # LangGraph compile
-│   ├── state.py                # TypedDict
+│   ├── state.py                # TypedDicts: WealthPosition, IncomePosition, NodeProposal, AgentState (Issue 5)
 │   ├── nodes/
 │   │   ├── analyzer.py         # Full-picture snapshot, turn classification
 │   │   ├── strategist.py       # Allocation-side: wealth-vehicle prioritization,
@@ -122,8 +122,8 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │   ├── memory.py               # Decisions + patterns CRUD
 │   ├── digest.py               # GET /digest/latest, POST /digest/run-now
 │   ├── scenarios.py            # POST /scenarios/run
-│   ├── wealth.py               # GET /wealth/position, GET /wealth/trajectory,
-│   │                           # GET /wealth/net_worth_trajectory
+│   ├── wealth.py               # GET /wealth/position, /allocation-position, /income-position,
+│   │                           # /net-worth-trajectory (Issue 5)
 │   ├── imports.py              # POST /import/<entity_type> CSV/OFX bulk ingest (Issue 4c)
 │   └── plaid.py                # (deferred indefinitely 2026-05-24) Link, webhook, sync
 │
@@ -281,9 +281,16 @@ net_worth_snapshots                  # ADDED 2026-05-24 coach-vision additions
                              each encrypted),
   source (manual/computed_from_vault), created_at
 
-transactions                         # Phase 2 (Plaid)
-  id, account_id, posted_at, amount_encrypted, merchant,
-  category, raw_payload_jsonb
+import_batches                        # NEW — Issue 4c CSV/OFX import
+  id, account_id (FK accounts), filename, file_format, row_count, imported_at
+
+category_mappings                    # NEW — Issue 4c learned category classifier
+  id, pattern (unique), category, created_at
+
+transactions                         # Promoted from Phase 2 stub — Issue 4c
+  id, account_id (FK accounts), occurred_at, amount (Numeric),
+  description, category, import_batch_id (FK import_batches),
+  import_hash (sha-256 dedup key, unique), notes
 
 conversations
   id, started_at, summary

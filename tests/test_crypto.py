@@ -70,20 +70,20 @@ def test_encrypted_json_round_trip() -> None:
 
 def test_missing_vault_encryption_key_fails_app_start() -> None:
     """Booting config without VAULT_ENCRYPTION_KEY must raise at import-time validation."""
+    # Use Settings(_env_file=None) so pydantic-settings cannot fall back to the
+    # .env file. Also pop VAULT_ENCRYPTION_KEY from the inherited subprocess env
+    # so only os.environ is consulted and the missing-key validation fires.
     script = (
         "import os\n"
-        "for k in ('ANTHROPIC_API_KEY','DATABASE_URL','REDIS_URL','JWT_SECRET_KEY',"
-        "'DIGEST_RECIPIENT','SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASSWORD','SMTP_FROM',"
-        "'VAULT_ENCRYPTION_KEY'):\n"
-        "    os.environ.pop(k, None)\n"
+        "os.environ.pop('VAULT_ENCRYPTION_KEY', None)\n"
         "os.environ.update({\n"
         "    'ANTHROPIC_API_KEY':'k','DATABASE_URL':'postgresql://u:p@h/d',"
         "'REDIS_URL':'redis://h:1/0',\n"
         "    'JWT_SECRET_KEY':'x'*40,'DIGEST_RECIPIENT':'t@e.com','SMTP_HOST':'h',"
         "'SMTP_PORT':'1','SMTP_USER':'u','SMTP_PASSWORD':'p','SMTP_FROM':'f@e.com',\n"
         "})\n"
-        "from config import get_settings\n"
-        "get_settings()\n"
+        "from config import Settings\n"
+        "Settings(_env_file=None)\n"
     )
     result = subprocess.run(
         [sys.executable, "-c", script],

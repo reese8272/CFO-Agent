@@ -19,6 +19,13 @@ from config import get_settings
 from disclaimer import get_disclaimer
 from routers import vault as vault_router
 from routers.holdings import router as holdings_router, side_event_router
+from routers.imports import router as imports_router
+from routers.chat import router as chat_router
+from routers.wealth import router as wealth_router
+from routers.memory import router as memory_router
+from routers.scenarios import router as scenarios_router
+from routers.digest import router as digest_router
+from worker.cron import start_scheduler, stop_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +44,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("starting personal-cfo (env=%s)", settings.env)
     db.get_engine()
     clients.get_redis()
+    start_scheduler()
     yield
+    stop_scheduler()
     await clients.close_redis()
     await db.dispose_engine()
     logger.info("shutdown complete")
@@ -54,6 +63,12 @@ app.include_router(auth.router)
 app.include_router(vault_router.router)
 app.include_router(holdings_router)
 app.include_router(side_event_router)
+app.include_router(imports_router)
+app.include_router(wealth_router)
+app.include_router(chat_router)
+app.include_router(memory_router)
+app.include_router(scenarios_router)
+app.include_router(digest_router)
 
 _static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=_static_dir), name="static")

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Digest — Personal CFO</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f8f9fa; color: #212529; padding: 2rem; max-width: 720px; margin: auto; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .subtitle { color: #6c757d; font-size: 0.9rem; margin-bottom: 2rem; }
+    .btn { display: inline-block; padding: 0.5rem 1.2rem; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .btn:hover { background: #0b5ed7; }
+    .btn:disabled { background: #adb5bd; cursor: wait; }
+    #digest-body { background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); white-space: pre-wrap; font-family: Georgia, serif; line-height: 1.7; font-size: 0.95rem; min-height: 200px; }
+    #digest-body h1, #digest-body h2, #digest-body h3 { font-family: system-ui, sans-serif; margin: 1rem 0 0.5rem; }
+    #status { font-size: 0.85rem; color: #6c757d; margin-bottom: 0.75rem; }
+    .error { color: #dc3545; }
+  </style>
+</head>
+<body>
+  <h1>Weekly Digest</h1>
+  <p class="subtitle">Your personal CFO summary. Runs every Monday at 07:00 UTC.</p>
+
+  <button class="btn" id="send-btn" onclick="runDigest()">Send Digest Now</button>
+  <div id="status"></div>
+  <div id="digest-body">Loading…</div>
+
+  <script>
+    const token = localStorage.getItem("cfo_token");
+
+    async function load() {
+      // Try to show the last digest if stored in sessionStorage
+      const cached = sessionStorage.getItem("cfo_digest");
+      if (cached) {
+        renderBody(cached);
+      } else {
+        document.getElementById("digest-body").textContent = "No digest yet. Click 'Send Digest Now' to generate one.";
+      }
+    }
+
+    async function runDigest() {
+      const btn = document.getElementById("send-btn");
+      const status = document.getElementById("status");
+      btn.disabled = true;
+      status.textContent = "Generating and sending digest…";
+
+      try {
+        const resp = await fetch("/digest/run-now", {
+          method: "POST",
+          headers: token ? { Authorization: "Bearer " + token } : {},
+        });
+        if (resp.status === 401) { status.innerHTML = '<span class="error">Session expired. Log in again.</span>'; return; }
+        const data = await resp.json();
+        if (!resp.ok) { status.innerHTML = `<span class="error">${data.detail || "Error sending digest"}</span>`; return; }
+        status.textContent = "Digest sent ✓";
+        sessionStorage.setItem("cfo_digest", data.body);
+        renderBody(data.body);
+      } catch (e) {
+        status.innerHTML = `<span class="error">Network error: ${e.message}</span>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderBody(markdown) {
+      // Minimal markdown → HTML: headers and horizontal rules
+      let html = markdown
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^---$/gm, '<hr>')
+        .replace(/\n/g, '<br>');
+      document.getElementById("digest-body").innerHTML = html;
+    }
+
+    load();
+  </script>
+</body>
+</html>

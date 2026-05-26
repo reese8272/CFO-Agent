@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cfo
+          POSTGRES_PASSWORD: cfo
+          POSTGRES_DB: personal_cfo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cfo -d personal_cfo"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://cfo:cfo@localhost:5432/personal_cfo
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY || 'ci-test-secret-key-must-be-at-least-32-chars' }}
+      VAULT_ENCRYPTION_KEY: ${{ secrets.VAULT_ENCRYPTION_KEY || '' }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'test-key' }}
+      DIGEST_RECIPIENT: ci@example.com
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+      SMTP_USER: test
+      SMTP_PASSWORD: test
+      SMTP_FROM: noreply@example.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Alembic migrations
+        run: alembic upgrade head
+
+      - name: Run tests
+        run: pytest -q --tb=short

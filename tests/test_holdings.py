@@ -28,7 +28,7 @@ async def _get_token(client: AsyncClient) -> str:
 
 
 @pytest.fixture
-async def auth_client():
+async def auth_client(clean_db: None):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         token = await _get_token(client)
         client.headers.update({"Authorization": f"Bearer {token}"})

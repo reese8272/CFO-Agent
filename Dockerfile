@@ -19,7 +19,7 @@ FROM python:3.13-slim-bookworm AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app \
+    PYTHONPATH=/install/lib/python3.13/site-packages:/app \
     PATH=/install/bin:$PATH
 
 RUN useradd --create-home --shell /bin/bash app

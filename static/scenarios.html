@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scenario Modeler — Personal CFO</title>
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f8f9fa; color: #212529; padding: 2rem; max-width: 720px; margin: auto; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .subtitle { color: #6c757d; font-size: 0.9rem; margin-bottom: 2rem; }
+    .tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid #dee2e6; }
+    .tab-btn { background: none; border: none; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.95rem; color: #6c757d; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+    .tab-btn.active { color: #0d6efd; border-bottom-color: #0d6efd; font-weight: 600; }
+    .panel { display: none; } .panel.active { display: block; }
+    .card { background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+    label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; color: #495057; }
+    input[type="number"], input[type="text"] {
+      width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #ced4da;
+      border-radius: 4px; font-size: 0.95rem; margin-bottom: 1rem;
+    }
+    input:focus { outline: 2px solid #0d6efd; border-color: #0d6efd; }
+    .btn { display: inline-block; padding: 0.6rem 1.5rem; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.95rem; }
+    .btn:hover { background: #0b5ed7; }
+    .btn:disabled { background: #adb5bd; cursor: wait; }
+    #result-tti, #result-ic { margin-top: 1rem; }
+    .result-card { background: #e8f4fd; border-left: 4px solid #0d6efd; padding: 1rem 1.25rem; border-radius: 4px; }
+    .result-card h3 { font-size: 1rem; margin-bottom: 0.5rem; }
+    .result-card p { font-size: 0.9rem; color: #343a40; margin-bottom: 0.4rem; }
+    .disclaimer { background: #fff3cd; border-left: 4px solid #ffc107; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.8rem; color: #664d03; margin-top: 0.75rem; }
+    .htmx-indicator { display: none; } .htmx-request .htmx-indicator { display: inline; }
+  </style>
+</head>
+<body>
+  <h1>Scenario Modeler</h1>
+  <p class="subtitle">Deterministic forward projections — no guesswork, just math.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('tti', this)">Time to Target</button>
+    <button class="tab-btn" onclick="showTab('ic', this)">Income Change</button>
+  </div>
+
+  <!-- Time to Target -->
+  <div id="tab-tti" class="panel active">
+    <div class="card">
+      <form id="form-tti" onsubmit="submitScenario(event, 'tti', 'time_to_target')">
+        <label for="tti-current">Current balance ($)</label>
+        <input type="number" id="tti-current" name="current_amount" min="0" step="100" value="0" required>
+
+        <label for="tti-contrib">Monthly contribution ($)</label>
+        <input type="number" id="tti-contrib" name="monthly_contribution" min="0" step="50" value="500" required>
+
+        <label for="tti-return">Annual return (%) — use 0 for cash / savings</label>
+        <input type="number" id="tti-return" name="annual_return_pct" min="0" max="50" step="0.1" value="7">
+
+        <label for="tti-target">Target amount ($)</label>
+        <input type="number" id="tti-target" name="target_amount" min="1" step="100" value="100000" required>
+
+        <button type="submit" class="btn" id="btn-tti">
+          Calculate <span class="htmx-indicator">…</span>
+        </button>
+      </form>
+    </div>
+    <div id="result-tti"></div>
+  </div>
+
+  <!-- Income Change -->
+  <div id="tab-ic" class="panel">
+    <div class="card">
+      <form id="form-ic" onsubmit="submitScenario(event, 'ic', 'income_change')">
+        <label for="ic-current">Current monthly income ($)</label>
+        <input type="number" id="ic-current" name="current_monthly_income" min="0" step="100" value="5000" required>
+
+        <label for="ic-delta">Monthly change ($, use negative for a cut)</label>
+        <input type="number" id="ic-delta" name="delta_monthly" step="50" value="-500" required>
+
+        <button type="submit" class="btn" id="btn-ic">
+          Calculate <span class="htmx-indicator">…</span>
+        </button>
+      </form>
+    </div>
+    <div id="result-ic"></div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem("cfo_token");
+
+    function showTab(id, btn) {
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById("tab-" + id).classList.add("active");
+      btn.classList.add("active");
+    }
+
+    async function submitScenario(evt, panelId, kind) {
+      evt.preventDefault();
+      const form = evt.target;
+      const btn = form.querySelector("button[type=submit]");
+      const resultDiv = document.getElementById("result-" + panelId);
+      btn.disabled = true;
+      resultDiv.innerHTML = "<p>Calculating…</p>";
+
+      const data = { kind };
+      new FormData(form).forEach((v, k) => { if (v !== "") data[k] = v; });
+
+      try {
+        const resp = await fetch("/scenarios/run", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: "Bearer " + token } : {}),
+          },
+          body: JSON.stringify(data),
+        });
+        if (resp.status === 401) { resultDiv.innerHTML = "<p>Session expired. Please log in again.</p>"; return; }
+        const out = await resp.json();
+        if (!resp.ok) { resultDiv.innerHTML = `<p style="color:red">${out.detail || "Error"}</p>`; return; }
+        renderResult(panelId, out);
+      } catch (e) {
+        resultDiv.innerHTML = `<p style="color:red">Network error: ${e.message}</p>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderResult(panelId, out) {
+      const div = document.getElementById("result-" + panelId);
+      let html = `<div class="result-card"><h3>Result</h3>`;
+
+      if (out.kind === "time_to_target") {
+        const r = out.result;
+        if (r.not_reachable) {
+          html += `<p>${r.message}</p>`;
+        } else {
+          html += `<p><strong>${r.months} months</strong> (${r.years} years)</p>`;
+          html += `<p>${r.message}</p>`;
+        }
+        html += `<p style="font-size:0.8rem;color:#6c757d;margin-top:0.5rem">Trace: ${out.reasoning_trace}</p>`;
+      } else {
+        const r = out.result;
+        const sign = parseFloat(r.monthly_delta) >= 0 ? "+" : "";
+        html += `<p>New monthly: <strong>$${fmt(r.new_monthly)}</strong></p>`;
+        html += `<p>Change: ${sign}$${fmt(r.monthly_delta)}/mo (${sign}$${fmt(r.annual_delta)}/yr, ${r.change_pct}%)</p>`;
+      }
+
+      html += `</div>`;
+      if (out.disclaimer) {
+        html += `<div class="disclaimer">${out.disclaimer}</div>`;
+      }
+      div.innerHTML = html;
+    }
+
+    function fmt(v) {
+      return parseFloat(v).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+  </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ Issue 6: adds the Anthropic SDK client.
 """
 import logging
 
+import anthropic as anthropic_sdk
 import redis.asyncio as aioredis
 
 from config import get_settings
@@ -43,3 +44,17 @@ async def ping_redis() -> bool:
     except Exception:
         logger.exception("redis ping failed")
         return False
+
+
+_anthropic: anthropic_sdk.AsyncAnthropic | None = None
+
+
+def get_anthropic() -> anthropic_sdk.AsyncAnthropic:
+    """Return the module-level async Anthropic client, creating it on first call."""
+    global _anthropic
+    if _anthropic is None:
+        _anthropic = anthropic_sdk.AsyncAnthropic(
+            api_key=get_settings().anthropic_api_key,
+        )
+        logger.info("anthropic client created")
+    return _anthropic

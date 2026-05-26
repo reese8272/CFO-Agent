@@ -2,15 +2,15 @@
 
 Live snapshot of where the build stands. Update at every issue close.
 
-**Last updated**: 2026-05-25
+**Last updated**: 2026-05-26
 
 ---
 
 ## Status
 
-**Phase**: Build. Issues 1, 2, and 3 shipped (repo scaffold + Docker Compose + `/health`; 22-table Postgres schema + Alembic + Fernet encryption; single-user JWT auth — `users` table, register-once, `/auth/token`, `get_current_user`). Issue 4 (Vault CRUD + ergonomic HTMX UI) is next. **Pivot landed 2026-05-24** — v1 reframed to "Personal CFO + Career Strategist" per `docs/DECISIONS.md` entry 1. **Coach-vision additions landed 2026-05-24** — net worth as headline metric, Assets-over-liabilities principle, arena-specific principle libraries, Coach Voice spec, long-horizon trajectory stamping per `docs/DECISIONS.md` entry 2. **Encryption boundary chosen 2026-05-24** — SQLAlchemy TypeDecorators + clean Python attribute names over `*_encrypted` DB columns per `docs/DECISIONS.md` entry 3. **Free-first data ingestion strategy 2026-05-24** — Plaid deferred indefinitely; yfinance + Zestimate + CSV/OFX import substitute per `docs/DECISIONS.md` entry 4. **Research workflow complete** — `docs/RESEARCH_NOTES.md` holds the 11-domain principle library; ports into `WEALTH_PRINCIPLES.md` + `agent/principles*.py` during Issues 6 and 8.
+**Phase**: v1 feature-complete + CI wired. Issues 1–14 shipped (Issue 13 Plaid deferred indefinitely). Full pytest suite: 135 passed, 2 skipped against live Postgres + Redis. GitHub Actions workflows created (CI, Docker build, deploy skeleton). Remaining manual gates: vault.html browser walkthrough and production deploy.
 
-Section 5 placeholders resolved except for the 5-year goal (see Open TODOs).
+**Key decisions**: Pivot 2026-05-24 — Personal CFO + Career Strategist. Free-first ingestion (yfinance + RentCast + CSV/OFX). Encryption at ORM layer via TypeDecorators. All documented in `docs/DECISIONS.md`.
 
 ## North Star
 
@@ -24,28 +24,29 @@ Synthesizer commits to ONE move across both tracks.
 
 ## Open TODOs (Owner Input Required)
 
-- [ ] **5-year goal (`docs/KICKSTART.md` Section 5.1)** — owner to write concrete net worth / passive income / Roth / brokerage / career targets. Strategist (Issue 8) falls back to step-by-step sequence optimization without it, but loses long-horizon calibration. Fill before Issue 8 at the latest.
+- [x] **5-year goal (`docs/KICKSTART.md` Section 5.1)** — filled 2026-05-25. Target: $1M net worth by 2031, $200–300k/yr income, $3–5k/mo passive. Five levers: W-2 switches to $140k, SaaS/product revenue to $60–120k/yr, Roth maxed annually, index fund brokerage $100–200k, own primary residence by 2031. See Section 5.1 for full detail and DB entries to create at vault-population time.
 - [x] **Run the research prompt** — completed 2026-05-24. Output landed in `docs/RESEARCH_NOTES.md` (11 domains, ~50 named principles, all 2026 tax constants verified against IRS Rev. Proc. 2025-32 / Notice 2025-67 / Rev. Proc. 2025-19 / Notice 2026-10, plus Top 10 / Top 5 books / Red Flags). Content ports into `WEALTH_PRINCIPLES.md`, `agent/principles.py`, and the three arena modules during Issues 6 and 8.
 
 ## Issues
 
 | # | Title | Status |
 |---|---|---|
+| 14 | Test suite cleanup — DB teardown, expected-tables sync, subprocess env isolation | **Closed 2026-05-25** |
 | 1 | Repo scaffold + Docker Compose + health endpoint | **Closed 2026-05-24** |
 | 2 | Postgres schema + Alembic + encryption helper *(scope expanded)* | **Closed 2026-05-24** |
 | 3 | Single-user auth (JWT) — register-once + token + get_current_user | **Closed 2026-05-25** |
 | 4 | Vault CRUD + ergonomic HTMX UI *(scope expanded + tightened)* | **Closed 2026-05-25** |
 | **4b** | **Free data automation layer (yfinance + RentCast AVM + holdings)** *(new — 2026-05-24 free-first)* | **Closed 2026-05-25** |
-| **4c** | **CSV / OFX import** *(new — 2026-05-24 free-first, replaces Plaid for v1)* | Open |
-| 5 | Wealth-position + income-position + net-worth-trajectory endpoints *(scope expanded)* | Open |
-| 6 | Anthropic singleton + retrieval node | Open |
-| 7 | Minimal LangGraph — Retrieval → Synthesizer → Persist | Open |
-| 8 | Analyzer + Strategist + Coach nodes *(scope expanded — arena principles + voice + long-horizon stamping)* | Open |
-| **8b** | **Career + Income-Optimizer + Tax-Optimizer nodes** *(new — 2026-05-24 pivot)* | Open |
-| 9 | Decisions persistence + retrieval respects them | Open |
-| 10 | Tracker + Alert nodes *(scope expanded)* | Open |
-| 11 | Scenario modeling engine + endpoint + UI | Open |
-| 12 | Weekly digest cron + email | Open |
+| **4c** | **CSV / OFX import** *(new — 2026-05-24 free-first, replaces Plaid for v1)* | **Closed 2026-05-25** |
+| 5 | Wealth-position + income-position + net-worth-trajectory endpoints *(scope expanded)* | **Closed 2026-05-25** |
+| 6 | Anthropic singleton + retrieval node | **Closed 2026-05-25** |
+| 7 | Minimal LangGraph — Retrieval → Synthesizer → Persist | **Closed 2026-05-25** |
+| 8 | Analyzer + Strategist + Coach nodes *(scope expanded — arena principles + voice + long-horizon stamping)* | **Closed 2026-05-25** |
+| **8b** | **Career + Income-Optimizer + Tax-Optimizer nodes** *(new — 2026-05-24 pivot)* | **Closed 2026-05-25** |
+| 9 | Decisions persistence + retrieval respects them | **Closed 2026-05-25** |
+| 10 | Tracker + Alert nodes *(scope expanded)* | **Closed 2026-05-25** |
+| 11 | Scenario modeling engine + endpoint + UI | **Closed 2026-05-25** |
+| 12 | Weekly digest cron + email | **Closed 2026-05-25** |
 | 13 | Plaid integration | **Deferred indefinitely 2026-05-24** — preserved as escape hatch |
 
 ## Blocked
@@ -54,6 +55,26 @@ _None._
 
 ## Next Up
 
-1. Issue 4c — CSV/OFX import. Phase 1 CHECK brief required before any code.
-2. Owner TODO: fill the 5-year goal in `docs/KICKSTART.md` Section 5.1 before Issue 8 (Strategist).
-3. Pre-deploy gate: timed walkthrough of vault.html with running app to confirm <30 min/month workload target.
+### Gate 2 — Manual browser walkthrough (owner action required)
+1. `docker compose up -d` — bring up the full stack locally
+2. Open `http://localhost:8000/static/vault.html` in a browser
+3. Add at least one account, one debt, one income stream
+4. Open chat — ask "where am I financially?" — verify agent responds with a single concrete recommendation
+5. Run scenario: "How long to $1M at current trajectory?" — verify months and monthly breakout render
+6. Confirm disclaimer visible on every agent response
+7. Time the full round-trip — target < 30 min/month workload
+
+### Gate 3 — Vault population (owner action required, before first real session)
+Create these rows so Tracker has calibration anchors:
+- `goals`: `kind=net_worth`, `target_amount=1000000`, `target_date=2031-05-25`, `label="$1M net worth"`
+- `goals`: `kind=income`, `target_amount=200000`, `target_date=2031-05-25`, `label="$200k/yr income"`
+- `career_position`: `current_comp=80000`, `target_comp=140000`, `target_date=2029-05-25`, `employer="current"`, `role="current"`
+- SMTP: fill real credentials in `.env` for weekly digest — `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
+
+### Gate 4 — Production deploy (after Gates 2 & 3)
+1. Provision Oracle Cloud Free ARM VM (if not already done)
+2. Update `CLAUDE.md` placeholders: target host, SSH user, domain
+3. Set GitHub Actions secrets: `SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH` (see `.github/workflows/deploy.yml`)
+4. `git push origin main` — CI runs automatically
+5. SSH to host: `git pull && docker compose pull && docker compose up -d`
+6. Configure Cloudflare Tunnel to forward to `localhost:8000`

@@ -9,7 +9,6 @@ from datetime import datetime, timedelta, timezone
 import jwt as pyjwt
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
 
 from auth import JWT_ALGORITHM
 from config import get_settings
@@ -23,14 +22,6 @@ def client() -> TestClient:
 
     with TestClient(app) as test_client:
         yield test_client
-
-
-@pytest.fixture
-def clean_users() -> None:
-    engine = create_engine(get_settings().database_url)
-    with engine.begin() as conn:
-        conn.execute(text("DELETE FROM users"))
-    engine.dispose()
 
 
 def test_register_first_succeeds_then_409(client: TestClient, clean_users: None) -> None:

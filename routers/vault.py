@@ -80,7 +80,7 @@ async def create_account(
     user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_account(session, body, actor=user)
+    obj = await crud.create_account(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("accounts", obj, [
@@ -108,7 +108,7 @@ async def get_account(account_id: int, session: Session, user: CurrentUser):
 async def update_account(
     account_id: int, body: AccountUpdate, session: Session, user: CurrentUser,
 ):
-    obj = await crud.update_account(session, account_id, body, actor=user)
+    obj = await crud.update_account(session, account_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "account not found")
     await session.commit()
@@ -117,7 +117,7 @@ async def update_account(
 
 @router.delete("/accounts/{account_id}", status_code=204)
 async def delete_account(account_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_account(session, account_id, actor=user)
+    deleted = await crud.delete_account(session, account_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "account not found")
     await session.commit()
@@ -132,7 +132,7 @@ async def create_card(
     body: CardCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_card(session, body, actor=user)
+    obj = await crud.create_card(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("cards", obj, [
@@ -158,7 +158,7 @@ async def get_card(card_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/cards/{card_id}", response_model=CardRead)
 async def update_card(card_id: int, body: CardUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_card(session, card_id, body, actor=user)
+    obj = await crud.update_card(session, card_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "card not found")
     await session.commit()
@@ -167,7 +167,7 @@ async def update_card(card_id: int, body: CardUpdate, session: Session, user: Cu
 
 @router.delete("/cards/{card_id}", status_code=204)
 async def delete_card(card_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_card(session, card_id, actor=user)
+    deleted = await crud.delete_card(session, card_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "card not found")
     await session.commit()
@@ -182,7 +182,7 @@ async def create_income_stream(
     body: IncomeStreamCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_income_stream(session, body, actor=user)
+    obj = await crud.create_income_stream(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("income-streams", obj, [
@@ -208,7 +208,7 @@ async def get_income_stream(stream_id: int, session: Session, user: CurrentUser)
 
 @router.patch("/income-streams/{stream_id}", response_model=IncomeStreamRead)
 async def update_income_stream(stream_id: int, body: IncomeStreamUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_income_stream(session, stream_id, body, actor=user)
+    obj = await crud.update_income_stream(session, stream_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "income stream not found")
     await session.commit()
@@ -217,7 +217,7 @@ async def update_income_stream(stream_id: int, body: IncomeStreamUpdate, session
 
 @router.delete("/income-streams/{stream_id}", status_code=204)
 async def delete_income_stream(stream_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_income_stream(session, stream_id, actor=user)
+    deleted = await crud.delete_income_stream(session, stream_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "income stream not found")
     await session.commit()
@@ -232,7 +232,7 @@ async def create_expense(
     body: ExpenseCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_expense(session, body, actor=user)
+    obj = await crud.create_expense(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("expenses", obj, [
@@ -258,7 +258,7 @@ async def get_expense(expense_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/expenses/{expense_id}", response_model=ExpenseRead)
 async def update_expense(expense_id: int, body: ExpenseUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_expense(session, expense_id, body, actor=user)
+    obj = await crud.update_expense(session, expense_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "expense not found")
     await session.commit()
@@ -267,7 +267,7 @@ async def update_expense(expense_id: int, body: ExpenseUpdate, session: Session,
 
 @router.delete("/expenses/{expense_id}", status_code=204)
 async def delete_expense(expense_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_expense(session, expense_id, actor=user)
+    deleted = await crud.delete_expense(session, expense_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "expense not found")
     await session.commit()
@@ -282,7 +282,7 @@ async def create_debt(
     body: DebtCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_debt(session, body, actor=user)
+    obj = await crud.create_debt(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("debts", obj, [
@@ -308,7 +308,7 @@ async def get_debt(debt_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/debts/{debt_id}", response_model=DebtRead)
 async def update_debt(debt_id: int, body: DebtUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_debt(session, debt_id, body, actor=user)
+    obj = await crud.update_debt(session, debt_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "debt not found")
     await session.commit()
@@ -317,7 +317,7 @@ async def update_debt(debt_id: int, body: DebtUpdate, session: Session, user: Cu
 
 @router.delete("/debts/{debt_id}", status_code=204)
 async def delete_debt(debt_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_debt(session, debt_id, actor=user)
+    deleted = await crud.delete_debt(session, debt_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "debt not found")
     await session.commit()
@@ -332,7 +332,7 @@ async def create_asset(
     body: AssetCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_asset(session, body, actor=user)
+    obj = await crud.create_asset(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("assets", obj, [
@@ -357,7 +357,7 @@ async def get_asset(asset_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/assets/{asset_id}", response_model=AssetRead)
 async def update_asset(asset_id: int, body: AssetUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_asset(session, asset_id, body, actor=user)
+    obj = await crud.update_asset(session, asset_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "asset not found")
     await session.commit()
@@ -366,7 +366,7 @@ async def update_asset(asset_id: int, body: AssetUpdate, session: Session, user:
 
 @router.delete("/assets/{asset_id}", status_code=204)
 async def delete_asset(asset_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_asset(session, asset_id, actor=user)
+    deleted = await crud.delete_asset(session, asset_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "asset not found")
     await session.commit()
@@ -381,7 +381,7 @@ async def create_real_estate(
     body: RealEstateCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_real_estate(session, body, actor=user)
+    obj = await crud.create_real_estate(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("real-estate", obj, [
@@ -407,7 +407,7 @@ async def get_real_estate(re_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/real-estate/{re_id}", response_model=RealEstateRead)
 async def update_real_estate(re_id: int, body: RealEstateUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_real_estate(session, re_id, body, actor=user)
+    obj = await crud.update_real_estate(session, re_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "real estate record not found")
     await session.commit()
@@ -416,7 +416,7 @@ async def update_real_estate(re_id: int, body: RealEstateUpdate, session: Sessio
 
 @router.delete("/real-estate/{re_id}", status_code=204)
 async def delete_real_estate(re_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_real_estate(session, re_id, actor=user)
+    deleted = await crud.delete_real_estate(session, re_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "real estate record not found")
     await session.commit()
@@ -473,7 +473,7 @@ async def create_business_income(
     body: BusinessIncomeCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_business_income(session, body, actor=user)
+    obj = await crud.create_business_income(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("business-income", obj, [
@@ -499,7 +499,7 @@ async def get_business_income(bi_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/business-income/{bi_id}", response_model=BusinessIncomeRead)
 async def update_business_income(bi_id: int, body: BusinessIncomeUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_business_income(session, bi_id, body, actor=user)
+    obj = await crud.update_business_income(session, bi_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "business income record not found")
     await session.commit()
@@ -508,7 +508,7 @@ async def update_business_income(bi_id: int, body: BusinessIncomeUpdate, session
 
 @router.delete("/business-income/{bi_id}", status_code=204)
 async def delete_business_income(bi_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_business_income(session, bi_id, actor=user)
+    deleted = await crud.delete_business_income(session, bi_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "business income record not found")
     await session.commit()
@@ -523,7 +523,7 @@ async def create_retirement_account(
     body: RetirementAccountCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_retirement_account(session, body, actor=user)
+    obj = await crud.create_retirement_account(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("retirement-accounts", obj, [
@@ -549,7 +549,7 @@ async def get_retirement_account(ra_id: int, session: Session, user: CurrentUser
 
 @router.patch("/retirement-accounts/{ra_id}", response_model=RetirementAccountRead)
 async def update_retirement_account(ra_id: int, body: RetirementAccountUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_retirement_account(session, ra_id, body, actor=user)
+    obj = await crud.update_retirement_account(session, ra_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "retirement account not found")
     await session.commit()
@@ -558,7 +558,7 @@ async def update_retirement_account(ra_id: int, body: RetirementAccountUpdate, s
 
 @router.delete("/retirement-accounts/{ra_id}", status_code=204)
 async def delete_retirement_account(ra_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_retirement_account(session, ra_id, actor=user)
+    deleted = await crud.delete_retirement_account(session, ra_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "retirement account not found")
     await session.commit()
@@ -573,7 +573,7 @@ async def create_goal(
     body: GoalCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_goal(session, body, actor=user)
+    obj = await crud.create_goal(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("goals", obj, [
@@ -599,7 +599,7 @@ async def get_goal(goal_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/goals/{goal_id}", response_model=GoalRead)
 async def update_goal(goal_id: int, body: GoalUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_goal(session, goal_id, body, actor=user)
+    obj = await crud.update_goal(session, goal_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "goal not found")
     await session.commit()
@@ -608,7 +608,7 @@ async def update_goal(goal_id: int, body: GoalUpdate, session: Session, user: Cu
 
 @router.delete("/goals/{goal_id}", status_code=204)
 async def delete_goal(goal_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_goal(session, goal_id, actor=user)
+    deleted = await crud.delete_goal(session, goal_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "goal not found")
     await session.commit()
@@ -623,7 +623,7 @@ async def create_career_position(
     body: CareerPositionCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_career_position(session, body, actor=user)
+    obj = await crud.create_career_position(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("career-position", obj, [
@@ -649,7 +649,7 @@ async def get_career_position(cp_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/career-position/{cp_id}", response_model=CareerPositionRead)
 async def update_career_position(cp_id: int, body: CareerPositionUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_career_position(session, cp_id, body, actor=user)
+    obj = await crud.update_career_position(session, cp_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "career position not found")
     await session.commit()
@@ -658,7 +658,7 @@ async def update_career_position(cp_id: int, body: CareerPositionUpdate, session
 
 @router.delete("/career-position/{cp_id}", status_code=204)
 async def delete_career_position(cp_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_career_position(session, cp_id, actor=user)
+    deleted = await crud.delete_career_position(session, cp_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "career position not found")
     await session.commit()
@@ -673,7 +673,7 @@ async def create_career_history(
     body: CareerHistoryCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_career_history(session, body, actor=user)
+    obj = await crud.create_career_history(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("career-history", obj, [
@@ -699,7 +699,7 @@ async def get_career_history(ch_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/career-history/{ch_id}", response_model=CareerHistoryRead)
 async def update_career_history(ch_id: int, body: CareerHistoryUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_career_history(session, ch_id, body, actor=user)
+    obj = await crud.update_career_history(session, ch_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "career history record not found")
     await session.commit()
@@ -708,7 +708,7 @@ async def update_career_history(ch_id: int, body: CareerHistoryUpdate, session: 
 
 @router.delete("/career-history/{ch_id}", status_code=204)
 async def delete_career_history(ch_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_career_history(session, ch_id, actor=user)
+    deleted = await crud.delete_career_history(session, ch_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "career history record not found")
     await session.commit()
@@ -723,7 +723,7 @@ async def create_comp_benchmark(
     body: CompBenchmarkCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_comp_benchmark(session, body, actor=user)
+    obj = await crud.create_comp_benchmark(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("comp-benchmarks", obj, [
@@ -749,7 +749,7 @@ async def get_comp_benchmark(cb_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/comp-benchmarks/{cb_id}", response_model=CompBenchmarkRead)
 async def update_comp_benchmark(cb_id: int, body: CompBenchmarkUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_comp_benchmark(session, cb_id, body, actor=user)
+    obj = await crud.update_comp_benchmark(session, cb_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "comp benchmark not found")
     await session.commit()
@@ -758,7 +758,7 @@ async def update_comp_benchmark(cb_id: int, body: CompBenchmarkUpdate, session: 
 
 @router.delete("/comp-benchmarks/{cb_id}", status_code=204)
 async def delete_comp_benchmark(cb_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_comp_benchmark(session, cb_id, actor=user)
+    deleted = await crud.delete_comp_benchmark(session, cb_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "comp benchmark not found")
     await session.commit()
@@ -773,7 +773,7 @@ async def create_side_income_economics(
     body: SideIncomeEconomicsCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_side_income_economics(session, body, actor=user)
+    obj = await crud.create_side_income_economics(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("side-income-economics", obj, [
@@ -800,7 +800,7 @@ async def get_side_income_economics(sie_id: int, session: Session, user: Current
 
 @router.patch("/side-income-economics/{sie_id}", response_model=SideIncomeEconomicsRead)
 async def update_side_income_economics(sie_id: int, body: SideIncomeEconomicsUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_side_income_economics(session, sie_id, body, actor=user)
+    obj = await crud.update_side_income_economics(session, sie_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "side income economics record not found")
     await session.commit()
@@ -809,7 +809,7 @@ async def update_side_income_economics(sie_id: int, body: SideIncomeEconomicsUpd
 
 @router.delete("/side-income-economics/{sie_id}", status_code=204)
 async def delete_side_income_economics(sie_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_side_income_economics(session, sie_id, actor=user)
+    deleted = await crud.delete_side_income_economics(session, sie_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "side income economics record not found")
     await session.commit()
@@ -824,7 +824,7 @@ async def create_tax_deduction(
     body: TaxDeduction1099Create, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_tax_deduction(session, body, actor=user)
+    obj = await crud.create_tax_deduction(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("tax-deductions", obj, [
@@ -849,7 +849,7 @@ async def get_tax_deduction(td_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/tax-deductions/{td_id}", response_model=TaxDeduction1099Read)
 async def update_tax_deduction(td_id: int, body: TaxDeduction1099Update, session: Session, user: CurrentUser):
-    obj = await crud.update_tax_deduction(session, td_id, body, actor=user)
+    obj = await crud.update_tax_deduction(session, td_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "tax deduction not found")
     await session.commit()
@@ -858,7 +858,7 @@ async def update_tax_deduction(td_id: int, body: TaxDeduction1099Update, session
 
 @router.delete("/tax-deductions/{td_id}", status_code=204)
 async def delete_tax_deduction(td_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_tax_deduction(session, td_id, actor=user)
+    deleted = await crud.delete_tax_deduction(session, td_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "tax deduction not found")
     await session.commit()
@@ -873,7 +873,7 @@ async def create_negotiation_milestone(
     body: NegotiationMilestoneCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_negotiation_milestone(session, body, actor=user)
+    obj = await crud.create_negotiation_milestone(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("negotiation-milestones", obj, [
@@ -899,7 +899,7 @@ async def get_negotiation_milestone(nm_id: int, session: Session, user: CurrentU
 
 @router.patch("/negotiation-milestones/{nm_id}", response_model=NegotiationMilestoneRead)
 async def update_negotiation_milestone(nm_id: int, body: NegotiationMilestoneUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_negotiation_milestone(session, nm_id, body, actor=user)
+    obj = await crud.update_negotiation_milestone(session, nm_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "negotiation milestone not found")
     await session.commit()
@@ -908,7 +908,7 @@ async def update_negotiation_milestone(nm_id: int, body: NegotiationMilestoneUpd
 
 @router.delete("/negotiation-milestones/{nm_id}", status_code=204)
 async def delete_negotiation_milestone(nm_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_negotiation_milestone(session, nm_id, actor=user)
+    deleted = await crud.delete_negotiation_milestone(session, nm_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "negotiation milestone not found")
     await session.commit()
@@ -923,7 +923,7 @@ async def create_net_worth_snapshot(
     body: NetWorthSnapshotCreate, session: Session, user: CurrentUser,
     hx_request: Annotated[str | None, Header()] = None,
 ):
-    obj = await crud.create_net_worth_snapshot(session, body, actor=user)
+    obj = await crud.create_net_worth_snapshot(session, body, actor=user.username)
     await session.commit()
     if _is_htmx(hx_request):
         html = _entity_row_html("net-worth-snapshots", obj, [
@@ -949,7 +949,7 @@ async def get_net_worth_snapshot(snap_id: int, session: Session, user: CurrentUs
 
 @router.patch("/net-worth-snapshots/{snap_id}", response_model=NetWorthSnapshotRead)
 async def update_net_worth_snapshot(snap_id: int, body: NetWorthSnapshotUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_net_worth_snapshot(session, snap_id, body, actor=user)
+    obj = await crud.update_net_worth_snapshot(session, snap_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "net worth snapshot not found")
     await session.commit()
@@ -958,7 +958,7 @@ async def update_net_worth_snapshot(snap_id: int, body: NetWorthSnapshotUpdate, 
 
 @router.delete("/net-worth-snapshots/{snap_id}", status_code=204)
 async def delete_net_worth_snapshot(snap_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_net_worth_snapshot(session, snap_id, actor=user)
+    deleted = await crud.delete_net_worth_snapshot(session, snap_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "net worth snapshot not found")
     await session.commit()

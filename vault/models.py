@@ -8,7 +8,7 @@ in crypto.py. Money is always Decimal, never float.
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, event, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, event, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -441,3 +441,48 @@ def _block_audit_log_mutation(mapper, connection, target) -> None:
 
 event.listen(AuditLog, "before_update", _block_audit_log_mutation)
 event.listen(AuditLog, "before_delete", _block_audit_log_mutation)
+
+
+class ImportBatch(Base):
+    __tablename__ = "import_batches"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    filename: Mapped[str] = mapped_column(Text, nullable=False)
+    file_format: Mapped[str] = mapped_column(String(8), nullable=False)
+    row_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    imported_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class CategoryMapping(Base):
+    __tablename__ = "category_mappings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pattern: Mapped[str] = mapped_column(String(256), unique=True, nullable=False)
+    category: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Transaction(Base):
+    """Promoted from Phase 2 stub to v1 for CSV/OFX import (Issue 4c)."""
+
+    __tablename__ = "transactions"
+    __table_args__ = (
+        UniqueConstraint("import_hash", name="uq_transactions_import_hash"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(precision=18, scale=4), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    import_batch_id: Mapped[int | None] = mapped_column(
+        ForeignKey("import_batches.id"), nullable=True
+    )
+    import_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -574,3 +574,42 @@ class SideIncomeEventUpdate(_Base):
 class SideIncomeEventRead(SideIncomeEventCreate):
     id: int
     created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Import (Issue 4c)
+# ---------------------------------------------------------------------------
+
+class ImportBatchRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    account_id: int
+    filename: str
+    file_format: str
+    row_count: int
+    imported_at: datetime
+
+
+class CategoryMappingCreate(BaseModel):
+    pattern: str
+    category: str
+
+
+class CategoryMappingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    pattern: str
+    category: str
+    created_at: datetime
+
+
+class TransactionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    account_id: int
+    occurred_at: datetime
+    amount: Decimal
+    description: Optional[str] = None
+    category: Optional[str] = None
+    import_batch_id: Optional[int] = None
+    import_hash: Optional[str] = None

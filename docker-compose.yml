@@ -37,6 +37,11 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    environment:
+      # Override localhost URLs from .env — inside Docker, services are reachable
+      # by their service names, not localhost.
+      DATABASE_URL: postgresql+psycopg://cfo:cfo@postgres:5432/personal_cfo
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

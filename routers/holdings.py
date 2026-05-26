@@ -40,7 +40,7 @@ CurrentUser = Annotated[str, Depends(get_current_user)]
 
 @router.post("", response_model=HoldingsRead, status_code=201)
 async def create_holding(body: HoldingsCreate, session: Session, user: CurrentUser):
-    obj = await crud.create_holding(session, body, actor=user)
+    obj = await crud.create_holding(session, body, actor=user.username)
     await session.commit()
     return obj
 
@@ -60,7 +60,7 @@ async def get_holding(holding_id: int, session: Session, user: CurrentUser):
 
 @router.patch("/{holding_id}", response_model=HoldingsRead)
 async def update_holding(holding_id: int, body: HoldingsUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_holding(session, holding_id, body, actor=user)
+    obj = await crud.update_holding(session, holding_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "holding not found")
     await session.commit()
@@ -69,7 +69,7 @@ async def update_holding(holding_id: int, body: HoldingsUpdate, session: Session
 
 @router.delete("/{holding_id}", status_code=204)
 async def delete_holding(holding_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_holding(session, holding_id, actor=user)
+    deleted = await crud.delete_holding(session, holding_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "holding not found")
     await session.commit()
@@ -134,7 +134,7 @@ side_event_router = APIRouter(prefix="/side-income-events", tags=["side-income-e
 
 @side_event_router.post("", response_model=SideIncomeEventRead, status_code=201)
 async def create_side_income_event(body: SideIncomeEventCreate, session: Session, user: CurrentUser):
-    obj = await crud.create_side_income_event(session, body, actor=user)
+    obj = await crud.create_side_income_event(session, body, actor=user.username)
     await session.commit()
     return obj
 
@@ -154,7 +154,7 @@ async def get_side_income_event(event_id: int, session: Session, user: CurrentUs
 
 @side_event_router.patch("/{event_id}", response_model=SideIncomeEventRead)
 async def update_side_income_event(event_id: int, body: SideIncomeEventUpdate, session: Session, user: CurrentUser):
-    obj = await crud.update_side_income_event(session, event_id, body, actor=user)
+    obj = await crud.update_side_income_event(session, event_id, body, actor=user.username)
     if obj is None:
         raise HTTPException(404, "side income event not found")
     await session.commit()
@@ -163,7 +163,7 @@ async def update_side_income_event(event_id: int, body: SideIncomeEventUpdate, s
 
 @side_event_router.delete("/{event_id}", status_code=204)
 async def delete_side_income_event(event_id: int, session: Session, user: CurrentUser):
-    deleted = await crud.delete_side_income_event(session, event_id, actor=user)
+    deleted = await crud.delete_side_income_event(session, event_id, actor=user.username)
     if not deleted:
         raise HTTPException(404, "side income event not found")
     await session.commit()
