@@ -1,0 +1,37 @@
+name: Setup Cloudflare Tunnel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup-tunnel:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install and start cloudflared tunnel
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+
+            if systemctl is-active --quiet cloudflared; then
+              echo "cloudflared already running — skipping install"
+              exit 0
+            fi
+
+            # Download ARM64 binary
+            curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb \
+              -o /tmp/cloudflared.deb
+            sudo dpkg -i /tmp/cloudflared.deb
+            rm /tmp/cloudflared.deb
+
+            # Install as a systemd service using the tunnel token
+            sudo cloudflared service install ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+            sudo systemctl enable cloudflared
+            sudo systemctl start cloudflared
+
+            echo "Tunnel status:"
+            sudo systemctl status cloudflared --no-pager
