@@ -1,0 +1,87 @@
+name: Debug SSH
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug-ssh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "1 — TCP reachability (port 22)"
+        run: |
+          echo "Host: ${{ secrets.DEPLOY_HOST }}"
+          echo "User: ${{ secrets.DEPLOY_USER }}"
+          echo ""
+          echo "--- nc port scan ---"
+          nc -zv -w 10 "${{ secrets.DEPLOY_HOST }}" 22 \
+            && echo "RESULT: port 22 OPEN" \
+            || echo "RESULT: port 22 UNREACHABLE (connection refused or dropped)"
+
+      - name: "2 — SSH host-key scan"
+        run: |
+          echo "--- ssh-keyscan (shows what algorithms the server advertises) ---"
+          ssh-keyscan -v -T 15 "${{ secrets.DEPLOY_HOST }}" 2>&1 \
+            || echo "RESULT: ssh-keyscan failed (server unreachable or not responding)"
+
+      - name: "3 — Validate SSH_PRIVATE_KEY secret format"
+        run: |
+          printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+
+          LINE_COUNT=$(wc -l < /tmp/deploy_key)
+          echo "Key line count: $LINE_COUNT"
+
+          if [ "$LINE_COUNT" -lt 3 ]; then
+            echo "WARNING: key has $LINE_COUNT line(s) — newlines were likely stripped when"
+            echo "  the secret was saved. Re-paste with newlines intact."
+          else
+            echo "Line count looks OK."
+          fi
+
+          echo ""
+          echo "--- First/last line (header/footer check) ---"
+          head -1 /tmp/deploy_key
+          tail -1 /tmp/deploy_key
+
+          echo ""
+          echo "--- Key fingerprint (ssh-keygen -l) ---"
+          ssh-keygen -l -f /tmp/deploy_key 2>&1 \
+            && echo "RESULT: key parses OK" \
+            || echo "RESULT: key INVALID — bad format or wrong passphrase"
+
+          echo ""
+          echo "--- Public key derived from private key ---"
+          ssh-keygen -y -f /tmp/deploy_key 2>&1 | head -c 80
+          echo ""
+
+          rm -f /tmp/deploy_key
+
+      - name: "4 — Full verbose SSH handshake attempt"
+        run: |
+          printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+
+          echo "--- ssh -vvv (watch for where it dies) ---"
+          # BatchMode=yes: don't prompt for passwords; exits cleanly on auth fail
+          # exit 0 so this step never blocks — we read the output instead
+          ssh -vvv \
+            -i /tmp/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -p 22 \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            'echo "CONNECTED as $(whoami) on $(hostname)"' 2>&1 \
+            || SSH_EXIT=$?
+
+          rm -f /tmp/deploy_key
+
+          echo ""
+          if [ "${SSH_EXIT:-0}" -eq 0 ]; then
+            echo "RESULT: SSH connection SUCCEEDED"
+          else
+            echo "RESULT: SSH connection FAILED (exit $SSH_EXIT)"
+            echo "Look above for the last 'debug1/2/3' line before the error —"
+            echo "that tells you exactly where the handshake died."
+          fi
