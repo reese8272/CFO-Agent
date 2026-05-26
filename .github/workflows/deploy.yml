@@ -7,6 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: Production
     needs: []  # add 'test' from ci.yml once you merge CI into a reusable workflow
 
     steps:
@@ -17,7 +18,7 @@ jobs:
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
