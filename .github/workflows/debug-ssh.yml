@@ -11,18 +11,22 @@ jobs:
     steps:
       - name: "1 — TCP reachability (port 22)"
         run: |
-          echo "Host: ${{ secrets.DEPLOY_HOST }}"
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST=$(printf '%s' "$HOST" | tr -d '[:space:]')
+          echo "Host: $HOST"
           echo "User: ${{ secrets.DEPLOY_USER }}"
           echo ""
           echo "--- nc port scan ---"
-          nc -zv -w 10 "${{ secrets.DEPLOY_HOST }}" 22 \
+          nc -zv -w 10 "$HOST" 22 \
             && echo "RESULT: port 22 OPEN" \
             || echo "RESULT: port 22 UNREACHABLE (connection refused or dropped)"
 
       - name: "2 — SSH host-key scan"
         run: |
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST=$(printf '%s' "$HOST" | tr -d '[:space:]')
           echo "--- ssh-keyscan (shows what algorithms the server advertises) ---"
-          ssh-keyscan -v -T 15 "${{ secrets.DEPLOY_HOST }}" 2>&1 \
+          ssh-keyscan -v -T 15 "$HOST" 2>&1 \
             || echo "RESULT: ssh-keyscan failed (server unreachable or not responding)"
 
       - name: "3 — Validate SSH_PRIVATE_KEY secret format"
@@ -63,6 +67,11 @@ jobs:
           printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
 
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          HOST=$(printf '%s' "$HOST" | tr -d '[:space:]')
+          USER="${{ secrets.DEPLOY_USER }}"
+          USER=$(printf '%s' "$USER" | tr -d '[:space:]')
+
           echo "--- ssh -vvv (watch for where it dies) ---"
           # BatchMode=yes: don't prompt for passwords; exits cleanly on auth fail
           # exit 0 so this step never blocks — we read the output instead
@@ -72,7 +81,7 @@ jobs:
             -o BatchMode=yes \
             -o ConnectTimeout=15 \
             -p 22 \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "$USER@$HOST" \
             'echo "CONNECTED as $(whoami) on $(hostname)"' 2>&1 \
             || SSH_EXIT=$?
 
