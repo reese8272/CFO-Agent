@@ -750,6 +750,7 @@
       </div>
 
       <!-- Progress bar -->
+      <div id="form-content">
       <div class="progress-wrap">
         <div class="progress-steps" id="progress-steps">
           <div class="step-item" data-step="1" onclick="jumpToStep(1)">
@@ -1196,6 +1197,7 @@
         </div>
       </div>
 
+      </div><!-- /#form-content -->
     </div>
   </div>
 
@@ -2292,18 +2294,9 @@
       const isChat = mode === 'chat';
       document.getElementById('mode-form-btn').classList.toggle('active', !isChat);
       document.getElementById('mode-chat-btn').classList.toggle('active', isChat);
-
-      // Show/hide the progress bar and section navigator (form-only)
-      const progressBar = document.querySelector('.progress-bar-wrap');
-      if (progressBar) progressBar.style.display = isChat ? 'none' : '';
-
-      // Show/hide sections
-      document.querySelectorAll('.section-card').forEach(el => { el.style.display = isChat ? 'none' : ''; });
-      document.querySelector('.nav-buttons') && (document.querySelector('.nav-buttons').style.display = isChat ? 'none' : '');
-      document.getElementById('global-error').style.display = 'none';
-
+      document.getElementById('form-content').style.display = isChat ? 'none' : '';
       document.getElementById('interview-view').style.display = isChat ? 'block' : 'none';
-
+      document.getElementById('global-error').style.display = 'none';
       if (isChat && document.getElementById('iv-messages').children.length === 0) {
         ivStart();
       }

@@ -682,13 +682,21 @@ async def intake_interview(
 ) -> InterviewTurnResponse:
     client = get_anthropic()
     history = list(body.history)
-    history.append({"role": "user", "content": body.message})
+
+    # Empty message on first turn = opening greeting; don't add a blank user turn
+    if body.message.strip():
+        history.append({"role": "user", "content": body.message})
+    elif history:
+        # Non-empty history but empty message — nothing to do
+        pass
+    # If history is empty and message is empty, just call Claude with no prior turns
+    # so it produces the opening greeting
 
     response = await client.messages.create(
         model=_MODEL,
         max_tokens=512,
         system=_INTERVIEW_SYSTEM,
-        messages=history,
+        messages=history if history else [{"role": "user", "content": "Hello"}],
     )
 
     reply_text: str = response.content[0].text if response.content else ""
