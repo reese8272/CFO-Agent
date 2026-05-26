@@ -21,11 +21,40 @@ jobs:
           key: ${{ secrets.SSH_KEY_ORIGINAL }}
           script: |
             set -e
+
+            # Bootstrap repo on first deploy
             if [ ! -d "${{ secrets.DEPLOY_PATH }}/.git" ]; then
               git clone https://github.com/reese8272/CFO-Agent.git ${{ secrets.DEPLOY_PATH }}
             fi
+
             cd ${{ secrets.DEPLOY_PATH }}
             git pull origin main
+
+            # Write .env from secrets (safe to re-run — overwrites each deploy)
+            cat > .env <<'ENVEOF'
+            ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+            DATABASE_URL=postgresql+psycopg://cfo:cfo@postgres:5432/personal_cfo
+            REDIS_URL=redis://redis:6379/0
+            JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+            VAULT_ENCRYPTION_KEY=${{ secrets.VAULT_ENCRYPTION_KEY }}
+            CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+            SMTP_HOST=
+            SMTP_PORT=587
+            SMTP_USER=
+            SMTP_PASSWORD=
+            SMTP_FROM=
+            DIGEST_RECIPIENT=reesepludwick@gmail.com
+            JWT_EXPIRY_MINUTES=60
+            LLM_TIMEOUT_SECONDS=120
+            ENV=production
+            LANGGRAPH_CHECKPOINT_BACKEND=redis
+            ALERT_DRIFT_PCT_THRESHOLD=25
+            ALERT_INCOME_DROP_PCT_THRESHOLD=30
+            POSTGRES_USER=cfo
+            POSTGRES_PASSWORD=cfo
+            POSTGRES_DB=personal_cfo
+            ENVEOF
+
             docker compose pull
             docker compose up -d --remove-orphans
             docker compose exec -T app alembic upgrade head
