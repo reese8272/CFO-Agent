@@ -9,21 +9,22 @@
   <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   <style>
     :root {
-      --bg: #F3F4F0; --surface: #FFFFFF; --border: #D4DDD6; --border-light: #E8EDE9;
+      --bg: #F3F4F0; --surface: #252B28; --surface-text: #C8D8CC; --surface-muted: #7A9A87; --surface-border: #363F3B;
+      --border: #D4DDD6; --border-light: #E8EDE9;
       --sage-xs: #EEF3EF; --sage-light: #B8CCBB; --sage: #7A9B83; --sage-dark: #4D5E58;
       --text: #2E3D36; --text-muted: #7A9585; --text-dim: #A8BDB2;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 2.5rem; max-width: 680px; margin: auto; min-height: 100vh; font-size: 14px; }
-    h1 { font-size: 1.1rem; font-weight: 600; color: var(--sage-dark); letter-spacing: -0.02em; margin-bottom: 0.2rem; }
+    h1 { font-size: 1.1rem; font-weight: 600; color: var(--text); letter-spacing: -0.02em; margin-bottom: 0.2rem; }
     .subtitle { color: var(--text-dim); font-size: 0.8rem; margin-bottom: 2rem; }
     .tabs { display: flex; border-bottom: 1px solid var(--border-light); margin-bottom: 1.75rem; }
     .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 0.5rem 1.1rem; font-family: 'Inter', sans-serif; font-size: 0.825rem; color: var(--text-dim); cursor: pointer; transition: color 0.12s; }
     .tab-btn.active { color: var(--sage-dark); border-bottom-color: var(--sage); font-weight: 500; }
     .tab-btn:hover { color: var(--text); }
     .panel { display: none; } .panel.active { display: block; }
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; }
-    label { display: block; font-size: 0.67rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.3rem; }
+    .card { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; }
+    label { display: block; font-size: 0.67rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--surface-muted); margin-bottom: 0.3rem; }
     input[type="number"], input[type="text"] {
       width: 100%; padding: 0.45rem 0.65rem; border: 1px solid var(--border);
       border-radius: 8px; font-size: 0.825rem; font-family: 'Inter', sans-serif;
@@ -34,9 +35,9 @@
     .btn { display: inline-block; padding: 0.45rem 1.25rem; background: var(--sage-dark); color: var(--surface); border: none; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-family: 'Inter', sans-serif; font-weight: 500; transition: background 0.15s; }
     .btn:hover { background: var(--sage); }
     .btn:disabled { background: var(--border); color: var(--text-dim); cursor: wait; }
-    .result-card { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--sage); border-radius: 12px; padding: 1rem 1.25rem; margin-top: 1rem; }
-    .result-card h3 { font-size: 0.825rem; font-weight: 500; color: var(--sage-dark); margin-bottom: 0.5rem; }
-    .result-card p { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem; line-height: 1.6; }
+    .result-card { background: var(--surface); border: 1px solid var(--surface-border); border-left: 3px solid var(--sage); border-radius: 12px; padding: 1rem 1.25rem; margin-top: 1rem; }
+    .result-card h3 { font-size: 0.825rem; font-weight: 500; color: var(--sage-light); margin-bottom: 0.5rem; }
+    .result-card p { font-size: 0.8rem; color: var(--surface-text); margin-bottom: 0.35rem; line-height: 1.6; }
     .disclaimer { background: var(--sage-xs); border: 1px solid var(--sage-light); border-radius: 8px; padding: 0.65rem 0.9rem; font-size: 0.73rem; color: var(--text-muted); margin-top: 0.75rem; line-height: 1.5; }
     #status { font-size: 0.775rem; color: var(--text-dim); margin-bottom: 0.5rem; }
     .htmx-indicator { display: none; } .htmx-request .htmx-indicator { display: inline; }

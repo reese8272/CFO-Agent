@@ -8,7 +8,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #F3F4F0; --surface: #FFFFFF; --border: #D4DDD6; --border-light: #E8EDE9;
+      --bg: #F3F4F0; --surface: #252B28; --surface-text: #C8D8CC; --surface-muted: #7A9A87; --surface-border: #363F3B;
+      --border: #D4DDD6; --border-light: #E8EDE9;
       --sage-xs: #EEF3EF; --sage-light: #B8CCBB; --sage: #7A9B83; --sage-dark: #4D5E58;
       --text: #2E3D36; --text-muted: #7A9585; --text-dim: #A8BDB2;
     }
@@ -19,8 +20,8 @@
     .btn { display: inline-block; padding: 0.45rem 1.25rem; background: var(--sage-dark); color: var(--surface); border: none; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-family: 'Inter', sans-serif; font-weight: 500; margin-bottom: 1.25rem; transition: background 0.15s; }
     .btn:hover { background: var(--sage); }
     .btn:disabled { background: var(--border); color: var(--text-dim); cursor: wait; }
-    #digest-body { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem; line-height: 1.75; font-size: 0.875rem; min-height: 200px; color: var(--text); }
-    #digest-body h1, #digest-body h2, #digest-body h3 { font-family: 'Inter', sans-serif; font-weight: 500; color: var(--sage-dark); margin: 1.25rem 0 0.4rem; letter-spacing: -0.01em; }
+    #digest-body { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 12px; padding: 1.75rem; line-height: 1.75; font-size: 0.875rem; min-height: 200px; color: var(--surface-text); }
+    #digest-body h1, #digest-body h2, #digest-body h3 { font-family: 'Inter', sans-serif; font-weight: 500; color: var(--sage-light); margin: 1.25rem 0 0.4rem; letter-spacing: -0.01em; }
     #digest-body hr { border: none; border-top: 1px solid var(--border-light); margin: 1rem 0; }
     #status { font-size: 0.775rem; color: var(--text-dim); margin-bottom: 0.65rem; }
     .error { color: #A05050; }
