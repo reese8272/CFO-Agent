@@ -4,6 +4,8 @@ All endpoints require authentication. JSON is the canonical response format.
 HTMX callers (HX-Request header present) receive an HTML partial instead,
 allowing the vault UI to do in-place list refreshes without a full page reload.
 """
+import asyncio
+import html as html_mod
 import logging
 from typing import Annotated
 
@@ -53,7 +55,7 @@ def _is_htmx(hx_request: str | None) -> bool:
 def _entity_row_html(entity_type: str, obj: object, fields: list[tuple[str, str]]) -> str:
     """Render a minimal HTML table row for HTMX swap responses."""
     cells = "".join(
-        f'<td class="px-3 py-2 text-sm">{getattr(obj, attr, "") or ""}</td>'
+        f'<td class="px-3 py-2 text-sm">{html_mod.escape(str(getattr(obj, attr, "") or ""))}</td>'
         for label, attr in fields
     )
     return (
@@ -448,11 +450,13 @@ async def refresh_real_estate_values(session: Session, user: CurrentUser) -> dic
         if not prop.address:
             skipped.append(prop.id)
             continue
-        estimate = fetch_property_estimate(prop.address, settings.rentcast_api_key)
+        estimate = await asyncio.to_thread(fetch_property_estimate, prop.address, settings.rentcast_api_key)
         if estimate is None:
             skipped.append(prop.id)
             continue
-        prop.current_value = estimate.price
+        await crud.update_real_estate(
+            session, prop.id, RealEstateUpdate(current_value=estimate.price), actor=user.username
+        )
         updated.append(prop.id)
 
     await session.commit()

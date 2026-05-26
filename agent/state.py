@@ -59,6 +59,9 @@ class AgentState(TypedDict):
     trajectory_note: str
     net_worth_pace: NotRequired[dict]
 
+    # Pre-computed financial snapshot from intake (set by Retrieval)
+    financial_snapshot: dict | None
+
     # Synthesizer terminal output
     recommendation: str
     reasoning: str

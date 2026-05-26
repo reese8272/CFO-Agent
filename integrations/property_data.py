@@ -50,13 +50,13 @@ def fetch_property_estimate(address: str, api_key: str) -> PropertyEstimate | No
             logger.error("rentcast: invalid API key")
             return None
         if resp.status_code == 404:
-            logger.warning("rentcast: no estimate found for address %r", address)
+            logger.warning("rentcast: no estimate found for requested address")
             return None
         resp.raise_for_status()
         data = resp.json()
         price = data.get("price")
         if price is None:
-            logger.warning("rentcast: response missing 'price' field for %r", address)
+            logger.warning("rentcast: response missing 'price' field")
             return None
         return PropertyEstimate(
             price=Decimal(str(price)),
@@ -64,5 +64,5 @@ def fetch_property_estimate(address: str, api_key: str) -> PropertyEstimate | No
             price_range_high=Decimal(str(data["priceRangeHigh"])) if data.get("priceRangeHigh") else None,
         )
     except Exception:
-        logger.warning("rentcast estimate failed for address %r", address)
+        logger.warning("rentcast estimate failed")
         return None

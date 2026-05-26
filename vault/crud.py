@@ -922,4 +922,3 @@ async def delete_side_income_event(session: AsyncSession, event_id: int, actor: 
     await write_audit_log(session, actor, "delete", "side_income_event", obj.id, before, None)
     await session.delete(obj)
     return True
-    return True

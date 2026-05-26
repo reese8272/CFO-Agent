@@ -8,7 +8,7 @@ in crypto.py. Money is always Decimal, never float.
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, event, func
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text, event, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -472,13 +472,18 @@ class Transaction(Base):
 
     __tablename__ = "transactions"
     __table_args__ = (
-        UniqueConstraint("import_hash", name="uq_transactions_import_hash"),
+        Index(
+            "ix_transactions_import_hash_notnull",
+            "import_hash",
+            unique=True,
+            postgresql_where=text("import_hash IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    amount: Mapped[Decimal] = mapped_column(Numeric(precision=18, scale=4), nullable=False)
+    amount: Mapped[Decimal] = mapped_column("amount_encrypted", EncryptedNumeric(), nullable=False)
     description: Mapped[str | None] = mapped_column(String(512), nullable=True)
     category: Mapped[str | None] = mapped_column(String(64), nullable=True)
     import_batch_id: Mapped[int | None] = mapped_column(

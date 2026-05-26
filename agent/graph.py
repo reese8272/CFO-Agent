@@ -138,14 +138,8 @@ def build_graph() -> object:
     g.add_edge("synthesizer", "persist")
     g.add_edge("persist", END)
 
-    try:
-        compiled = g.compile()
-        logger.debug("langgraph compiled without checkpointer")
-        return compiled
-    except Exception:
-        logger.debug("compile without checkpointer failed; falling back to MemorySaver")
-        from langgraph.checkpoint.memory import MemorySaver
-        return g.compile(checkpointer=MemorySaver())
+    compiled = g.compile()
+    return compiled
 
 
 # Module-level compiled graph — built once at import time

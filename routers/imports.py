@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db import get_session
 from auth import get_current_user
+from vault.crud import write_audit_log
 from vault.models import Transaction, ImportBatch, CategoryMapping
 from vault.schemas import ImportBatchRead, CategoryMappingCreate, CategoryMappingRead
 from integrations.csv_import import parse_csv, parse_ofx, compute_hash, _apply_mappings_raw
@@ -18,8 +19,9 @@ CurrentUser = Annotated[str, Depends(get_current_user)]
 async def import_transactions(
     account_id: int,
     file: UploadFile = File(...),
-    session: Session = None,
-    _user: CurrentUser = None,
+    *,
+    session: Session,
+    _user: CurrentUser,
 ):
     content = await file.read()
     fname = file.filename or "upload"
@@ -42,6 +44,7 @@ async def import_transactions(
     )
     session.add(batch)
     await session.flush()
+    await write_audit_log(session, _user.username, "create", "import_batch", batch.id, None, {"filename": fname, "format": file_format})
 
     inserted = 0
     for row in rows:
@@ -60,6 +63,8 @@ async def import_transactions(
             import_batch_id=batch.id,
         )
         session.add(txn)
+        await session.flush()
+        await write_audit_log(session, _user.username, "create", "transaction", txn.id, None, {"import_batch_id": batch.id})
         inserted += 1
 
     batch.row_count = inserted

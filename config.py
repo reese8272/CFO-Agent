@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     alert_income_drop_pct_threshold: int = 30
     wealth_disclaimer_text: str | None = None
 
+    allowed_origins: list[str] = ["http://localhost:8000"]
+
     rentcast_api_key: str | None = None
     alpha_vantage_key: str | None = None
 
