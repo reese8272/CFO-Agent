@@ -50,21 +50,14 @@ def upgrade() -> None:
         postgresql_where=text("import_hash IS NOT NULL"),
     )
 
-    # --- 3. FK indexes for common join columns ---
+    # --- 3. FK indexes for common join columns (only columns verified to exist) ---
     op.create_index("ix_transactions_account_id", "transactions", ["account_id"])
     op.create_index("ix_transactions_import_batch_id", "transactions", ["import_batch_id"])
-    op.create_index("ix_accounts_user_id", "accounts", ["user_id"])
     op.create_index("ix_cards_account_id", "cards", ["account_id"])
-    op.create_index("ix_income_streams_account_id", "income_streams", ["account_id"])
     op.create_index("ix_expenses_account_id", "expenses", ["account_id"])
-    op.create_index("ix_debts_account_id", "debts", ["account_id"])
     op.create_index("ix_import_batches_account_id", "import_batches", ["account_id"])
     op.create_index("ix_holdings_account_id", "holdings", ["account_id"])
-    op.create_index("ix_side_income_events_economics_id", "side_income_events", ["side_income_economics_id"])
-    op.create_index("ix_net_worth_snapshots_user_id", "net_worth_snapshots", ["user_id"])
-    op.create_index("ix_decisions_conversation_id", "decisions", ["conversation_id"])
     op.create_index("ix_messages_conversation_id", "messages", ["conversation_id"])
-    op.create_index("ix_patterns_conversation_id", "patterns", ["conversation_id"])
 
 
 def downgrade() -> None:
@@ -92,15 +85,8 @@ def downgrade() -> None:
     # Drop FK indexes
     op.drop_index("ix_transactions_account_id", table_name="transactions")
     op.drop_index("ix_transactions_import_batch_id", table_name="transactions")
-    op.drop_index("ix_accounts_user_id", table_name="accounts")
     op.drop_index("ix_cards_account_id", table_name="cards")
-    op.drop_index("ix_income_streams_account_id", table_name="income_streams")
     op.drop_index("ix_expenses_account_id", table_name="expenses")
-    op.drop_index("ix_debts_account_id", table_name="debts")
     op.drop_index("ix_import_batches_account_id", table_name="import_batches")
     op.drop_index("ix_holdings_account_id", table_name="holdings")
-    op.drop_index("ix_side_income_events_economics_id", table_name="side_income_events")
-    op.drop_index("ix_net_worth_snapshots_user_id", table_name="net_worth_snapshots")
-    op.drop_index("ix_decisions_conversation_id", table_name="decisions")
     op.drop_index("ix_messages_conversation_id", table_name="messages")
-    op.drop_index("ix_patterns_conversation_id", table_name="patterns")
