@@ -1511,7 +1511,15 @@
     // ══════════════════════════════════════════════════
     function showError(msg) {
       const el = document.getElementById('global-error');
-      el.textContent = msg;
+      let text;
+      if (Array.isArray(msg)) {
+        text = msg.map(e => e.msg || (e.loc ? e.loc.join('.') + ': ' + e.msg : JSON.stringify(e))).join(' · ');
+      } else if (msg && typeof msg === 'object') {
+        text = JSON.stringify(msg);
+      } else {
+        text = String(msg || 'An error occurred.');
+      }
+      el.textContent = text;
       el.classList.add('visible');
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -1917,11 +1925,36 @@
 
     function buildPayload() {
       const d = sectionData;
+      const s3 = d[3] || {};
+      const c = s3.career || {};
+      const pi = s3.primary_income || {};
+
+      // Map section-3 saved fields → CareerPayload schema
+      const careerPayload = c.employer ? {
+        current_role: c.title || 'Unknown',
+        current_employer: c.employer,
+        current_base_salary: pi.base_salary || null,
+        current_bonus: pi.bonus || null,
+        current_equity_annual: pi.equity || null,
+        target_comp: c.target_comp || null,
+        target_date: c.target_date || null,
+      } : null;
+
+      // Map section-3 saved fields → PrimaryIncomePayload schema
+      // typical_gross_amount = monthly gross (annual total comp / 12)
+      const totalComp = pi.total_comp || (pi.base_salary || 0) + (pi.bonus || 0) + (pi.equity || 0);
+      const primaryIncomePayload = totalComp ? {
+        source: (c.employer ? c.employer + (c.title ? ' — ' + c.title : '') : 'Primary Job'),
+        source_type: 'w2',
+        cadence: 'biweekly',
+        typical_gross_amount: totalComp ? totalComp / 12 : null,
+      } : null;
+
       return {
         life_context: d[1] || {},
         goals: buildGoals(d[2]),
-        career: (d[3] || {}).career || {},
-        primary_income: (d[3] || {}).primary_income || {},
+        career: careerPayload,
+        primary_income: primaryIncomePayload,
         side_incomes: ((d[4] || {}).streams) || [],
         accounts: ((d[5] || {}).accounts) || [],
         monthly_spend: (d[5] || {}).monthly_spend || null,
@@ -1936,13 +1969,14 @@
     function buildGoals(s2) {
       if (!s2) return [];
       const goals = [];
+      const yr = new Date().getFullYear();
       const g5 = s2.goals_5yr || {};
       const g10 = s2.goals_10yr || {};
-      if (g5.net_worth) goals.push({ horizon: '5yr', kind: 'net_worth', target: g5.net_worth });
-      if (g5.annual_income) goals.push({ horizon: '5yr', kind: 'annual_income', target: g5.annual_income });
-      if (g5.monthly_passive) goals.push({ horizon: '5yr', kind: 'monthly_passive', target: g5.monthly_passive });
-      if (g10.net_worth) goals.push({ horizon: '10yr', kind: 'net_worth', target: g10.net_worth });
-      if (g10.annual_income) goals.push({ horizon: '10yr', kind: 'annual_income', target: g10.annual_income });
+      if (g5.net_worth)     goals.push({ title: '5-year net worth target',       kind: 'net_worth',      target_amount: g5.net_worth,     deadline: (yr+5) + '-01-01', priority: 1 });
+      if (g5.annual_income) goals.push({ title: '5-year annual income target',    kind: 'income',         target_amount: g5.annual_income, deadline: (yr+5) + '-01-01', priority: 2 });
+      if (g5.monthly_passive) goals.push({ title: '5-year passive income target', kind: 'passive_income', target_amount: g5.monthly_passive, deadline: (yr+5) + '-01-01', priority: 3 });
+      if (g10.net_worth)    goals.push({ title: '10-year net worth target',       kind: 'net_worth',      target_amount: g10.net_worth,    deadline: (yr+10) + '-01-01', priority: 4 });
+      if (g10.annual_income) goals.push({ title: '10-year annual income target',  kind: 'income',         target_amount: g10.annual_income, deadline: (yr+10) + '-01-01', priority: 5 });
       return goals;
     }
 
@@ -1959,68 +1993,74 @@
     // Render results
     // ══════════════════════════════════════════════════
     function renderResults(data) {
-      const snap = data.snapshot || {};
+      // API returns the FinancialSnapshot directly (flat), not nested under .snapshot
+      // analysis_jsonb holds risk_flags, opportunity_flags, goals_progress
+      const snap = data;
+      const analysis = snap.analysis_jsonb || {};
 
       // Net worth
-      const nw = snap.net_worth || 0;
+      const nw = parseFloat(snap.net_worth) || 0;
       const nwEl = document.getElementById('r_net_worth');
       nwEl.textContent = formatDollar(nw);
       nwEl.className = 'net-worth-value' + (nw < 0 ? ' negative' : '');
 
       // Metrics
-      setText('r_alloc_step', snap.allocation_step ? 'Step ' + snap.allocation_step : '—');
-      setText('r_income_step', snap.income_step ? 'Step ' + snap.income_step : '—');
+      setText('r_alloc_step', snap.allocation_step != null ? 'Step ' + snap.allocation_step : '—');
+      setText('r_income_step', snap.income_step != null ? 'Step ' + snap.income_step : '—');
 
-      const savingsRate = snap.savings_rate;
+      // savings_rate_pct is already a percentage value (e.g. 18.50)
+      const srPct = snap.savings_rate_pct != null ? parseFloat(snap.savings_rate_pct) : null;
       const savingsEl = document.getElementById('r_savings_rate');
-      if (savingsRate != null) {
-        savingsEl.textContent = (savingsRate * 100).toFixed(1) + '%';
-        savingsEl.className = 'metric-value ' + (savingsRate >= 0.2 ? 'good' : savingsRate >= 0.1 ? 'warn' : 'bad');
+      if (srPct != null) {
+        savingsEl.textContent = srPct.toFixed(1) + '%';
+        savingsEl.className = 'metric-value ' + (srPct >= 20 ? 'good' : srPct >= 10 ? 'warn' : 'bad');
       } else { savingsEl.textContent = '—'; }
 
-      const dti = snap.debt_to_income;
+      // debt_to_income_ratio is a ratio (e.g. 0.34) — display as percentage
+      const dti = snap.debt_to_income_ratio != null ? parseFloat(snap.debt_to_income_ratio) : null;
       const dtiEl = document.getElementById('r_dti');
       if (dti != null) {
         dtiEl.textContent = (dti * 100).toFixed(1) + '%';
         dtiEl.className = 'metric-value ' + (dti < 0.36 ? 'good' : dti < 0.5 ? 'warn' : 'bad');
       } else { dtiEl.textContent = '—'; }
 
-      const efMonths = snap.emergency_fund_months;
+      // emergency_months_covered is already in months
+      const efMonths = snap.emergency_months_covered != null ? parseFloat(snap.emergency_months_covered) : null;
       const efEl = document.getElementById('r_ef_months');
       if (efMonths != null) {
         efEl.textContent = efMonths.toFixed(1) + ' mo';
         efEl.className = 'metric-value ' + (efMonths >= 6 ? 'good' : efMonths >= 3 ? 'warn' : 'bad');
       } else { efEl.textContent = '—'; }
 
-      // Risk flags
-      const risks = snap.risk_flags || [];
+      // Risk flags — inside analysis_jsonb
+      const risks = analysis.risk_flags || [];
       const riskSection = document.getElementById('r_risk_section');
       if (risks.length > 0) {
         riskSection.style.display = 'block';
         document.getElementById('r_risk_flags').innerHTML = risks.map(f =>
-          `<div class="flag-card risk">${escapeHtml(f)}</div>`
+          `<div class="flag-card risk">${escapeHtml(String(f))}</div>`
         ).join('');
       }
 
-      // Opportunity flags
-      const opps = snap.opportunity_flags || [];
+      // Opportunity flags — inside analysis_jsonb
+      const opps = analysis.opportunity_flags || [];
       const oppSection = document.getElementById('r_opportunity_section');
       if (opps.length > 0) {
         oppSection.style.display = 'block';
         document.getElementById('r_opportunity_flags').innerHTML = opps.map(f =>
-          `<div class="flag-card opportunity">${escapeHtml(f)}</div>`
+          `<div class="flag-card opportunity">${escapeHtml(String(f))}</div>`
         ).join('');
       }
 
-      // Goals
-      const goals = snap.goals || [];
+      // Goals progress — inside analysis_jsonb
+      const goals = analysis.goals_progress || [];
       const goalsSection = document.getElementById('r_goals_section');
       if (goals.length > 0) {
         goalsSection.style.display = 'block';
         document.getElementById('r_goals_list').innerHTML = goals.map(g =>
           `<div class="goal-row">
-            <span class="goal-row-label">${escapeHtml(g.label || g.kind || '')} (${escapeHtml(g.horizon || '')})</span>
-            <span class="goal-row-value">${formatDollar(g.target)}</span>
+            <span class="goal-row-label">${escapeHtml(g.title || g.kind || '')}</span>
+            <span class="goal-row-value">${g.target != null ? formatDollar(g.target) : '—'}</span>
           </div>`
         ).join('');
       }
