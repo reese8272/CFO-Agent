@@ -21,6 +21,9 @@ jobs:
           key: ${{ secrets.SSH_KEY_ORIGINAL }}
           script: |
             set -e
+            if [ ! -d "${{ secrets.DEPLOY_PATH }}/.git" ]; then
+              git clone https://github.com/reese8272/CFO-Agent.git ${{ secrets.DEPLOY_PATH }}
+            fi
             cd ${{ secrets.DEPLOY_PATH }}
             git pull origin main
             docker compose pull
