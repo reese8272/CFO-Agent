@@ -49,7 +49,21 @@
   </div>
 
   <script>
-    if (localStorage.getItem('cfo_token')) window.location.href = '/static/chat.html';
+    if (localStorage.getItem('cfo_token')) { checkIntakeAndRedirect(localStorage.getItem('cfo_token')); }
+
+    async function checkIntakeAndRedirect(token) {
+      try {
+        const resp = await fetch('/intake/status', { headers: { Authorization: 'Bearer ' + token } });
+        if (resp.ok) {
+          const data = await resp.json();
+          window.location.href = data.intake_completed ? '/static/chat.html' : '/static/intake.html';
+        } else {
+          window.location.href = '/static/chat.html';
+        }
+      } catch (_) {
+        window.location.href = '/static/chat.html';
+      }
+    }
 
     async function handleSubmit(evt) {
       evt.preventDefault();
@@ -61,7 +75,7 @@
       try {
         let token = await tryRegister(username, password);
         if (!token) token = await tryLogin(username, password);
-        if (token) { localStorage.setItem('cfo_token', token); window.location.href = '/static/chat.html'; }
+        if (token) { localStorage.setItem('cfo_token', token); await checkIntakeAndRedirect(token); }
       } catch (e) {
         errEl.textContent = e.message; errEl.style.display = 'block';
         btn.disabled = false; btn.textContent = 'Sign in';
