@@ -76,12 +76,17 @@ jobs:
             $DOCKER compose pull
             $DOCKER compose up -d --remove-orphans
 
-            # Wait for app container to be healthy before migrating
+            # Wait for app container to be healthy before migrating (up to 3 min)
             echo "Waiting for app to be healthy..."
-            for i in $(seq 1 30); do
+            for i in $(seq 1 36); do
               STATUS=$($DOCKER inspect --format='{{.State.Health.Status}}' cfo-agent-app-1 2>/dev/null || echo "missing")
+              echo "  attempt $i: health=$STATUS"
               if [ "$STATUS" = "healthy" ]; then break; fi
-              if [ "$i" = "30" ]; then echo "Timed out waiting for app health"; exit 1; fi
+              if [ "$i" = "36" ]; then
+                echo "App did not become healthy in time. Last known status: $STATUS"
+                $DOCKER compose logs --tail 50 app
+                exit 1
+              fi
               sleep 5
             done
 
