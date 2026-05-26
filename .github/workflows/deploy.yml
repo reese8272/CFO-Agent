@@ -51,6 +51,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 5m
+          debug: true
           script: |
             set -e
             export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
