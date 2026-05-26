@@ -22,12 +22,16 @@ jobs:
           script: |
             set -e
 
+            GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+            REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/reese8272/CFO-Agent.git"
+
             # Bootstrap repo on first deploy
             if [ ! -d "${{ secrets.DEPLOY_PATH }}/.git" ]; then
-              git clone https://github.com/reese8272/CFO-Agent.git ${{ secrets.DEPLOY_PATH }}
+              git clone "${REPO_URL}" ${{ secrets.DEPLOY_PATH }}
             fi
 
             cd ${{ secrets.DEPLOY_PATH }}
+            git remote set-url origin "${REPO_URL}"
             git pull origin main
 
             # Write .env from secrets (safe to re-run — overwrites each deploy)
