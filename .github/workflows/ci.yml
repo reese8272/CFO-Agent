@@ -39,7 +39,6 @@ jobs:
       DATABASE_URL: postgresql+psycopg://cfo:cfo@localhost:5432/personal_cfo
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY || 'ci-test-secret-key-must-be-at-least-32-chars' }}
-      VAULT_ENCRYPTION_KEY: ${{ secrets.VAULT_ENCRYPTION_KEY || '' }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'test-key' }}
       DIGEST_RECIPIENT: ci@example.com
       SMTP_HOST: localhost
@@ -70,6 +69,10 @@ jobs:
 
       - name: Add venv to PATH
         run: echo "$HOME/.venv/bin" >> $GITHUB_PATH
+
+      - name: Generate VAULT_ENCRYPTION_KEY for CI
+        run: |
+          echo "VAULT_ENCRYPTION_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> $GITHUB_ENV
 
       - name: Run Alembic migrations
         run: alembic upgrade head
