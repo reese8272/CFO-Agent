@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install and start cloudflared tunnel
+      - name: Add CLOUDFLARE_TUNNEL_TOKEN to server .env
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -16,22 +16,10 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             set -e
+            ENV_FILE=${{ secrets.DEPLOY_PATH }}/.env
 
-            if systemctl is-active --quiet cloudflared; then
-              echo "cloudflared already running — skipping install"
-              exit 0
-            fi
+            # Remove any existing entry and append the current token
+            sed -i '/^CLOUDFLARE_TUNNEL_TOKEN=/d' "$ENV_FILE"
+            echo "CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}" >> "$ENV_FILE"
 
-            # Download ARM64 binary
-            curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb \
-              -o /tmp/cloudflared.deb
-            sudo dpkg -i /tmp/cloudflared.deb
-            rm /tmp/cloudflared.deb
-
-            # Install as a systemd service using the tunnel token
-            sudo cloudflared service install ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-            sudo systemctl enable cloudflared
-            sudo systemctl start cloudflared
-
-            echo "Tunnel status:"
-            sudo systemctl status cloudflared --no-pager
+            echo "Token written. Run the deploy workflow to restart the stack."
