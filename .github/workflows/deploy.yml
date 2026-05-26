@@ -74,7 +74,7 @@ jobs:
             ENVEOF
 
             $DOCKER compose pull
-            $DOCKER compose up -d --remove-orphans
+            $DOCKER compose up -d --build --remove-orphans
 
             # Wait for app container to be healthy before migrating (up to 3 min)
             echo "Waiting for app to be healthy..."
