@@ -36,7 +36,7 @@ jobs:
               DOCKER="sudo docker"
             fi
 
-            GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+            GH_TOKEN="${{ secrets.GH_PAT }}"
             REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/reese8272/CFO-Agent.git"
 
             # Bootstrap repo on first deploy
