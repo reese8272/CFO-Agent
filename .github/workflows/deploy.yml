@@ -44,10 +44,16 @@ jobs:
     needs: [build]
 
     steps:
+      - name: Sanitize deploy host
+        id: host
+        run: |
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          echo "value=$(printf '%s' "$HOST" | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
+          host: ${{ steps.host.outputs.value }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 5m
