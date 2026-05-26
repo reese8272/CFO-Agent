@@ -6,6 +6,7 @@ on:
 jobs:
   debug-ssh:
     runs-on: ubuntu-latest
+    environment: Production
 
     steps:
       - name: "1 — TCP reachability (port 22)"
