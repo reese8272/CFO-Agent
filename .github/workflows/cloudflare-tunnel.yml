@@ -14,7 +14,7 @@ jobs:
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_KEY_ORIGINAL }}
           script: |
             set -e
             ENV_FILE=${{ secrets.DEPLOY_PATH }}/.env
