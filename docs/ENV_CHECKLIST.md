@@ -1,0 +1,184 @@
+# Environment Variable Checklist
+
+Run `python scripts/check_env.py` to validate your `.env` before starting or deploying.
+Copy `.env.example` → `.env` and fill in each value below.
+
+---
+
+## Tier 1 — App will not start without these
+
+### `ANTHROPIC_API_KEY`
+- **What**: Anthropic API key for all LLM calls (Analyzer, Strategist, Coach, etc.)
+- **How to get**: [console.anthropic.com](https://console.anthropic.com) → API Keys → Create Key
+- **Format**: starts with `sk-ant-`
+- [ ] Set and non-empty
+
+---
+
+### `DATABASE_URL`
+- **What**: PostgreSQL connection string (SQLAlchemy async via psycopg v3)
+- **Local / Docker Compose**: `postgresql+psycopg://cfo:cfo@postgres:5432/personal_cfo` (pre-filled in `.env.example`)
+- **Production**: replace host with your VM's internal hostname or IP; credentials must match `POSTGRES_USER` / `POSTGRES_PASSWORD`
+- **Format**: must start with `postgresql+psycopg://`
+- [ ] Set and non-empty
+
+---
+
+### `REDIS_URL`
+- **What**: Redis connection string for LangGraph checkpointer and short-lived caches
+- **Local / Docker Compose**: `redis://redis:6379/0` (pre-filled in `.env.example`)
+- **Production**: same — service name resolves inside the Compose network
+- **Format**: must start with `redis://`
+- [ ] Set and non-empty
+
+---
+
+### `JWT_SECRET_KEY`
+- **What**: Signs the single-user JWT session token
+- **Generate**:
+  ```bash
+  openssl rand -hex 32
+  ```
+- **Format**: minimum 32 characters; treat like a password — never reuse across environments
+- **Rotation**: changing this invalidates all active sessions (user must log in again)
+- [ ] Set, ≥ 32 characters
+
+---
+
+### `VAULT_ENCRYPTION_KEY`
+- **What**: Fernet key that encrypts every sensitive column in the vault (balances, account numbers, addresses, etc.)
+- **Generate**:
+  ```python
+  python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+  ```
+- **Format**: base64-encoded 32-byte Fernet key (44 characters, ends with `=`)
+- **Critical**: losing or changing this key without a rotation runbook means **all encrypted vault data becomes unreadable**. Write the rotation runbook before touching this in production. See `docs/THREAT_MODEL.md`.
+- [ ] Set and valid Fernet format
+
+---
+
+### `DIGEST_RECIPIENT`
+- **What**: Email address that receives the weekly financial digest
+- **Format**: valid email address (e.g. `you@example.com`)
+- [ ] Set and non-empty
+
+---
+
+## Tier 2 — Required for digest emails (SMTP)
+
+All five must be set together or digest sending will be silently skipped (no crash, just no email).
+
+### `SMTP_HOST`
+- **What**: Outbound SMTP server hostname
+- **Gmail**: `smtp.gmail.com`
+- **Mailgun**: `smtp.mailgun.org`
+- **SendGrid**: `smtp.sendgrid.net`
+- [ ] Set
+
+### `SMTP_PORT`
+- **Default**: `587` (STARTTLS) — change to `465` for implicit TLS if your provider requires it
+- [ ] Set (default is fine for most providers)
+
+### `SMTP_USER`
+- **Gmail**: your full Gmail address
+- **Mailgun / SendGrid**: the SMTP username shown in your provider dashboard
+- [ ] Set
+
+### `SMTP_PASSWORD`
+- **Gmail**: create an **App Password** (not your account password) at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) — requires 2FA enabled
+- **Mailgun / SendGrid**: SMTP password or API key shown in dashboard
+- [ ] Set
+
+### `SMTP_FROM`
+- **What**: The `From:` address on digest emails
+- **Gmail**: must match `SMTP_USER` exactly
+- [ ] Set
+
+---
+
+## Tier 3 — Required for production deployment
+
+### `CLOUDFLARE_TUNNEL_TOKEN`
+- **What**: Authenticates the `cloudflared` container so it can proxy traffic to the app over Cloudflare Tunnel (no open inbound port needed)
+- **How to get**:
+  1. Cloudflare Zero Trust dashboard → Networks → Tunnels
+  2. Create a tunnel → choose Docker as the connector type
+  3. Copy the token from the install command shown (`--token <TOKEN>`)
+- [ ] Set (skip for local dev without tunnel)
+
+### `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
+- **What**: Credentials used by the `postgres` Docker Compose service on first init
+- **Defaults** in `.env.example`: `cfo` / `cfo` / `personal_cfo` — fine for local dev, change for production
+- **Note**: changing these after the volume is initialized has no effect — you must destroy the volume (`docker compose down -v`) and reinit
+- [ ] Set (defaults are acceptable for local dev)
+
+---
+
+## Tier 4 — Optional (feature gates)
+
+### `RENTCAST_API_KEY`
+- **What**: Enables `POST /vault/real-estate/refresh-values` to pull automated property value estimates
+- **Without it**: endpoint returns `503`; you enter property values manually
+- **Free tier**: 50 calls/month — sufficient for quarterly refreshes on a handful of properties
+- **How to get**: [app.rentcast.io/register](https://app.rentcast.io/register) — no credit card required
+- [ ] Set if you own real estate and want auto-refresh
+
+### `ALPHA_VANTAGE_KEY`
+- **What**: Fallback stock/ETF price source if `yfinance` fails
+- **Without it**: `yfinance` is used exclusively; if it fails, price refresh for that ticker fails silently
+- **Free tier**: 25 requests/day
+- **How to get**: [alphavantage.co/support/#api-key](https://www.alphavantage.co/support/#api-key) — instant, no credit card
+- [ ] Set if you want a price-fetch fallback
+
+### `ALLOWED_ORIGINS`
+- **What**: CORS allowed origins list (JSON array format)
+- **Default**: `["http://localhost:8000"]`
+- **Production**: set to your Cloudflare Tunnel domain, e.g. `["https://cfo.yourdomain.com"]`
+- [ ] Set to your production domain before going live
+
+---
+
+## Tier 5 — Tuning (safe to leave at defaults)
+
+| Variable | Default | Notes |
+|---|---|---|
+| `JWT_EXPIRY_MINUTES` | `60` | Session lifetime in minutes |
+| `LLM_TIMEOUT_SECONDS` | `120` | Max wait for an Anthropic response |
+| `ENV` | `development` | `production` hides `/docs` and tightens log format |
+| `LANGGRAPH_CHECKPOINT_BACKEND` | `redis` | Only valid option in v1 |
+| `ALERT_DRIFT_PCT_THRESHOLD` | `25` | Spend drift alert fires when category exceeds 3-month avg by this % |
+| `ALERT_INCOME_DROP_PCT_THRESHOLD` | `30` | Income drop alert fires when 4-week avg falls by this % |
+| `WEALTH_DISCLAIMER_TEXT` | *(canonical)* | Override only with legal review — structural test enforces its presence |
+
+---
+
+## Tier 6 — Phase 2 / Deferred (Plaid — do not wire until re-scoped)
+
+These are preserved as documented escape hatches. Do not set them until Plaid integration is formally re-scoped.
+
+| Variable | Source |
+|---|---|
+| `PLAID_CLIENT_ID` | [dashboard.plaid.com](https://dashboard.plaid.com) → Team Settings → Keys |
+| `PLAID_SECRET` | Same location; use the Sandbox secret for dev |
+| `PLAID_ENV` | `sandbox` / `development` / `production` |
+
+---
+
+## Quick-start sequence
+
+```bash
+# 1. Copy the template
+cp .env.example .env
+
+# 2. Generate secrets
+openssl rand -hex 32        # → JWT_SECRET_KEY
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # → VAULT_ENCRYPTION_KEY
+
+# 3. Fill in ANTHROPIC_API_KEY, DIGEST_RECIPIENT, and SMTP_* in .env
+
+# 4. Validate
+python scripts/check_env.py
+
+# 5. Start
+docker compose up -d
+```
