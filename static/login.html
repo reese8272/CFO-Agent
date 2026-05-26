@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal CFO — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #E4EDE6; --surface: #252B28; --surface-text: #C8D8CC;
+      --surface-muted: #7A9A87; --surface-border: #363F3B;
+      --sage: #7A9B83; --sage-dark: #4D5E58; --sage-light: #B8CCBB;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); min-height: 100vh; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .card { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 360px; }
+    .logo { font-size: 1rem; font-weight: 600; color: var(--sage-light); letter-spacing: -0.02em; margin-bottom: 0.2rem; }
+    .tagline { font-size: 0.75rem; color: var(--surface-muted); margin-bottom: 2rem; line-height: 1.5; }
+    label { display: block; font-size: 0.67rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--surface-muted); margin-bottom: 0.3rem; }
+    input {
+      width: 100%; font-family: 'Inter', sans-serif; font-size: 0.875rem;
+      color: var(--surface-text); background: rgba(255,255,255,0.05);
+      border: 1px solid var(--surface-border); border-radius: 8px;
+      padding: 0.55rem 0.75rem; outline: none; margin-bottom: 1rem; transition: border-color 0.15s;
+    }
+    input:focus { border-color: var(--sage); }
+    input::placeholder { color: var(--surface-muted); opacity: 0.5; }
+    .btn { width: 100%; font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 500; color: var(--surface-text); background: var(--sage-dark); border: none; border-radius: 8px; padding: 0.6rem; cursor: pointer; transition: background 0.15s; margin-top: 0.25rem; }
+    .btn:hover { background: var(--sage); }
+    .btn:disabled { background: var(--surface-border); color: var(--surface-muted); cursor: wait; }
+    .error { font-size: 0.775rem; color: #C47A7A; background: rgba(160,80,80,0.1); border: 1px solid rgba(160,80,80,0.2); border-radius: 8px; padding: 0.5rem 0.75rem; margin-top: 0.75rem; display: none; }
+    .disclaimer { font-size: 0.67rem; color: var(--surface-muted); margin-top: 1.5rem; line-height: 1.5; text-align: center; opacity: 0.6; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <p class="logo">Personal CFO</p>
+    <p class="tagline">Your financial operating system.</p>
+    <form onsubmit="handleSubmit(event)">
+      <label for="username">Username</label>
+      <input id="username" type="text" placeholder="you" required autofocus />
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="••••••••" required />
+      <button type="submit" class="btn" id="submit-btn">Sign in</button>
+      <div class="error" id="error-msg"></div>
+    </form>
+    <p class="disclaimer">For personal use only. Not licensed financial advice.</p>
+  </div>
+
+  <script>
+    if (localStorage.getItem('cfo_token')) window.location.href = '/static/chat.html';
+
+    async function handleSubmit(evt) {
+      evt.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      const errEl = document.getElementById('error-msg');
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      btn.disabled = true; btn.textContent = 'Signing in…'; errEl.style.display = 'none';
+      try {
+        let token = await tryRegister(username, password);
+        if (!token) token = await tryLogin(username, password);
+        if (token) { localStorage.setItem('cfo_token', token); window.location.href = '/static/chat.html'; }
+      } catch (e) {
+        errEl.textContent = e.message; errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Sign in';
+      }
+    }
+
+    async function tryRegister(username, password) {
+      const resp = await fetch('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+      if (resp.status === 409) return null;
+      if (resp.status === 201) return (await resp.json()).access_token;
+      throw new Error((await resp.json().catch(() => ({}))).detail || 'Registration failed');
+    }
+
+    async function tryLogin(username, password) {
+      const resp = await fetch('/auth/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ username, password }).toString() });
+      if (resp.ok) return (await resp.json()).access_token;
+      throw new Error((await resp.json().catch(() => ({}))).detail || 'Incorrect username or password');
+    }
+  </script>
+</body>
+</html>
