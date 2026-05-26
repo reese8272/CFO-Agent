@@ -18,6 +18,7 @@ from vault.income_position import IncomeLadder as VaultIncomePosition
 from memory.models import Decision, Pattern
 from vault.income_position import compute_income_position
 from vault.wealth_position import compute_wealth_position
+from vault.models import FinancialSnapshot
 
 
 # These TypedDicts match CONTRACTS.md §1 — different from the vault-layer TypedDicts.
@@ -84,6 +85,29 @@ async def build_retrieval_context(session: AsyncSession, user_id: str) -> dict:
         for p in patterns
     ]
 
+    # --- financial snapshot (pre-computed analytical SOT) ---
+    snap_result = await session.execute(
+        select(FinancialSnapshot).order_by(FinancialSnapshot.computed_at.desc()).limit(1)
+    )
+    latest_snap = snap_result.scalar_one_or_none()
+    financial_snapshot: dict | None = None
+    if latest_snap and latest_snap.analysis_jsonb:
+        analysis = latest_snap.analysis_jsonb
+        financial_snapshot = {
+            "computed_at": latest_snap.computed_at.isoformat(),
+            "net_worth": str(latest_snap.net_worth) if latest_snap.net_worth else None,
+            "allocation_step": latest_snap.allocation_step,
+            "income_step": latest_snap.income_step,
+            "savings_rate_pct": str(latest_snap.savings_rate_pct) if latest_snap.savings_rate_pct else None,
+            "debt_to_income_ratio": str(latest_snap.debt_to_income_ratio) if latest_snap.debt_to_income_ratio else None,
+            "emergency_months_covered": str(latest_snap.emergency_months_covered) if latest_snap.emergency_months_covered else None,
+            "roth_utilization_pct": str(latest_snap.roth_utilization_pct) if latest_snap.roth_utilization_pct else None,
+            "risk_flags": analysis.get("risk_flags", []),
+            "opportunity_flags": analysis.get("opportunity_flags", []),
+            "goals_progress": analysis.get("goals_progress", []),
+            "life_context": analysis.get("life_context", {}),
+        }
+
     return {
         "vault_snapshot": vault_snapshot,
         "wealth_position": wealth_pos,
@@ -91,6 +115,7 @@ async def build_retrieval_context(session: AsyncSession, user_id: str) -> dict:
         "active_decisions": active_decisions,
         "recent_patterns": recent_patterns,
         "memory_summary": None,  # populated by Issue 9 memory compaction
+        "financial_snapshot": financial_snapshot,
     }
 
 
@@ -126,6 +151,9 @@ def build_profile_block(ctx: dict) -> str:
         "",
         "### Recent Alerts / Patterns",
         json.dumps(ctx["recent_patterns"], default=_default, sort_keys=True, indent=2),
+        "",
+        "### Financial Snapshot (Pre-computed Analytical SOT)",
+        json.dumps(ctx.get("financial_snapshot"), default=_default, sort_keys=True, indent=2),
     ]
     return "\n".join(lines)
 

@@ -48,6 +48,7 @@ Synthesizer commits to ONE move across both tracks.
 | 11 | Scenario modeling engine + endpoint + UI | **Closed 2026-05-25** |
 | 12 | Weekly digest cron + email | **Closed 2026-05-25** |
 | 13 | Plaid integration | **Deferred indefinitely 2026-05-24** — preserved as escape hatch |
+| **15** | **Financial Intake Wizard — backend (models, migration, analysis engine, router)** | **In Progress 2026-05-26** |
 
 ## Blocked
 

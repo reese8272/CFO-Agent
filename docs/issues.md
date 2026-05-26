@@ -240,6 +240,28 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 
 ---
 
-## Issue 15+: Eval harness, monitoring, key-rotation runbook, opt-out controls
+## Issue 15: Financial Intake Wizard — backend (models, migration, analysis engine, router)
+- [ ] In Progress (2026-05-26)
+- **Depends on**: 14
+- **What**: Three new DB tables (`user_profile`, `financial_snapshots`, `intake_submissions`), Alembic migration `c9f3a1d8e520`, deterministic financial analysis engine (`vault/financial_snapshot.py`), and REST router (`routers/intake.py`). No frontend work. Retrieval node updated to include pre-computed snapshot in prompt context.
+- **Acceptance criteria**:
+  - [x] `UserProfile`, `FinancialSnapshot`, `IntakeSubmission` ORM models added to `vault/models.py`
+  - [x] Alembic migration `c9f3a1d8e520` creates all three tables with correct encrypted column types; revises `b5e2a9c3f107`
+  - [x] Pydantic schemas (`UserProfileCreate/Update/Read`, `FinancialSnapshotRead`, `IntakeSubmissionRead`) added to `vault/schemas.py`
+  - [x] `vault/financial_snapshot.py` — `compute_and_store_snapshot()` persists a `FinancialSnapshot` row with: net_worth, total_assets, total_liabilities, total_monthly_income, total_monthly_expenses, allocation_step, income_step, savings_rate_pct, debt_to_income_ratio, emergency_months_covered, roth_utilization_pct, k401_match_capture_pct, hsa_utilization_pct, career_comp_vs_p50_pct, risk_flags, opportunity_flags, goals_progress, life_context
+  - [x] `POST /intake/submit` — upserts UserProfile, creates vault rows (goals, career, income, accounts, debts, retirement, brokerage, real estate, tax deductions), computes snapshot, archives raw submission, marks intake complete; returns `FinancialSnapshotRead`
+  - [x] `GET /intake/status` — returns `{intake_completed, completed_at, snapshot_id, net_worth, allocation_step, income_step}`
+  - [x] `GET /intake/snapshot` — returns latest `FinancialSnapshotRead`; 404 if no snapshot exists
+  - [x] `POST /intake/snapshot/refresh` — recomputes and persists a fresh snapshot; returns new `FinancialSnapshotRead`
+  - [x] `GET /intake/archive` — returns list of `{id, submitted_at, snapshot_id}` for all submissions
+  - [x] `memory/retrieval.py` updated: `build_retrieval_context` queries latest `FinancialSnapshot` and returns `financial_snapshot` dict; `build_profile_block` appends "Financial Snapshot (Pre-computed Analytical SOT)" section
+  - [x] `main.py` registers `intake_router`
+  - [x] All endpoints auth-protected via `get_current_user`
+  - [x] No sensitive fields (balance, account numbers, AGI) logged
+  - [ ] Tests: happy path for submit + status + snapshot + refresh + archive; snapshot math verified against known inputs
+
+---
+
+## Issue 16+: Eval harness, monitoring, key-rotation runbook, opt-out controls
 
 See `docs/SOT.md` "Known Production Gaps" — each becomes its own issue when the core loop is shipped.

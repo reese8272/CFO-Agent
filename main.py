@@ -25,6 +25,7 @@ from routers.wealth import router as wealth_router
 from routers.memory import router as memory_router
 from routers.scenarios import router as scenarios_router
 from routers.digest import router as digest_router
+from routers.intake import router as intake_router
 from worker.cron import start_scheduler, stop_scheduler
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,7 @@ app.include_router(chat_router)
 app.include_router(memory_router)
 app.include_router(scenarios_router)
 app.include_router(digest_router)
+app.include_router(intake_router)
 
 _static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=_static_dir), name="static")
