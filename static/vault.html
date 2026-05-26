@@ -4,21 +4,47 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Personal CFO — Vault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gray: {
+              400: '#93b3a2',
+              500: '#607a6c',
+              600: '#3a5446',
+              700: '#253830',
+              800: '#162019',
+              900: '#0d1511',
+            },
+            blue: {
+              500: '#4e8c6a',
+              600: '#3e7859',
+            }
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
   <style>
-    .tab-btn { @apply px-4 py-2 text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent hover:border-gray-500 transition-colors; }
+    body { background: radial-gradient(ellipse at 20% 0%, #131f18 0%, #0d1511 55%); }
+    .tab-btn { @apply px-4 py-2 text-sm font-medium text-gray-400 hover:text-white border-b-2 border-transparent hover:border-gray-600 transition-colors; }
     .tab-btn.active { @apply text-white border-blue-500; }
-    .form-label { @apply block text-xs text-gray-400 mb-1; }
-    .form-input { @apply w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500; }
-    .btn-primary { @apply bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded transition-colors; }
-    .btn-ghost { @apply text-gray-400 hover:text-white text-sm px-3 py-2 rounded border border-gray-700 hover:border-gray-500 transition-colors; }
+    .form-label { @apply block text-xs font-medium tracking-wide text-gray-500 mb-1; }
+    .form-input { @apply w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors placeholder-gray-600; }
+    .btn-primary { @apply bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors; }
+    .btn-ghost { @apply text-gray-500 hover:text-white text-sm px-3 py-2 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors; }
   </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
+<body class="bg-gray-900 text-white min-h-screen font-light">
 
   <div class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
-    <h1 class="text-lg font-semibold">Personal CFO — Vault</h1>
+    <h1 class="text-lg font-medium tracking-tight">Personal CFO — Vault</h1>
     <p class="text-xs text-gray-500 max-w-lg text-right">
       For financial education and personal organization only. Not licensed financial advice.
       Consult a licensed professional for tax, real estate, and investment decisions.
@@ -77,7 +103,7 @@
               hx-target="#list-accounts tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Institution</label>
             <input name="institution" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Nickname</label>
@@ -134,7 +160,7 @@
               hx-target="#list-cards tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Account ID</label>
             <input name="account_id" type="number" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Issuer</label>
@@ -193,7 +219,7 @@
               hx-target="#list-income-streams tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Source</label>
             <input name="source" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Type</label>
@@ -286,7 +312,7 @@
               hx-target="#list-business-income tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Business Name</label>
             <input name="business_name" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Entity Type</label>
@@ -334,7 +360,7 @@
               hx-target="#list-expenses tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Name</label>
             <input name="name" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Category</label>
@@ -385,7 +411,7 @@
               hx-target="#list-debts tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Name</label>
             <input name="name" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Balance ($)</label>
@@ -433,7 +459,7 @@
               hx-target="#list-assets tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Kind</label>
             <select name="kind" class="form-input" tabindex="1" autofocus>
               <option value="vehicle">Vehicle</option>
@@ -477,7 +503,7 @@
               hx-target="#list-real-estate tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div class="col-span-2"><label class="form-label">Address</label>
             <input name="address" class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Property Type</label>
@@ -530,7 +556,7 @@
               hx-target="#list-retirement-accounts tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Kind</label>
             <select name="kind" class="form-input" tabindex="1" autofocus>
               <option value="roth_ira">Roth IRA</option>
@@ -579,7 +605,7 @@
               hx-target="#list-net-worth-snapshots tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Snapshot Date</label>
             <input name="snapshot_at" type="datetime-local" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Total Assets ($)</label>
@@ -624,7 +650,7 @@
               hx-target="#list-career-position tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Current Role</label>
             <input name="current_role" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Current Employer</label>
@@ -669,7 +695,7 @@
               hx-target="#list-career-history tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Role</label>
             <input name="role" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Employer</label>
@@ -722,7 +748,7 @@
               hx-target="#list-comp-benchmarks tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Role</label>
             <input name="role" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Metro</label>
@@ -778,7 +804,7 @@
               hx-target="#list-negotiation-milestones tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Kind</label>
             <select name="kind" class="form-input" tabindex="1" autofocus>
               <option value="annual_review">Annual Review</option>
@@ -827,7 +853,7 @@
               hx-target="#list-tax-deductions tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div><label class="form-label">Tax Year</label>
             <input name="tax_year" type="number" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Category</label>
@@ -873,7 +899,7 @@
               hx-target="#list-goals tbody"
               hx-swap="beforeend"
               hx-on::after-request="this.reset(); focusFirst(this)"
-              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-lg">
+              class="grid grid-cols-3 gap-3 mb-6 p-4 bg-gray-800 rounded-2xl">
           <div class="col-span-2"><label class="form-label">Title</label>
             <input name="title" required class="form-input" tabindex="1" autofocus /></div>
           <div><label class="form-label">Kind</label>
@@ -973,7 +999,7 @@
       sieRowCount++;
       const n = sieRowCount;
       const row = document.createElement('div');
-      row.className = 'grid grid-cols-7 gap-2 p-3 bg-gray-800 rounded-lg items-end';
+      row.className = 'grid grid-cols-7 gap-2 p-3 bg-gray-800 rounded-2xl items-end';
       row.id = 'sie-row-' + n;
       row.innerHTML = `
         <div><label class="form-label">Stream ID</label>

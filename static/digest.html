@@ -4,18 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Weekly Digest — Personal CFO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #f8f9fa; color: #212529; padding: 2rem; max-width: 720px; margin: auto; }
-    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
-    .subtitle { color: #6c757d; font-size: 0.9rem; margin-bottom: 2rem; }
-    .btn { display: inline-block; padding: 0.5rem 1.2rem; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; margin-bottom: 1.5rem; }
-    .btn:hover { background: #0b5ed7; }
-    .btn:disabled { background: #adb5bd; cursor: wait; }
-    #digest-body { background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); white-space: pre-wrap; font-family: Georgia, serif; line-height: 1.7; font-size: 0.95rem; min-height: 200px; }
-    #digest-body h1, #digest-body h2, #digest-body h3 { font-family: system-ui, sans-serif; margin: 1rem 0 0.5rem; }
-    #status { font-size: 0.85rem; color: #6c757d; margin-bottom: 0.75rem; }
-    .error { color: #dc3545; }
+    body { font-family: 'Inter', sans-serif; font-weight: 300; background: radial-gradient(ellipse at 20% 0%, #131f18 0%, #0d1511 55%); color: #dce8e0; padding: 2rem; max-width: 720px; margin: auto; min-height: 100vh; }
+    h1 { font-size: 1.4rem; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 0.25rem; }
+    .subtitle { color: #607a6c; font-size: 0.875rem; margin-bottom: 2rem; }
+    .btn { display: inline-block; padding: 0.55rem 1.5rem; background: #3e7859; color: #dce8e0; border: none; border-radius: 8px; cursor: pointer; font-size: 0.875rem; font-family: 'Inter', sans-serif; font-weight: 500; margin-bottom: 1.5rem; transition: background 0.15s; }
+    .btn:hover { background: #4e8c6a; }
+    .btn:disabled { background: #253830; color: #607a6c; cursor: wait; }
+    #digest-body { background: #162019; border: 1px solid #253830; border-radius: 16px; padding: 1.75rem; line-height: 1.75; font-size: 0.9rem; min-height: 200px; color: #c0d8c8; }
+    #digest-body h1, #digest-body h2, #digest-body h3 { font-family: 'Inter', sans-serif; font-weight: 500; color: #93b3a2; margin: 1.25rem 0 0.5rem; letter-spacing: -0.01em; }
+    #digest-body hr { border: none; border-top: 1px solid #253830; margin: 1rem 0; }
+    #status { font-size: 0.825rem; color: #607a6c; margin-bottom: 0.75rem; }
+    .error { color: #7a4a4a; }
   </style>
 </head>
 <body>
