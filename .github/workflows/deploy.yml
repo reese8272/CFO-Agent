@@ -74,21 +74,35 @@ jobs:
             ENVEOF
 
             $DOCKER compose pull
-            $DOCKER compose up -d --build --remove-orphans
 
-            # Wait for app container to be healthy before migrating (up to 3 min)
-            echo "Waiting for app to be healthy..."
-            for i in $(seq 1 36); do
-              STATUS=$($DOCKER inspect --format='{{.State.Health.Status}}' cfo-agent-app-1 2>/dev/null || echo "missing")
-              echo "  attempt $i: health=$STATUS"
-              if [ "$STATUS" = "healthy" ]; then break; fi
-              if [ "$i" = "36" ]; then
-                echo "App did not become healthy in time. Last known status: $STATUS"
-                $DOCKER compose logs --tail 50 app
-                exit 1
-              fi
-              sleep 5
-            done
+            # Only rebuild the image if Dockerfile or dependencies changed
+            if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -qE '^(Dockerfile|requirements\.txt)'; then
+              echo "Dockerfile/requirements changed — rebuilding image..."
+              $DOCKER compose up -d --build --remove-orphans
 
-            $DOCKER compose exec -T app alembic upgrade head
+              echo "Waiting for app to be healthy..."
+              for i in $(seq 1 36); do
+                STATUS=$($DOCKER inspect --format='{{.State.Health.Status}}' cfo-agent-app-1 2>/dev/null || echo "missing")
+                echo "  attempt $i: health=$STATUS"
+                if [ "$STATUS" = "healthy" ]; then break; fi
+                if [ "$i" = "36" ]; then
+                  echo "App did not become healthy in time. Last known status: $STATUS"
+                  $DOCKER compose logs --tail 50 app
+                  exit 1
+                fi
+                sleep 5
+              done
+            else
+              echo "No image changes — skipping rebuild."
+              $DOCKER compose up -d --remove-orphans
+            fi
+
+            # Only run migrations if migration files changed
+            if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q '^migrations/'; then
+              echo "Migrations changed — upgrading..."
+              $DOCKER compose exec -T app alembic upgrade head
+            else
+              echo "No migration changes — skipping alembic."
+            fi
+
             $DOCKER compose ps
