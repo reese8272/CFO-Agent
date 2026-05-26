@@ -21,6 +21,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
+            export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
             GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
             REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/reese8272/CFO-Agent.git"
