@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal CFO — Financial Intake</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #E4EDE6;
+      --surface: #252B28;
+      --surface-text: #C8D8CC;
+      --surface-muted: #7A9A87;
+      --surface-border: #363F3B;
+      --sage: #7A9B83;
+      --sage-dark: #4D5E58;
+      --sage-light: #B8CCBB;
+      --text: #2E3D36;
+      --text-muted: #7A9585;
+      --text-dim: #A8BDB2;
+      --border: #D4DDD6;
+      --border-light: #E8EDE9;
+      --sage-xs: #EEF3EF;
+      --danger: #A05050;
+      --danger-bg: rgba(160,80,80,0.1);
+      --danger-border: rgba(160,80,80,0.2);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Header ── */
+    header {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--surface);
+      border-bottom: 1px solid var(--surface-border);
+      padding: 0 1.5rem; height: 52px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { font-size: 0.875rem; font-weight: 600; color: var(--sage-light); letter-spacing: -0.02em; }
+    .disclaimer {
+      font-size: 0.67rem; color: var(--surface-muted);
+      max-width: 380px; text-align: right; line-height: 1.4;
+    }
+
+    /* ── Page wrapper ── */
+    .page-wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    /* ── Intake header ── */
+    .intake-header { text-align: center; margin-bottom: 2rem; }
+    .intake-title { font-size: 1.35rem; font-weight: 600; color: var(--text); letter-spacing: -0.02em; margin-bottom: 0.35rem; }
+    .intake-sub { font-size: 0.825rem; color: var(--text-muted); line-height: 1.6; }
+
+    /* ── Already-completed banner ── */
+    .banner {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-left: 3px solid var(--sage);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .banner.visible { display: flex; }
+    .banner-text { font-size: 0.825rem; color: var(--surface-text); }
+    .banner-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+    /* ── Progress bar ── */
+    .progress-wrap { margin-bottom: 2rem; }
+    .progress-steps {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      position: relative;
+    }
+    .progress-steps::before {
+      content: '';
+      position: absolute;
+      top: 19px;
+      left: calc(100% / 18);
+      right: calc(100% / 18);
+      height: 1px;
+      background: var(--border);
+      z-index: 0;
+    }
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      flex: 1;
+      cursor: pointer;
+      user-select: none;
+    }
+    .step-circle {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 600;
+      color: var(--text-dim);
+      position: relative; z-index: 1;
+      transition: all 0.2s;
+    }
+    .step-item.active .step-circle {
+      background: var(--sage);
+      border-color: var(--sage);
+      color: #fff;
+    }
+    .step-item.done .step-circle {
+      background: rgba(122,155,131,0.2);
+      border-color: var(--sage);
+      color: var(--sage-dark);
+    }
+    .step-item.skipped .step-circle {
+      background: rgba(122,155,131,0.08);
+      border-color: var(--border);
+      color: var(--text-dim);
+    }
+    .step-label {
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      text-align: center;
+    }
+    .step-item.active .step-label { color: var(--sage); }
+    .step-item.done .step-label { color: var(--sage-dark); }
+    @media (max-width: 600px) {
+      .step-label { display: none; }
+      .step-circle { width: 30px; height: 30px; font-size: 0.68rem; }
+      .progress-steps::before { top: 15px; }
+    }
+
+    /* ── Section card ── */
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      margin-bottom: 1.25rem;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      display: none;
+    }
+    .section-card.section-active {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .section-card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--surface-text);
+      letter-spacing: -0.01em;
+      margin-bottom: 0.25rem;
+    }
+    .section-card-sub {
+      font-size: 0.775rem;
+      color: var(--surface-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .subsection-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--sage);
+      margin: 1.5rem 0 0.85rem;
+    }
+    .subsection-title:first-of-type { margin-top: 0; }
+
+    /* ── Form fields ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+    .form-grid.two-col { grid-template-columns: 1fr 1fr; }
+    .form-grid.three-col { grid-template-columns: 1fr 1fr 1fr; }
+    @media (max-width: 520px) {
+      .form-grid, .form-grid.two-col, .form-grid.three-col { grid-template-columns: 1fr; }
+    }
+    .field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .field.span-2 { grid-column: span 2; }
+    .field.span-full { grid-column: 1 / -1; }
+    .field-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--surface-muted);
+    }
+    .field-hint {
+      font-size: 0.67rem;
+      color: var(--surface-muted);
+      opacity: 0.7;
+      margin-top: 0.1rem;
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.825rem;
+      color: var(--surface-text);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      padding: 0.5rem 0.7rem;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+      appearance: none; -webkit-appearance: none;
+      width: 100%;
+    }
+    .field input::placeholder,
+    .field textarea::placeholder { color: var(--surface-muted); opacity: 0.5; }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus { border-color: var(--sage); background: rgba(255,255,255,0.08); }
+    .field input[readonly] {
+      color: var(--sage-light);
+      background: rgba(122,155,131,0.08);
+      border-color: rgba(122,155,131,0.25);
+      cursor: default;
+    }
+    .field select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237A9A87' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.65rem center;
+      padding-right: 2rem;
+      cursor: pointer;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.35rem 0;
+    }
+    .toggle-row label {
+      font-size: 0.825rem;
+      color: var(--surface-text);
+      cursor: pointer;
+    }
+    .toggle-row .field-hint { margin-top: 0; }
+    input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: var(--sage);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* ── Dynamic rows ── */
+    .row-items { display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 0.85rem; }
+    .row-item {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      padding: 1rem;
+      position: relative;
+    }
+    .row-item .remove-btn {
+      position: absolute;
+      top: 0.6rem; right: 0.6rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--surface-muted);
+      line-height: 1;
+      padding: 0.15rem 0.3rem;
+      border-radius: 4px;
+      transition: color 0.12s, background 0.12s;
+    }
+    .row-item .remove-btn:hover { color: #C47A7A; background: rgba(160,80,80,0.12); }
+    .row-item .row-num {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: 0.65rem;
+    }
+
+    /* Holdings sub-rows */
+    .holdings-wrap { margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px solid var(--surface-border); }
+    .holdings-title {
+      font-size: 0.63rem; font-weight: 600; letter-spacing: 0.07em;
+      text-transform: uppercase; color: var(--surface-muted);
+      margin-bottom: 0.5rem;
+    }
+    .holding-row { display: flex; gap: 0.6rem; margin-bottom: 0.5rem; align-items: center; }
+    .holding-row input {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.8rem;
+      color: var(--surface-text);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--surface-border);
+      border-radius: 6px;
+      padding: 0.4rem 0.55rem;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.15s;
+    }
+    .holding-row input:focus { border-color: var(--sage); }
+    .holding-row input::placeholder { color: var(--surface-muted); opacity: 0.5; }
+    .holding-row .rm-holding {
+      flex-shrink: 0;
+      background: none; border: none; cursor: pointer;
+      color: var(--surface-muted); font-size: 0.9rem; padding: 0.2rem;
+      transition: color 0.12s;
+    }
+    .holding-row .rm-holding:hover { color: #C47A7A; }
+
+    /* ── Buttons ── */
+    .btn-add-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.775rem;
+      font-weight: 500;
+      color: var(--sage-light);
+      background: rgba(122,155,131,0.1);
+      border: 1px solid rgba(122,155,131,0.25);
+      border-radius: 7px;
+      padding: 0.38rem 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-add-row:hover { background: rgba(122,155,131,0.18); border-color: rgba(122,155,131,0.4); }
+    .btn-add-holding {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.72rem;
+      color: var(--sage);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      transition: color 0.12s;
+    }
+    .btn-add-holding:hover { color: var(--sage-light); }
+
+    /* ── Navigation buttons ── */
+    .nav-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .btn-continue {
+      width: 100%;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--surface-text);
+      background: var(--sage-dark);
+      border: none;
+      border-radius: 10px;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      letter-spacing: -0.01em;
+    }
+    .btn-continue:hover { background: var(--sage); }
+    .btn-continue:disabled { background: var(--surface-border); color: var(--surface-muted); cursor: wait; }
+    .nav-secondary {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+    .btn-back, .btn-skip {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.775rem;
+      color: var(--surface-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.2rem;
+      transition: color 0.12s;
+    }
+    .btn-back:hover, .btn-skip:hover { color: var(--surface-text); }
+    .btn-back:disabled { opacity: 0.3; cursor: default; }
+
+    /* ── Error message ── */
+    .field-error {
+      font-size: 0.72rem;
+      color: #C47A7A;
+      margin-top: 0.2rem;
+    }
+    .error-banner {
+      font-size: 0.775rem;
+      color: #C47A7A;
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      border-radius: 8px;
+      padding: 0.6rem 0.85rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .error-banner.visible { display: block; }
+
+    /* ── Skip note ── */
+    .skip-notice {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      text-align: center;
+    }
+    .skip-notice p { font-size: 0.825rem; color: var(--surface-muted); }
+
+    /* ── Results view ── */
+    #results-view { display: none; }
+    .results-header { text-align: center; margin-bottom: 2rem; }
+    .results-check { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .results-title { font-size: 1.25rem; font-weight: 600; color: var(--text); letter-spacing: -0.02em; margin-bottom: 0.3rem; }
+    .results-sub { font-size: 0.825rem; color: var(--text-muted); }
+
+    .net-worth-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 14px;
+      padding: 2rem;
+      text-align: center;
+      margin-bottom: 1.25rem;
+    }
+    .net-worth-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--surface-muted); margin-bottom: 0.4rem; }
+    .net-worth-value { font-size: 2.4rem; font-weight: 600; color: var(--sage-light); letter-spacing: -0.03em; }
+    .net-worth-value.negative { color: #C47A7A; }
+
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    .metric-label { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--surface-muted); margin-bottom: 0.3rem; }
+    .metric-value { font-size: 1.1rem; font-weight: 600; color: var(--surface-text); letter-spacing: -0.02em; }
+    .metric-value.good { color: #7ABF8A; }
+    .metric-value.warn { color: #C4A45A; }
+    .metric-value.bad { color: #C47A7A; }
+
+    .flags-section { margin-bottom: 1.25rem; }
+    .flags-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 0.65rem; }
+    .flag-card {
+      border-radius: 10px;
+      padding: 0.9rem 1.1rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.825rem;
+      line-height: 1.5;
+    }
+    .flag-card.risk {
+      background: rgba(160,80,80,0.1);
+      border: 1px solid rgba(160,80,80,0.25);
+      color: #D4A0A0;
+    }
+    .flag-card.opportunity {
+      background: rgba(122,155,131,0.1);
+      border: 1px solid rgba(122,155,131,0.25);
+      color: var(--sage-light);
+    }
+
+    .goals-results { margin-bottom: 1.5rem; }
+    .goal-row {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .goal-row-label { font-size: 0.8rem; color: var(--surface-text); flex: 1; }
+    .goal-row-value { font-size: 0.8rem; color: var(--sage-light); font-weight: 500; }
+
+    .btn-open-cfo {
+      display: block;
+      width: 100%;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--surface-text);
+      background: var(--sage-dark);
+      border: none;
+      border-radius: 10px;
+      padding: 0.85rem;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-open-cfo:hover { background: var(--sage); }
+
+    .results-disclaimer {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      text-align: center;
+      margin-top: 1.25rem;
+      line-height: 1.5;
+    }
+
+    /* ── "No X" checkbox skip style ── */
+    .skip-toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      border: 1px solid var(--surface-border);
+    }
+    .skip-toggle-wrap label {
+      font-size: 0.825rem;
+      color: var(--surface-muted);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="logo">Personal CFO</span>
+    <p class="disclaimer">For financial education and personal organization only. Not licensed financial advice. Consult a licensed professional for tax, real estate, and investment decisions.</p>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════
+       WIZARD VIEW
+  ════════════════════════════════════════════════ -->
+  <div id="wizard-view">
+    <div class="page-wrap">
+
+      <div class="intake-header">
+        <h1 class="intake-title">Financial Intake</h1>
+        <p class="intake-sub">Complete your profile so your CFO has the full picture. Takes about 10 minutes.</p>
+      </div>
+
+      <!-- Already-completed banner -->
+      <div class="banner" id="already-done-banner">
+        <span class="banner-text">You've already completed intake. Your financial snapshot is ready.</span>
+        <div class="banner-actions">
+          <button class="btn-back" onclick="viewExistingSnapshot()">View snapshot</button>
+          <button class="btn-add-row" onclick="dismissBanner()">Redo intake</button>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-wrap">
+        <div class="progress-steps" id="progress-steps">
+          <div class="step-item" data-step="1" onclick="jumpToStep(1)">
+            <div class="step-circle" id="step-circle-1">1</div>
+            <span class="step-label">Life</span>
+          </div>
+          <div class="step-item" data-step="2" onclick="jumpToStep(2)">
+            <div class="step-circle" id="step-circle-2">2</div>
+            <span class="step-label">Goals</span>
+          </div>
+          <div class="step-item" data-step="3" onclick="jumpToStep(3)">
+            <div class="step-circle" id="step-circle-3">3</div>
+            <span class="step-label">Career</span>
+          </div>
+          <div class="step-item" data-step="4" onclick="jumpToStep(4)">
+            <div class="step-circle" id="step-circle-4">4</div>
+            <span class="step-label">Side Income</span>
+          </div>
+          <div class="step-item" data-step="5" onclick="jumpToStep(5)">
+            <div class="step-circle" id="step-circle-5">5</div>
+            <span class="step-label">Accounts</span>
+          </div>
+          <div class="step-item" data-step="6" onclick="jumpToStep(6)">
+            <div class="step-circle" id="step-circle-6">6</div>
+            <span class="step-label">Debt</span>
+          </div>
+          <div class="step-item" data-step="7" onclick="jumpToStep(7)">
+            <div class="step-circle" id="step-circle-7">7</div>
+            <span class="step-label">Investments</span>
+          </div>
+          <div class="step-item" data-step="8" onclick="jumpToStep(8)">
+            <div class="step-circle" id="step-circle-8">8</div>
+            <span class="step-label">Property</span>
+          </div>
+          <div class="step-item" data-step="9" onclick="jumpToStep(9)">
+            <div class="step-circle" id="step-circle-9">9</div>
+            <span class="step-label">Tax</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error banner (shared) -->
+      <div class="error-banner" id="global-error"></div>
+
+      <!-- ─────────────────────────────────────────────
+           SECTION 1: Life Context
+      ────────────────────────────────────────────── -->
+      <div class="section-card section-active" id="section-1">
+        <div class="section-card-title">Life Context</div>
+        <div class="section-card-sub">The basics about you — used to calibrate tax estimates, allocation priorities, and benchmark targets.</div>
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Age</span>
+            <input type="number" id="s1_age" min="18" max="99" placeholder="32" />
+          </div>
+          <div class="field">
+            <span class="field-label">Household Size</span>
+            <input type="number" id="s1_household_size" min="1" max="10" placeholder="1" value="1" />
+          </div>
+          <div class="field">
+            <span class="field-label">Dependents</span>
+            <input type="number" id="s1_dependents" min="0" max="10" placeholder="0" value="0" />
+          </div>
+          <div class="field">
+            <span class="field-label">State of Residence</span>
+            <select id="s1_state">
+              <option value="">— Select —</option>
+              <option value="AL">AL – Alabama</option>
+              <option value="AK">AK – Alaska</option>
+              <option value="AZ">AZ – Arizona</option>
+              <option value="AR">AR – Arkansas</option>
+              <option value="CA">CA – California</option>
+              <option value="CO">CO – Colorado</option>
+              <option value="CT">CT – Connecticut</option>
+              <option value="DE">DE – Delaware</option>
+              <option value="FL">FL – Florida</option>
+              <option value="GA">GA – Georgia</option>
+              <option value="HI">HI – Hawaii</option>
+              <option value="ID">ID – Idaho</option>
+              <option value="IL">IL – Illinois</option>
+              <option value="IN">IN – Indiana</option>
+              <option value="IA">IA – Iowa</option>
+              <option value="KS">KS – Kansas</option>
+              <option value="KY">KY – Kentucky</option>
+              <option value="LA">LA – Louisiana</option>
+              <option value="ME">ME – Maine</option>
+              <option value="MD">MD – Maryland</option>
+              <option value="MA">MA – Massachusetts</option>
+              <option value="MI">MI – Michigan</option>
+              <option value="MN">MN – Minnesota</option>
+              <option value="MS">MS – Mississippi</option>
+              <option value="MO">MO – Missouri</option>
+              <option value="MT">MT – Montana</option>
+              <option value="NE">NE – Nebraska</option>
+              <option value="NV">NV – Nevada</option>
+              <option value="NH">NH – New Hampshire</option>
+              <option value="NJ">NJ – New Jersey</option>
+              <option value="NM">NM – New Mexico</option>
+              <option value="NY">NY – New York</option>
+              <option value="NC">NC – North Carolina</option>
+              <option value="ND">ND – North Dakota</option>
+              <option value="OH">OH – Ohio</option>
+              <option value="OK">OK – Oklahoma</option>
+              <option value="OR">OR – Oregon</option>
+              <option value="PA">PA – Pennsylvania</option>
+              <option value="RI">RI – Rhode Island</option>
+              <option value="SC">SC – South Carolina</option>
+              <option value="SD">SD – South Dakota</option>
+              <option value="TN">TN – Tennessee</option>
+              <option value="TX">TX – Texas</option>
+              <option value="UT">UT – Utah</option>
+              <option value="VT">VT – Vermont</option>
+              <option value="VA">VA – Virginia</option>
+              <option value="WA">WA – Washington</option>
+              <option value="WV">WV – West Virginia</option>
+              <option value="WI">WI – Wisconsin</option>
+              <option value="WY">WY – Wyoming</option>
+              <option value="DC">DC – District of Columbia</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="field-label">Tax Filing Status</span>
+            <select id="s1_filing_status">
+              <option value="">— Select —</option>
+              <option value="single">Single</option>
+              <option value="married_filing_jointly">Married Filing Jointly</option>
+              <option value="married_filing_separately">Married Filing Separately</option>
+              <option value="head_of_household">Head of Household</option>
+              <option value="qualifying_widow">Qualifying Widow(er)</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="field-label">Est. Last-Year Gross / AGI ($)</span>
+            <input type="number" id="s1_agi" step="1000" placeholder="0 (optional)" />
+            <span class="field-hint">Optional — helps calibrate tax estimates.</span>
+          </div>
+        </div>
+        <div style="margin-top: 1rem;">
+          <div class="toggle-row">
+            <input type="checkbox" id="s1_hsa_eligible" />
+            <label for="s1_hsa_eligible">HSA-eligible health plan (HDHP)</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────
+           SECTION 2: Goals
+      ────────────────────────────────────────────── -->
+      <div class="section-card" id="section-2">
+        <div class="section-card-title">Goals</div>
+        <div class="section-card-sub">Your 5- and 10-year targets. All fields optional — fill in what you have.</div>
+
+        <div class="subsection-title">5-Year Targets</div>
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Net Worth Target ($)</span>
+            <input type="number" id="s2_nw_5yr" step="1000" placeholder="500,000" />
+            <span class="field-hint">What does financial freedom look like?</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Annual Income Target ($)</span>
+            <input type="number" id="s2_income_5yr" step="1000" placeholder="150,000" />
+            <span class="field-hint">Total W-2 + side income combined.</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Monthly Passive Income Target ($)</span>
+            <input type="number" id="s2_passive_5yr" step="100" placeholder="2,000" />
+            <span class="field-hint">Rental, dividends, business profit.</span>
+          </div>
+        </div>
+
+        <div class="subsection-title">10-Year Targets</div>
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Net Worth Target ($)</span>
+            <input type="number" id="s2_nw_10yr" step="1000" placeholder="1,500,000" />
+            <span class="field-hint">Your long-horizon number.</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Annual Income Target ($)</span>
+            <input type="number" id="s2_income_10yr" step="1000" placeholder="250,000" />
+            <span class="field-hint">Where do you want your income to be?</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────
+           SECTION 3: Career & Primary Income
+      ────────────────────────────────────────────── -->
+      <div class="section-card" id="section-3">
+        <div class="section-card-title">Career & Primary Income</div>
+        <div class="section-card-sub">Your W-2 compensation details. Used for savings rate, tax estimates, and comp benchmarking.</div>
+
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Employer Name</span>
+            <input type="text" id="s3_employer" placeholder="Acme Corp" />
+          </div>
+          <div class="field">
+            <span class="field-label">Job Title / Role</span>
+            <input type="text" id="s3_title" placeholder="Software Engineer" />
+          </div>
+          <div class="field">
+            <span class="field-label">Annual Base Salary ($)</span>
+            <input type="number" id="s3_base_salary" step="1000" placeholder="120,000" oninput="computeTotalComp()" />
+          </div>
+          <div class="field">
+            <span class="field-label">Annual Bonus ($/yr, optional)</span>
+            <input type="number" id="s3_bonus" step="500" placeholder="0" oninput="computeTotalComp()" />
+          </div>
+          <div class="field">
+            <span class="field-label">Annual Equity / RSU Value ($/yr, optional)</span>
+            <input type="number" id="s3_equity" step="500" placeholder="0" oninput="computeTotalComp()" />
+          </div>
+          <div class="field">
+            <span class="field-label">Total Annual Comp ($)</span>
+            <input type="number" id="s3_total_comp" readonly placeholder="Auto-computed" />
+            <span class="field-hint">Base + Bonus + Equity</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Target Total Comp ($, optional)</span>
+            <input type="number" id="s3_target_comp" step="1000" placeholder="175,000" />
+            <span class="field-hint">What are you aiming for?</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Target Date for Target Comp</span>
+            <input type="date" id="s3_target_date" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────
+           SECTION 4: Side Income
+      ────────────────────────────────────────────── -->
+      <div class="section-card" id="section-4">
+        <div class="section-card-title">Side Income</div>
+        <div class="section-card-sub">Every income stream outside your primary W-2. Your CFO will compute true net hourly rate per stream.</div>
+
+        <div class="skip-toggle-wrap">
+          <input type="checkbox" id="s4_no_side_income" onchange="toggleSideIncome()" />
+          <label for="s4_no_side_income">No side income — skip this section</label>
+        </div>
+
+        <div id="side-income-body">
+          <div class="row-items" id="side-income-rows"></div>
+          <button type="button" class="btn-add-row" onclick="addSideIncomeRow()">+ Add income stream</button>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────
+           SECTION 5: Bank Accounts & Cash
+      ────────────────────────────────────────────── -->
+      <div class="section-card" id="section-5">
+        <div class="section-card-title">Bank Accounts & Cash</div>
+        <div class="section-card-sub">All checking, savings, HYSA, and cash positions. Used to compute emergency fund coverage.</div>
+
+        <div class="row-items" id="account-rows"></div>
+        <button type="button" class="btn-add-row" onclick="addAccountRow()" style="margin-bottom: 1.25rem;">+ Add account</button>
+
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Monthly Spend Estimate ($)</span>
+            <input type="number" id="s5_monthly_spend" step="100" placeholder="4,500" />
+            <span class="field-hint">Used to calculate emergency fund coverage in months.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────
+           SECTION 6: Debt
+      ────────────────────────────────────────────── -->
+      <div class="section-card" id="section-6">
+        <div class="section-card-title">Debt</div>
+        <div class="section-card-sub">All outstanding balances. Your CFO will prioritize payoff sequencing by APR and impact.</div>
+
+        <div class="skip-toggle-wrap">
+          <input type="checkbox" id="s6_no_debt" onchange="toggleDebt()" />
+          <label for="s6_no_debt">No debt — skip this section</label>
+        </div>
+
+        <div id="debt-body">
+          <div class="row-items" id="debt-rows"></div>
+          <button type="button" class="btn-add-row" onclick="addDebtRow()">+ Add debt</button>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────
+           SECTION 7: Investments & Retirement
+      ────────────────────────────────────────────── -->
+      <div class="section-card" id="section-7">
+        <div class="section-card-title">Investments &amp; Retirement</div>
+        <div class="section-card-sub">Retirement accounts and taxable brokerage positions. Used to compute allocation step and contribution room.</div>
+
+        <div class="subsection-title">401(k)</div>
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Institution (optional)</span>
+            <input type="text" id="s7_401k_institution" placeholder="Fidelity" />
+          </div>
+          <div class="field">
+            <span class="field-label">Current Balance ($)</span>
+            <input type="number" id="s7_401k_balance" step="100" placeholder="0" />
+          </div>
+          <div class="field">
+            <span class="field-label">Annual Contribution ($)</span>
+            <input type="number" id="s7_401k_contribution" step="100" placeholder="0" />
+          </div>
+          <div class="field">
+            <span class="field-label">Employer Match %</span>
+            <input type="number" id="s7_401k_match_pct" step="0.5" min="0" max="100" placeholder="3" />
+            <span class="field-hint">e.g. 3 means "matches 3% of salary"</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Employer Matches Up To %</span>
+            <input type="number" id="s7_401k_match_up_to" step="0.5" min="0" max="100" placeholder="6" />
+            <span class="field-hint">e.g. 6 means "up to 6% of salary"</span>
+          </div>
+        </div>
+
+        <div class="subsection-title">Roth IRA</div>
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Institution (optional)</span>
+            <input type="text" id="s7_roth_institution" placeholder="Vanguard" />
+          </div>
+          <div class="field">
+            <span class="field-label">Current Balance ($)</span>
+            <input type="number" id="s7_roth_balance" step="100" placeholder="0" />
+          </div>
+          <div class="field">
+            <span class="field-label">2026 Contribution YTD ($)</span>
+            <input type="number" id="s7_roth_ytd" step="100" placeholder="0" />
+          </div>
+        </div>
+
+        <div id="hsa-section" style="display: none;">
+          <div class="subsection-title">HSA</div>
+          <div class="form-grid">
+            <div class="field">
+              <span class="field-label">Institution (optional)</span>
+              <input type="text" id="s7_hsa_institution" placeholder="HealthEquity" />
+            </div>
+            <div class="field">
+              <span class="field-label">Current Balance ($)</span>
+              <input type="number" id="s7_hsa_balance" step="100" placeholder="0" />
+            </div>
+            <div class="field">
+              <span class="field-label">2026 Contribution YTD ($)</span>
+              <input type="number" id="s7_hsa_ytd" step="100" placeholder="0" />
+            </div>
+          </div>
+        </div>
+
+        <div class="subsection-title">Brokerage / Taxable</div>
+        <div class="row-items" id="brokerage-rows"></div>
+        <button type="button" class="btn-add-row" onclick="addBrokerageRow()">+ Add brokerage account</button>
+      </div>
+
+      <!-- ─────────────────────────────────────────────
+           SECTION 8: Real Estate
+      ────────────────────────────────────────────── -->
+      <div class="section-card" id="section-8">
+        <div class="section-card-title">Real Estate</div>
+        <div class="section-card-sub">Property owned or co-owned. Used to compute net equity and real estate allocation.</div>
+
+        <div class="skip-toggle-wrap">
+          <input type="checkbox" id="s8_no_property" onchange="toggleProperty()" />
+          <label for="s8_no_property">No property — skip this section</label>
+        </div>
+
+        <div id="property-body">
+          <div class="row-items" id="property-rows"></div>
+          <button type="button" class="btn-add-row" onclick="addPropertyRow()">+ Add property</button>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────
+           SECTION 9: Tax & Deductions
+      ────────────────────────────────────────────── -->
+      <div class="section-card" id="section-9">
+        <div class="section-card-title">Tax &amp; Deductions</div>
+        <div class="section-card-sub">1099 / gig deductions your CFO can surface. For education only — consult a CPA before filing.</div>
+
+        <div class="toggle-row" style="margin-bottom: 1rem;">
+          <input type="checkbox" id="s9_has_1099" onchange="toggle1099Section()" />
+          <label for="s9_has_1099">I have 1099 or gig income</label>
+        </div>
+
+        <div id="s9_no_1099_msg" style="margin-bottom: 1rem; display: block;">
+          <div class="skip-notice">
+            <p>No 1099 deductions apply. Check the box above if you have any gig, freelance, or self-employment income.</p>
+          </div>
+        </div>
+
+        <div id="s9_deductions_body" style="display: none;">
+          <div class="form-grid">
+            <div class="field">
+              <span class="field-label">Business Miles Driven YTD</span>
+              <input type="number" id="s9_miles" step="1" placeholder="0" />
+              <span class="field-hint">IRS standard mileage rate applied automatically.</span>
+            </div>
+            <div class="field">
+              <span class="field-label">Equipment Purchased for Business ($)</span>
+              <input type="number" id="s9_equipment" step="1" placeholder="0" />
+            </div>
+            <div class="field">
+              <span class="field-label">Education / Training for Business ($)</span>
+              <input type="number" id="s9_education" step="1" placeholder="0" />
+            </div>
+            <div class="field">
+              <span class="field-label">Other Deductible Business Expenses ($)</span>
+              <input type="number" id="s9_other_expenses" step="1" placeholder="0" />
+            </div>
+          </div>
+
+          <div style="margin: 1rem 0;">
+            <div class="toggle-row">
+              <input type="checkbox" id="s9_home_office" onchange="toggleHomeOffice()" />
+              <label for="s9_home_office">Home office deduction</label>
+            </div>
+            <div id="s9_home_office_fields" style="display: none; margin-top: 0.75rem;">
+              <div class="form-grid">
+                <div class="field">
+                  <span class="field-label">Home Office Square Footage</span>
+                  <input type="number" id="s9_home_office_sqft" step="1" placeholder="150" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <input type="checkbox" id="s9_quarterly_taxes" />
+            <label for="s9_quarterly_taxes">Currently paying quarterly estimated taxes</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Nav buttons -->
+      <div class="nav-actions">
+        <button class="btn-continue" id="btn-continue" onclick="handleContinue()">Save &amp; Continue</button>
+        <div class="nav-secondary">
+          <button class="btn-back" id="btn-back" onclick="handleBack()" disabled>Back</button>
+          <button class="btn-skip" id="btn-skip" onclick="handleSkip()">Skip for now</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       RESULTS VIEW
+  ════════════════════════════════════════════════ -->
+  <div id="results-view">
+    <div class="page-wrap">
+
+      <div class="results-header">
+        <div class="results-check">&#10003;</div>
+        <h1 class="results-title">Financial Profile Complete</h1>
+        <p class="results-sub">Here's your starting snapshot. Your CFO will refine this over time.</p>
+      </div>
+
+      <div class="net-worth-card">
+        <div class="net-worth-label">Current Net Worth</div>
+        <div class="net-worth-value" id="r_net_worth">$0</div>
+      </div>
+
+      <div class="metrics-row" id="r_metrics_row">
+        <div class="metric-card">
+          <div class="metric-label">Allocation Step</div>
+          <div class="metric-value" id="r_alloc_step">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Income Step</div>
+          <div class="metric-value" id="r_income_step">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Savings Rate</div>
+          <div class="metric-value" id="r_savings_rate">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Debt-to-Income</div>
+          <div class="metric-value" id="r_dti">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Emergency Fund</div>
+          <div class="metric-value" id="r_ef_months">—</div>
+        </div>
+      </div>
+
+      <div class="flags-section" id="r_risk_section" style="display:none;">
+        <div class="flags-title">Risk Flags</div>
+        <div id="r_risk_flags"></div>
+      </div>
+
+      <div class="flags-section" id="r_opportunity_section" style="display:none;">
+        <div class="flags-title">Opportunity Flags</div>
+        <div id="r_opportunity_flags"></div>
+      </div>
+
+      <div class="goals-results" id="r_goals_section" style="display:none;">
+        <div class="flags-title">Goals</div>
+        <div id="r_goals_list"></div>
+      </div>
+
+      <a href="/static/chat.html" class="btn-open-cfo">Open Your CFO &rarr;</a>
+
+      <p class="results-disclaimer">This snapshot is for personal financial education and organization only. It is not licensed financial advice. Consult a licensed CPA or CFP for tax strategy, investment decisions, and real estate transactions.</p>
+
+    </div>
+  </div>
+
+  <script>
+    // ══════════════════════════════════════════════════
+    // State
+    // ══════════════════════════════════════════════════
+    let currentStep = 1;
+    const TOTAL_STEPS = 9;
+    const stepStatus = {}; // 'done' | 'skipped' | undefined
+    const sectionData = {};
+
+    // Dynamic row counters
+    let sideIncomeCount = 0;
+    let accountCount = 0;
+    let debtCount = 0;
+    let brokerageCount = 0;
+    let propertyCount = 0;
+
+    // ══════════════════════════════════════════════════
+    // Init
+    // ══════════════════════════════════════════════════
+    (function init() {
+      const token = localStorage.getItem('cfo_token');
+      if (!token) { window.location.href = '/static/login.html'; return; }
+
+      // Restore from localStorage backup
+      const saved = localStorage.getItem('cfo_intake_data');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          Object.assign(sectionData, parsed);
+        } catch(e) { /* ignore corrupt data */ }
+      }
+
+      // Check intake status
+      fetch('/intake/status', { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && data.intake_completed) {
+            document.getElementById('already-done-banner').classList.add('visible');
+          }
+        })
+        .catch(() => { /* non-blocking */ });
+
+      renderStep(1);
+      addSideIncomeRow();
+      addAccountRow();
+      addDebtRow();
+      addBrokerageRow();
+      addPropertyRow();
+    })();
+
+    // ══════════════════════════════════════════════════
+    // Progress bar rendering
+    // ══════════════════════════════════════════════════
+    const STEP_LABELS = ['Life','Goals','Career','Side Income','Accounts','Debt','Investments','Property','Tax'];
+
+    function renderProgressBar() {
+      for (let i = 1; i <= TOTAL_STEPS; i++) {
+        const item = document.querySelector(`.step-item[data-step="${i}"]`);
+        const circle = document.getElementById('step-circle-' + i);
+        item.classList.remove('active', 'done', 'skipped');
+        if (i === currentStep) {
+          item.classList.add('active');
+          circle.textContent = i;
+        } else if (stepStatus[i] === 'done') {
+          item.classList.add('done');
+          circle.textContent = '✓';
+        } else if (stepStatus[i] === 'skipped') {
+          item.classList.add('skipped');
+          circle.textContent = i;
+        } else {
+          circle.textContent = i;
+        }
+      }
+    }
+
+    function renderStep(n) {
+      // Hide all sections
+      for (let i = 1; i <= TOTAL_STEPS; i++) {
+        const el = document.getElementById('section-' + i);
+        el.classList.remove('section-active');
+        el.style.display = 'none';
+      }
+      // Show current
+      const current = document.getElementById('section-' + n);
+      current.style.display = 'block';
+      // Trigger reflow for transition
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => { current.classList.add('section-active'); });
+      });
+
+      currentStep = n;
+      renderProgressBar();
+      updateNavButtons();
+      clearError();
+
+      // Restore saved data into section UI if available
+      if (sectionData[n]) restoreSectionData(n);
+    }
+
+    function updateNavButtons() {
+      document.getElementById('btn-back').disabled = (currentStep === 1);
+      const btn = document.getElementById('btn-continue');
+      btn.textContent = (currentStep === TOTAL_STEPS) ? 'Complete Intake' : 'Save & Continue';
+    }
+
+    function jumpToStep(n) {
+      // Only allow jumping to completed/skipped steps or the next available step
+      if (n === currentStep) return;
+      if (stepStatus[n] === 'done' || stepStatus[n] === 'skipped' || n <= currentStep) {
+        saveSectionData(currentStep);
+        renderStep(n);
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    // Navigation handlers
+    // ══════════════════════════════════════════════════
+    function handleContinue() {
+      clearError();
+      const errors = validateSection(currentStep);
+      if (errors.length > 0) {
+        showError(errors[0]);
+        return;
+      }
+      saveSectionData(currentStep);
+      stepStatus[currentStep] = 'done';
+
+      if (currentStep === TOTAL_STEPS) {
+        submitIntake();
+      } else {
+        renderStep(currentStep + 1);
+      }
+    }
+
+    function handleBack() {
+      if (currentStep <= 1) return;
+      saveSectionData(currentStep);
+      renderStep(currentStep - 1);
+    }
+
+    function handleSkip() {
+      stepStatus[currentStep] = 'skipped';
+      if (currentStep === TOTAL_STEPS) {
+        submitIntake();
+      } else {
+        renderStep(currentStep + 1);
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    // Validation
+    // ══════════════════════════════════════════════════
+    function validateSection(n) {
+      const errors = [];
+      if (n === 1) {
+        const age = parseInt(document.getElementById('s1_age').value);
+        if (!age || age < 18 || age > 99) errors.push('Age must be between 18 and 99.');
+        if (!document.getElementById('s1_state').value) errors.push('Please select your state of residence.');
+        if (!document.getElementById('s1_filing_status').value) errors.push('Please select your tax filing status.');
+      }
+      return errors;
+    }
+
+    // ══════════════════════════════════════════════════
+    // Save section data to in-memory + localStorage
+    // ══════════════════════════════════════════════════
+    function saveSectionData(n) {
+      let data = {};
+      switch (n) {
+        case 1: data = readSection1(); break;
+        case 2: data = readSection2(); break;
+        case 3: data = readSection3(); break;
+        case 4: data = readSection4(); break;
+        case 5: data = readSection5(); break;
+        case 6: data = readSection6(); break;
+        case 7: data = readSection7(); break;
+        case 8: data = readSection8(); break;
+        case 9: data = readSection9(); break;
+      }
+      sectionData[n] = data;
+      try { localStorage.setItem('cfo_intake_data', JSON.stringify(sectionData)); } catch(e) {}
+    }
+
+    function val(id) { return document.getElementById(id).value.trim(); }
+    function numVal(id) { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; }
+    function boolVal(id) { return document.getElementById(id).checked; }
+
+    function readSection1() {
+      return {
+        age: numVal('s1_age'),
+        household_size: numVal('s1_household_size') || 1,
+        dependents: numVal('s1_dependents') || 0,
+        state: val('s1_state'),
+        filing_status: val('s1_filing_status'),
+        agi: numVal('s1_agi'),
+        hsa_eligible: boolVal('s1_hsa_eligible'),
+      };
+    }
+
+    function readSection2() {
+      return {
+        goals_5yr: {
+          net_worth: numVal('s2_nw_5yr'),
+          annual_income: numVal('s2_income_5yr'),
+          monthly_passive: numVal('s2_passive_5yr'),
+        },
+        goals_10yr: {
+          net_worth: numVal('s2_nw_10yr'),
+          annual_income: numVal('s2_income_10yr'),
+        },
+      };
+    }
+
+    function readSection3() {
+      return {
+        career: {
+          employer: val('s3_employer'),
+          title: val('s3_title'),
+          target_comp: numVal('s3_target_comp'),
+          target_date: val('s3_target_date') || null,
+        },
+        primary_income: {
+          base_salary: numVal('s3_base_salary'),
+          bonus: numVal('s3_bonus'),
+          equity: numVal('s3_equity'),
+          total_comp: numVal('s3_total_comp'),
+        },
+      };
+    }
+
+    function readSection4() {
+      if (boolVal('s4_no_side_income')) return { streams: [], skipped: true };
+      const streams = [];
+      document.querySelectorAll('.side-income-row').forEach(row => {
+        const platform = row.querySelector('[data-field="platform"]').value.trim();
+        if (!platform) return;
+        const monthlyGross = parseFloat(row.querySelector('[data-field="monthly_gross"]').value) || 0;
+        const hours = parseFloat(row.querySelector('[data-field="hours_per_week"]').value) || 0;
+        const expenses = parseFloat(row.querySelector('[data-field="monthly_expenses"]').value) || 0;
+        streams.push({
+          platform,
+          source_type: row.querySelector('[data-field="source_type"]').value,
+          monthly_gross: monthlyGross,
+          hours_per_week: hours,
+          monthly_expenses: expenses,
+          net_hourly: computeNetHourly(monthlyGross, expenses, hours),
+        });
+      });
+      return { streams };
+    }
+
+    function readSection5() {
+      const accounts = [];
+      document.querySelectorAll('.account-row').forEach(row => {
+        const nickname = row.querySelector('[data-field="nickname"]').value.trim();
+        if (!nickname) return;
+        accounts.push({
+          nickname,
+          institution: row.querySelector('[data-field="institution"]').value.trim(),
+          type: row.querySelector('[data-field="type"]').value,
+          balance: parseFloat(row.querySelector('[data-field="balance"]').value) || 0,
+          is_emergency_fund: row.querySelector('[data-field="emergency_fund"]').checked,
+        });
+      });
+      return { accounts, monthly_spend: numVal('s5_monthly_spend') };
+    }
+
+    function readSection6() {
+      if (boolVal('s6_no_debt')) return { debts: [], skipped: true };
+      const debts = [];
+      document.querySelectorAll('.debt-row').forEach(row => {
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) return;
+        debts.push({
+          name,
+          type: row.querySelector('[data-field="type"]').value,
+          balance: parseFloat(row.querySelector('[data-field="balance"]').value) || 0,
+          apr: parseFloat(row.querySelector('[data-field="apr"]').value) || 0,
+          minimum_payment: parseFloat(row.querySelector('[data-field="minimum_payment"]').value) || 0,
+        });
+      });
+      return { debts };
+    }
+
+    function readSection7() {
+      const brokerage = [];
+      document.querySelectorAll('.brokerage-row').forEach(row => {
+        const nickname = row.querySelector('[data-field="nickname"]').value.trim();
+        if (!nickname) return;
+        const holdings = [];
+        row.querySelectorAll('.holding-entry').forEach(h => {
+          const ticker = h.querySelector('[data-field="ticker"]').value.trim();
+          if (!ticker) return;
+          holdings.push({
+            ticker,
+            shares: parseFloat(h.querySelector('[data-field="shares"]').value) || null,
+            cost_basis: parseFloat(h.querySelector('[data-field="cost_basis"]').value) || null,
+          });
+        });
+        brokerage.push({
+          nickname,
+          institution: row.querySelector('[data-field="institution"]').value.trim(),
+          balance: parseFloat(row.querySelector('[data-field="balance"]').value) || 0,
+          holdings,
+        });
+      });
+
+      return {
+        k401: {
+          institution: val('s7_401k_institution'),
+          balance: numVal('s7_401k_balance'),
+          annual_contribution: numVal('s7_401k_contribution'),
+          employer_match_pct: numVal('s7_401k_match_pct'),
+          employer_match_up_to: numVal('s7_401k_match_up_to'),
+        },
+        roth_ira: {
+          institution: val('s7_roth_institution'),
+          balance: numVal('s7_roth_balance'),
+          ytd_contribution: numVal('s7_roth_ytd'),
+        },
+        hsa: boolVal('s1_hsa_eligible') ? {
+          institution: val('s7_hsa_institution'),
+          balance: numVal('s7_hsa_balance'),
+          ytd_contribution: numVal('s7_hsa_ytd'),
+        } : null,
+        brokerage,
+      };
+    }
+
+    function readSection8() {
+      if (boolVal('s8_no_property')) return { properties: [], skipped: true };
+      const properties = [];
+      document.querySelectorAll('.property-row').forEach(row => {
+        const type = row.querySelector('[data-field="type"]').value;
+        const purchasePrice = parseFloat(row.querySelector('[data-field="purchase_price"]').value) || 0;
+        if (!purchasePrice && !row.querySelector('[data-field="address"]').value.trim()) return;
+        properties.push({
+          type,
+          address: row.querySelector('[data-field="address"]').value.trim(),
+          purchase_price: purchasePrice,
+          current_value: parseFloat(row.querySelector('[data-field="current_value"]').value) || 0,
+          mortgage_balance: parseFloat(row.querySelector('[data-field="mortgage_balance"]').value) || 0,
+          mortgage_apr: parseFloat(row.querySelector('[data-field="mortgage_apr"]').value) || 0,
+          monthly_payment: parseFloat(row.querySelector('[data-field="monthly_payment"]').value) || 0,
+          monthly_rent: type === 'rental' ? (parseFloat(row.querySelector('[data-field="monthly_rent"]').value) || 0) : null,
+        });
+      });
+      return { properties };
+    }
+
+    function readSection9() {
+      const has1099 = boolVal('s9_has_1099');
+      if (!has1099) return { has_1099: false };
+      return {
+        has_1099: true,
+        business_miles: numVal('s9_miles'),
+        home_office: boolVal('s9_home_office'),
+        home_office_sqft: boolVal('s9_home_office') ? numVal('s9_home_office_sqft') : null,
+        equipment: numVal('s9_equipment'),
+        education: numVal('s9_education'),
+        other_expenses: numVal('s9_other_expenses'),
+        paying_quarterly_taxes: boolVal('s9_quarterly_taxes'),
+      };
+    }
+
+    // ══════════════════════════════════════════════════
+    // Restore saved data into form inputs
+    // ══════════════════════════════════════════════════
+    function restoreSectionData(n) {
+      const d = sectionData[n];
+      if (!d) return;
+      switch(n) {
+        case 1:
+          setVal('s1_age', d.age);
+          setVal('s1_household_size', d.household_size);
+          setVal('s1_dependents', d.dependents);
+          setVal('s1_state', d.state);
+          setVal('s1_filing_status', d.filing_status);
+          setVal('s1_agi', d.agi);
+          setCheck('s1_hsa_eligible', d.hsa_eligible);
+          break;
+        case 2:
+          if (d.goals_5yr) { setVal('s2_nw_5yr', d.goals_5yr.net_worth); setVal('s2_income_5yr', d.goals_5yr.annual_income); setVal('s2_passive_5yr', d.goals_5yr.monthly_passive); }
+          if (d.goals_10yr) { setVal('s2_nw_10yr', d.goals_10yr.net_worth); setVal('s2_income_10yr', d.goals_10yr.annual_income); }
+          break;
+        case 3:
+          if (d.career) { setVal('s3_employer', d.career.employer); setVal('s3_title', d.career.title); setVal('s3_target_comp', d.career.target_comp); setVal('s3_target_date', d.career.target_date); }
+          if (d.primary_income) { setVal('s3_base_salary', d.primary_income.base_salary); setVal('s3_bonus', d.primary_income.bonus); setVal('s3_equity', d.primary_income.equity); computeTotalComp(); }
+          break;
+        case 7:
+          if (d.k401) { setVal('s7_401k_institution', d.k401.institution); setVal('s7_401k_balance', d.k401.balance); setVal('s7_401k_contribution', d.k401.annual_contribution); setVal('s7_401k_match_pct', d.k401.employer_match_pct); setVal('s7_401k_match_up_to', d.k401.employer_match_up_to); }
+          if (d.roth_ira) { setVal('s7_roth_institution', d.roth_ira.institution); setVal('s7_roth_balance', d.roth_ira.balance); setVal('s7_roth_ytd', d.roth_ira.ytd_contribution); }
+          if (d.hsa) { setVal('s7_hsa_institution', d.hsa.institution); setVal('s7_hsa_balance', d.hsa.balance); setVal('s7_hsa_ytd', d.hsa.ytd_contribution); }
+          break;
+        case 5:
+          if (d.monthly_spend != null) setVal('s5_monthly_spend', d.monthly_spend);
+          break;
+        case 9:
+          if (d.has_1099 != null) { setCheck('s9_has_1099', d.has_1099); toggle1099Section(); }
+          if (d.has_1099) {
+            setVal('s9_miles', d.business_miles);
+            setVal('s9_equipment', d.equipment);
+            setVal('s9_education', d.education);
+            setVal('s9_other_expenses', d.other_expenses);
+            setCheck('s9_home_office', d.home_office);
+            toggleHomeOffice();
+            if (d.home_office) setVal('s9_home_office_sqft', d.home_office_sqft);
+            setCheck('s9_quarterly_taxes', d.paying_quarterly_taxes);
+          }
+          break;
+      }
+    }
+
+    function setVal(id, v) {
+      if (v == null) return;
+      const el = document.getElementById(id);
+      if (el) el.value = v;
+    }
+    function setCheck(id, v) {
+      const el = document.getElementById(id);
+      if (el) el.checked = !!v;
+    }
+
+    // ══════════════════════════════════════════════════
+    // Error display
+    // ══════════════════════════════════════════════════
+    function showError(msg) {
+      const el = document.getElementById('global-error');
+      el.textContent = msg;
+      el.classList.add('visible');
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    function clearError() {
+      const el = document.getElementById('global-error');
+      el.textContent = '';
+      el.classList.remove('visible');
+    }
+
+    // ══════════════════════════════════════════════════
+    // Computed fields
+    // ══════════════════════════════════════════════════
+    function computeTotalComp() {
+      const base = parseFloat(document.getElementById('s3_base_salary').value) || 0;
+      const bonus = parseFloat(document.getElementById('s3_bonus').value) || 0;
+      const equity = parseFloat(document.getElementById('s3_equity').value) || 0;
+      document.getElementById('s3_total_comp').value = (base + bonus + equity) || '';
+    }
+
+    function computeNetHourly(gross, expenses, hoursPerWeek) {
+      if (!hoursPerWeek || hoursPerWeek <= 0) return null;
+      const net = gross - expenses;
+      return Math.round((net / (hoursPerWeek * 4.333)) * 100) / 100;
+    }
+
+    function updateNetHourly(rowEl) {
+      const gross = parseFloat(rowEl.querySelector('[data-field="monthly_gross"]').value) || 0;
+      const expenses = parseFloat(rowEl.querySelector('[data-field="monthly_expenses"]').value) || 0;
+      const hours = parseFloat(rowEl.querySelector('[data-field="hours_per_week"]').value) || 0;
+      const nh = computeNetHourly(gross, expenses, hours);
+      rowEl.querySelector('[data-field="net_hourly"]').value = nh != null ? nh.toFixed(2) : '';
+    }
+
+    // ══════════════════════════════════════════════════
+    // Toggle: HSA section on section 7
+    // ══════════════════════════════════════════════════
+    document.getElementById('s1_hsa_eligible').addEventListener('change', function() {
+      document.getElementById('hsa-section').style.display = this.checked ? 'block' : 'none';
+    });
+
+    // ══════════════════════════════════════════════════
+    // Section 4: Side Income rows
+    // ══════════════════════════════════════════════════
+    function addSideIncomeRow() {
+      if (boolVal('s4_no_side_income')) return;
+      sideIncomeCount++;
+      const idx = sideIncomeCount;
+      const container = document.getElementById('side-income-rows');
+      const row = document.createElement('div');
+      row.className = 'row-item side-income-row';
+      row.id = 'si-row-' + idx;
+      row.innerHTML = `
+        <button type="button" class="remove-btn" onclick="removeRow('si-row-${idx}')" title="Remove">&times;</button>
+        <div class="row-num">Stream #${idx}</div>
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Platform / Source</span>
+            <input type="text" data-field="platform" placeholder="DoorDash, Upwork…" />
+          </div>
+          <div class="field">
+            <span class="field-label">Source Type</span>
+            <select data-field="source_type">
+              <option value="1099_contract">1099 Contract</option>
+              <option value="gig">Gig (DoorDash/Uber/etc)</option>
+              <option value="cash_tips">Cash/Tips</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="field-label">Monthly Gross ($)</span>
+            <input type="number" data-field="monthly_gross" step="10" placeholder="0"
+              oninput="updateNetHourly(this.closest('.side-income-row'))" />
+          </div>
+          <div class="field">
+            <span class="field-label">Hours / Week</span>
+            <input type="number" data-field="hours_per_week" step="0.5" min="0" placeholder="0"
+              oninput="updateNetHourly(this.closest('.side-income-row'))" />
+          </div>
+          <div class="field">
+            <span class="field-label">Monthly Expenses ($)</span>
+            <input type="number" data-field="monthly_expenses" step="1" placeholder="0"
+              oninput="updateNetHourly(this.closest('.side-income-row'))" />
+          </div>
+          <div class="field">
+            <span class="field-label">Net Hourly (auto)</span>
+            <input type="number" data-field="net_hourly" readonly placeholder="—" />
+            <span class="field-hint">(gross − expenses) ÷ (hrs × 4.333)</span>
+          </div>
+        </div>
+      `;
+      container.appendChild(row);
+    }
+
+    function toggleSideIncome() {
+      const skip = boolVal('s4_no_side_income');
+      document.getElementById('side-income-body').style.display = skip ? 'none' : 'block';
+    }
+
+    // ══════════════════════════════════════════════════
+    // Section 5: Account rows
+    // ══════════════════════════════════════════════════
+    function addAccountRow() {
+      accountCount++;
+      const idx = accountCount;
+      const container = document.getElementById('account-rows');
+      const row = document.createElement('div');
+      row.className = 'row-item account-row';
+      row.id = 'acc-row-' + idx;
+      row.innerHTML = `
+        <button type="button" class="remove-btn" onclick="removeRow('acc-row-${idx}')" title="Remove">&times;</button>
+        <div class="row-num">Account #${idx}</div>
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Nickname</span>
+            <input type="text" data-field="nickname" placeholder="Chase Checking" />
+          </div>
+          <div class="field">
+            <span class="field-label">Institution</span>
+            <input type="text" data-field="institution" placeholder="Chase" />
+          </div>
+          <div class="field">
+            <span class="field-label">Account Type</span>
+            <select data-field="type">
+              <option value="checking">Checking</option>
+              <option value="savings">Savings</option>
+              <option value="hysa">HYSA</option>
+              <option value="cash">Cash</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="field-label">Current Balance ($)</span>
+            <input type="number" data-field="balance" step="0.01" placeholder="0" />
+          </div>
+          <div class="field" style="align-self: flex-end; padding-bottom: 0.5rem;">
+            <div class="toggle-row">
+              <input type="checkbox" data-field="emergency_fund"
+                onchange="ensureSingleEmergencyFund(this)" />
+              <label style="font-size:0.775rem; color: var(--surface-muted);">Emergency fund account</label>
+            </div>
+          </div>
+        </div>
+      `;
+      container.appendChild(row);
+    }
+
+    function ensureSingleEmergencyFund(checked) {
+      if (!checked.checked) return;
+      document.querySelectorAll('[data-field="emergency_fund"]').forEach(cb => {
+        if (cb !== checked) cb.checked = false;
+      });
+    }
+
+    // ══════════════════════════════════════════════════
+    // Section 6: Debt rows
+    // ══════════════════════════════════════════════════
+    function addDebtRow() {
+      if (boolVal('s6_no_debt')) return;
+      debtCount++;
+      const idx = debtCount;
+      const container = document.getElementById('debt-rows');
+      const row = document.createElement('div');
+      row.className = 'row-item debt-row';
+      row.id = 'debt-row-' + idx;
+      row.innerHTML = `
+        <button type="button" class="remove-btn" onclick="removeRow('debt-row-${idx}')" title="Remove">&times;</button>
+        <div class="row-num">Debt #${idx}</div>
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Name</span>
+            <input type="text" data-field="name" placeholder="Student Loan – Navient" />
+          </div>
+          <div class="field">
+            <span class="field-label">Debt Type</span>
+            <select data-field="type">
+              <option value="credit_card">Credit Card</option>
+              <option value="student_loan">Student Loan</option>
+              <option value="car_loan">Car Loan</option>
+              <option value="personal_loan">Personal Loan</option>
+              <option value="medical">Medical</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="field-label">Current Balance ($)</span>
+            <input type="number" data-field="balance" step="0.01" placeholder="0" />
+          </div>
+          <div class="field">
+            <span class="field-label">APR (%)</span>
+            <input type="number" data-field="apr" step="0.01" min="0" placeholder="6.5" />
+          </div>
+          <div class="field">
+            <span class="field-label">Min Monthly Payment ($)</span>
+            <input type="number" data-field="minimum_payment" step="0.01" placeholder="0" />
+          </div>
+        </div>
+      `;
+      container.appendChild(row);
+    }
+
+    function toggleDebt() {
+      const skip = boolVal('s6_no_debt');
+      document.getElementById('debt-body').style.display = skip ? 'none' : 'block';
+    }
+
+    // ══════════════════════════════════════════════════
+    // Section 7: Brokerage rows
+    // ══════════════════════════════════════════════════
+    function addBrokerageRow() {
+      brokerageCount++;
+      const idx = brokerageCount;
+      const container = document.getElementById('brokerage-rows');
+      const row = document.createElement('div');
+      row.className = 'row-item brokerage-row';
+      row.id = 'brok-row-' + idx;
+      row.innerHTML = `
+        <button type="button" class="remove-btn" onclick="removeRow('brok-row-${idx}')" title="Remove">&times;</button>
+        <div class="row-num">Brokerage #${idx}</div>
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Nickname</span>
+            <input type="text" data-field="nickname" placeholder="Taxable – Fidelity" />
+          </div>
+          <div class="field">
+            <span class="field-label">Institution</span>
+            <input type="text" data-field="institution" placeholder="Fidelity" />
+          </div>
+          <div class="field">
+            <span class="field-label">Current Balance ($)</span>
+            <input type="number" data-field="balance" step="0.01" placeholder="0" />
+          </div>
+        </div>
+        <div class="holdings-wrap">
+          <div class="holdings-title">Holdings (optional)</div>
+          <div class="holding-entries-${idx}"></div>
+          <button type="button" class="btn-add-holding" onclick="addHolding(${idx})">+ Add holding</button>
+        </div>
+      `;
+      container.appendChild(row);
+    }
+
+    function addHolding(brokerageIdx) {
+      const container = document.querySelector('.holding-entries-' + brokerageIdx);
+      const row = document.createElement('div');
+      row.className = 'holding-row holding-entry';
+      row.innerHTML = `
+        <input type="text" data-field="ticker" placeholder="VTI" style="max-width:90px;" />
+        <input type="number" data-field="shares" step="0.0001" placeholder="Shares" />
+        <input type="number" data-field="cost_basis" step="0.01" placeholder="Cost basis ($)" />
+        <button type="button" class="rm-holding" onclick="this.parentElement.remove()" title="Remove">&times;</button>
+      `;
+      container.appendChild(row);
+    }
+
+    // ══════════════════════════════════════════════════
+    // Section 8: Property rows
+    // ══════════════════════════════════════════════════
+    function addPropertyRow() {
+      if (boolVal('s8_no_property')) return;
+      propertyCount++;
+      const idx = propertyCount;
+      const container = document.getElementById('property-rows');
+      const row = document.createElement('div');
+      row.className = 'row-item property-row';
+      row.id = 'prop-row-' + idx;
+      row.innerHTML = `
+        <button type="button" class="remove-btn" onclick="removeRow('prop-row-${idx}')" title="Remove">&times;</button>
+        <div class="row-num">Property #${idx}</div>
+        <div class="form-grid">
+          <div class="field">
+            <span class="field-label">Property Type</span>
+            <select data-field="type" onchange="toggleRentalIncome(this)">
+              <option value="primary">Primary Home</option>
+              <option value="rental">Rental Property</option>
+              <option value="vacation">Vacation/Second Home</option>
+              <option value="land">Land</option>
+            </select>
+          </div>
+          <div class="field span-2">
+            <span class="field-label">Address (optional — used for AVM valuation)</span>
+            <input type="text" data-field="address" placeholder="123 Main St, Austin TX 78701" />
+          </div>
+          <div class="field">
+            <span class="field-label">Purchase Price ($)</span>
+            <input type="number" data-field="purchase_price" step="1000" placeholder="0" />
+          </div>
+          <div class="field">
+            <span class="field-label">Current Est. Value ($)</span>
+            <input type="number" data-field="current_value" step="1000" placeholder="0" />
+          </div>
+          <div class="field">
+            <span class="field-label">Mortgage Balance ($)</span>
+            <input type="number" data-field="mortgage_balance" step="1000" placeholder="0 if paid off" />
+          </div>
+          <div class="field">
+            <span class="field-label">Mortgage APR (%)</span>
+            <input type="number" data-field="mortgage_apr" step="0.001" placeholder="6.5" />
+          </div>
+          <div class="field">
+            <span class="field-label">Monthly Payment ($)</span>
+            <input type="number" data-field="monthly_payment" step="1" placeholder="0" />
+          </div>
+          <div class="field rental-income-field" style="display:none;">
+            <span class="field-label">Monthly Rental Income ($)</span>
+            <input type="number" data-field="monthly_rent" step="1" placeholder="0" />
+          </div>
+        </div>
+      `;
+      container.appendChild(row);
+    }
+
+    function toggleRentalIncome(selectEl) {
+      const row = selectEl.closest('.property-row');
+      const rentalField = row.querySelector('.rental-income-field');
+      rentalField.style.display = (selectEl.value === 'rental') ? 'block' : 'none';
+    }
+
+    function toggleProperty() {
+      const skip = boolVal('s8_no_property');
+      document.getElementById('property-body').style.display = skip ? 'none' : 'block';
+    }
+
+    // ══════════════════════════════════════════════════
+    // Section 9: 1099 toggles
+    // ══════════════════════════════════════════════════
+    function toggle1099Section() {
+      const has = boolVal('s9_has_1099');
+      document.getElementById('s9_no_1099_msg').style.display = has ? 'none' : 'block';
+      document.getElementById('s9_deductions_body').style.display = has ? 'block' : 'none';
+    }
+
+    function toggleHomeOffice() {
+      const checked = boolVal('s9_home_office');
+      document.getElementById('s9_home_office_fields').style.display = checked ? 'block' : 'none';
+    }
+
+    // ══════════════════════════════════════════════════
+    // Generic row removal
+    // ══════════════════════════════════════════════════
+    function removeRow(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
+
+    // ══════════════════════════════════════════════════
+    // Banner helpers
+    // ══════════════════════════════════════════════════
+    function dismissBanner() {
+      document.getElementById('already-done-banner').classList.remove('visible');
+    }
+
+    function viewExistingSnapshot() {
+      const token = localStorage.getItem('cfo_token');
+      fetch('/intake/snapshot', { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(r => r.ok ? r.json() : Promise.reject(r))
+        .then(data => { renderResults(data); showResults(); })
+        .catch(() => showError('Could not load existing snapshot. Please complete intake.'));
+    }
+
+    // ══════════════════════════════════════════════════
+    // Submit intake
+    // ══════════════════════════════════════════════════
+    async function submitIntake() {
+      const token = localStorage.getItem('cfo_token');
+      const btn = document.getElementById('btn-continue');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      clearError();
+
+      // Ensure all unsaved section data is captured
+      for (let i = 1; i <= TOTAL_STEPS; i++) {
+        if (!sectionData[i] || stepStatus[i] !== 'skipped') saveSectionData(i);
+      }
+
+      const payload = buildPayload();
+
+      try {
+        const resp = await fetch('/intake/submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          localStorage.removeItem('cfo_intake_data');
+          renderResults(data);
+          showResults();
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          showError(err.detail || 'Submission failed. Please try again.');
+          btn.disabled = false;
+          btn.textContent = 'Complete Intake';
+        }
+      } catch(e) {
+        showError('Network error. Check your connection and try again.');
+        btn.disabled = false;
+        btn.textContent = 'Complete Intake';
+      }
+    }
+
+    function buildPayload() {
+      const d = sectionData;
+      return {
+        life_context: d[1] || {},
+        goals: buildGoals(d[2]),
+        career: (d[3] || {}).career || {},
+        primary_income: (d[3] || {}).primary_income || {},
+        side_incomes: ((d[4] || {}).streams) || [],
+        accounts: ((d[5] || {}).accounts) || [],
+        monthly_spend: (d[5] || {}).monthly_spend || null,
+        debts: ((d[6] || {}).debts) || [],
+        retirement_accounts: buildRetirement(d[7]),
+        brokerage_accounts: ((d[7] || {}).brokerage) || [],
+        real_estate: ((d[8] || {}).properties) || [],
+        tax_deductions: d[9] || {},
+      };
+    }
+
+    function buildGoals(s2) {
+      if (!s2) return [];
+      const goals = [];
+      const g5 = s2.goals_5yr || {};
+      const g10 = s2.goals_10yr || {};
+      if (g5.net_worth) goals.push({ horizon: '5yr', kind: 'net_worth', target: g5.net_worth });
+      if (g5.annual_income) goals.push({ horizon: '5yr', kind: 'annual_income', target: g5.annual_income });
+      if (g5.monthly_passive) goals.push({ horizon: '5yr', kind: 'monthly_passive', target: g5.monthly_passive });
+      if (g10.net_worth) goals.push({ horizon: '10yr', kind: 'net_worth', target: g10.net_worth });
+      if (g10.annual_income) goals.push({ horizon: '10yr', kind: 'annual_income', target: g10.annual_income });
+      return goals;
+    }
+
+    function buildRetirement(s7) {
+      if (!s7) return [];
+      const accounts = [];
+      if (s7.k401 && s7.k401.balance != null) accounts.push({ kind: '401k', ...s7.k401 });
+      if (s7.roth_ira && s7.roth_ira.balance != null) accounts.push({ kind: 'roth_ira', ...s7.roth_ira });
+      if (s7.hsa && s7.hsa.balance != null) accounts.push({ kind: 'hsa', ...s7.hsa });
+      return accounts;
+    }
+
+    // ══════════════════════════════════════════════════
+    // Render results
+    // ══════════════════════════════════════════════════
+    function renderResults(data) {
+      const snap = data.snapshot || {};
+
+      // Net worth
+      const nw = snap.net_worth || 0;
+      const nwEl = document.getElementById('r_net_worth');
+      nwEl.textContent = formatDollar(nw);
+      nwEl.className = 'net-worth-value' + (nw < 0 ? ' negative' : '');
+
+      // Metrics
+      setText('r_alloc_step', snap.allocation_step ? 'Step ' + snap.allocation_step : '—');
+      setText('r_income_step', snap.income_step ? 'Step ' + snap.income_step : '—');
+
+      const savingsRate = snap.savings_rate;
+      const savingsEl = document.getElementById('r_savings_rate');
+      if (savingsRate != null) {
+        savingsEl.textContent = (savingsRate * 100).toFixed(1) + '%';
+        savingsEl.className = 'metric-value ' + (savingsRate >= 0.2 ? 'good' : savingsRate >= 0.1 ? 'warn' : 'bad');
+      } else { savingsEl.textContent = '—'; }
+
+      const dti = snap.debt_to_income;
+      const dtiEl = document.getElementById('r_dti');
+      if (dti != null) {
+        dtiEl.textContent = (dti * 100).toFixed(1) + '%';
+        dtiEl.className = 'metric-value ' + (dti < 0.36 ? 'good' : dti < 0.5 ? 'warn' : 'bad');
+      } else { dtiEl.textContent = '—'; }
+
+      const efMonths = snap.emergency_fund_months;
+      const efEl = document.getElementById('r_ef_months');
+      if (efMonths != null) {
+        efEl.textContent = efMonths.toFixed(1) + ' mo';
+        efEl.className = 'metric-value ' + (efMonths >= 6 ? 'good' : efMonths >= 3 ? 'warn' : 'bad');
+      } else { efEl.textContent = '—'; }
+
+      // Risk flags
+      const risks = snap.risk_flags || [];
+      const riskSection = document.getElementById('r_risk_section');
+      if (risks.length > 0) {
+        riskSection.style.display = 'block';
+        document.getElementById('r_risk_flags').innerHTML = risks.map(f =>
+          `<div class="flag-card risk">${escapeHtml(f)}</div>`
+        ).join('');
+      }
+
+      // Opportunity flags
+      const opps = snap.opportunity_flags || [];
+      const oppSection = document.getElementById('r_opportunity_section');
+      if (opps.length > 0) {
+        oppSection.style.display = 'block';
+        document.getElementById('r_opportunity_flags').innerHTML = opps.map(f =>
+          `<div class="flag-card opportunity">${escapeHtml(f)}</div>`
+        ).join('');
+      }
+
+      // Goals
+      const goals = snap.goals || [];
+      const goalsSection = document.getElementById('r_goals_section');
+      if (goals.length > 0) {
+        goalsSection.style.display = 'block';
+        document.getElementById('r_goals_list').innerHTML = goals.map(g =>
+          `<div class="goal-row">
+            <span class="goal-row-label">${escapeHtml(g.label || g.kind || '')} (${escapeHtml(g.horizon || '')})</span>
+            <span class="goal-row-value">${formatDollar(g.target)}</span>
+          </div>`
+        ).join('');
+      }
+    }
+
+    function showResults() {
+      document.getElementById('wizard-view').style.display = 'none';
+      document.getElementById('results-view').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ══════════════════════════════════════════════════
+    // Utility
+    // ══════════════════════════════════════════════════
+    function formatDollar(n) {
+      if (n == null || isNaN(n)) return '$—';
+      const abs = Math.abs(n);
+      const sign = n < 0 ? '-' : '';
+      if (abs >= 1_000_000) return sign + '$' + (abs / 1_000_000).toFixed(2) + 'M';
+      if (abs >= 1_000) return sign + '$' + Math.round(abs).toLocaleString();
+      return sign + '$' + abs.toFixed(0);
+    }
+
+    function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = String(s);
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
