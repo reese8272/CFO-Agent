@@ -14,6 +14,7 @@ import pytest
 from cryptography.fernet import Fernet
 
 _TEST_DEFAULTS: dict[str, str] = {
+    "TESTING": "true",
     "ANTHROPIC_API_KEY": "test-key",
     "DATABASE_URL": "postgresql+psycopg://cfo:cfo@localhost:5432/personal_cfo",
     "REDIS_URL": "redis://localhost:6379/0",
