@@ -23,6 +23,18 @@ jobs:
             set -e
             export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
+            # Install Docker if missing
+            if ! command -v docker &>/dev/null; then
+              curl -fsSL https://get.docker.com | sh
+              sudo usermod -aG docker "$USER"
+            fi
+
+            # Group membership may not be active in this session yet; use sudo as fallback
+            DOCKER="docker"
+            if ! groups | grep -q docker; then
+              DOCKER="sudo docker"
+            fi
+
             GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
             REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/reese8272/CFO-Agent.git"
 
@@ -60,7 +72,7 @@ jobs:
             POSTGRES_DB=personal_cfo
             ENVEOF
 
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker compose exec -T app alembic upgrade head
-            docker compose ps
+            $DOCKER compose pull
+            $DOCKER compose up -d --remove-orphans
+            $DOCKER compose exec -T app alembic upgrade head
+            $DOCKER compose ps
