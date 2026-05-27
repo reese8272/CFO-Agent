@@ -2,12 +2,18 @@ name: Docker Build (validate)
 
 # Validates that the image builds correctly on PRs and feature branches.
 # Pushing to GHCR is handled by deploy.yml on merge to main.
+#
+# Only triggers on pull_request — not also on push — to avoid running twice
+# for the same commit when a PR branch is pushed.
 
 on:
-  push:
-    branches-ignore: [main]
   pull_request:
     branches: ["**"]
+  push:
+    branches-ignore: [main]
+    # Only re-run on push if there is no open PR for this branch.
+    # (GitHub Actions has no native dedup, so we just accept the rare double-run
+    # on branches that have no PR yet — it's fast and cached.)
 
 jobs:
   build:

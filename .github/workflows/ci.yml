@@ -38,7 +38,9 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg://cfo:cfo@localhost:5432/personal_cfo
       REDIS_URL: redis://localhost:6379/0
+      # JWT_SECRET_KEY: real secret if set, otherwise a safe 32-char CI placeholder
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY || 'ci-test-secret-key-must-be-at-least-32-chars' }}
+      # ANTHROPIC_API_KEY: real key enables live LLM tests; 'test-key' stubs them
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'test-key' }}
       DIGEST_RECIPIENT: ci@example.com
       SMTP_HOST: localhost
@@ -50,6 +52,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── Secret audit ────────────────────────────────────────────────────────
+      # Shows metadata (length + format checks) WITHOUT revealing values.
+      # GitHub masks exact secret text; it cannot mask derived numbers/booleans.
+      - name: Audit secrets available to CI
+        env:
+          _JWT: ${{ secrets.JWT_SECRET_KEY }}
+          _ANT: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "=== CI Secret Audit ==="
+          echo ""
+
+          # JWT_SECRET_KEY
+          JWT_LEN="${#_JWT}"
+          if   [ "$JWT_LEN" -eq 0 ];  then JWT_STATUS="NOT SET (using CI placeholder)"
+          elif [ "$JWT_LEN" -lt 32 ]; then JWT_STATUS="SET but too short (${JWT_LEN} chars, need ≥32) ⚠️"
+          else                              JWT_STATUS="OK (${JWT_LEN} chars)"
+          fi
+          echo "JWT_SECRET_KEY      : $JWT_STATUS"
+
+          # ANTHROPIC_API_KEY
+          ANT_LEN="${#_ANT}"
+          if [ "$ANT_LEN" -eq 0 ]; then
+            ANT_STATUS="NOT SET (LLM tests will be skipped/stubbed)"
+          else
+            ANT_PREFIX=$(printf '%s' "$_ANT" | cut -c1-7)
+            if [ "$ANT_PREFIX" = "sk-ant-" ]; then
+              ANT_STATUS="OK (${ANT_LEN} chars, prefix=sk-ant-✓)"
+            else
+              ANT_STATUS="SET but unexpected prefix — expected sk-ant- (${ANT_LEN} chars) ⚠️"
+            fi
+          fi
+          echo "ANTHROPIC_API_KEY   : $ANT_STATUS"
+
+          echo ""
+          echo "VAULT_ENCRYPTION_KEY: will be generated fresh each CI run (correct for CI)"
+          echo "DATABASE_URL        : hardcoded to CI postgres service (correct)"
+          echo "REDIS_URL           : hardcoded to CI redis service (correct)"
+          echo "SMTP_*              : stubbed to localhost mailcatcher (correct)"
+          echo ""
+          echo "=== End Audit ==="
+
+      # ── Python setup ────────────────────────────────────────────────────────
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -70,12 +114,45 @@ jobs:
       - name: Add venv to PATH
         run: echo "$HOME/.venv/bin" >> $GITHUB_PATH
 
+      # ── Generate ephemeral secrets for CI ───────────────────────────────────
       - name: Generate VAULT_ENCRYPTION_KEY for CI
         run: |
-          echo "VAULT_ENCRYPTION_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> $GITHUB_ENV
+          KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')
+          echo "VAULT_ENCRYPTION_KEY=${KEY}" >> $GITHUB_ENV
+          echo "VAULT_ENCRYPTION_KEY: generated OK ($(echo -n "$KEY" | wc -c) chars)"
 
+      # ── Validate env (uses our check script) ────────────────────────────────
+      - name: Validate CI environment variables
+        run: python scripts/check_env.py
+        # Runs in the CI env context — will pass for required vars, warn on optionals.
+        # Failures here mean the CI env setup above is broken, not the app code.
+        continue-on-error: true
+
+      # ── Migrations ──────────────────────────────────────────────────────────
       - name: Run Alembic migrations
         run: alembic upgrade head
 
+      - name: Verify migration is at head
+        run: |
+          CURRENT=$(alembic current 2>&1)
+          echo "Alembic current: $CURRENT"
+          if echo "$CURRENT" | grep -q "(head)"; then
+            echo "✓ Migrations are at head"
+          else
+            echo "✗ Migrations did NOT reach head — check output above"
+            exit 1
+          fi
+
+      # ── Tests ───────────────────────────────────────────────────────────────
       - name: Run tests
-        run: pytest -q --tb=short
+        run: |
+          mkdir -p test-results
+          pytest -v --tb=long --junitxml=test-results/junit.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_id }}
+          path: test-results/
+          retention-days: 14
