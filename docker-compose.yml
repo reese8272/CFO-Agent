@@ -51,7 +51,8 @@ services:
     labels:
       autoheal: "true"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      # python urllib, not curl — curl isn't in the python:3.13-slim image
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 5s
       retries: 9

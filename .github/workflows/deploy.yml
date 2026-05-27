@@ -186,7 +186,7 @@ jobs:
             READY=0
             for i in $(seq 1 18); do
               HTTP_CODE=$($DOCKER compose exec -T app \
-                curl -sf -o /dev/null -w "%{http_code}" http://localhost:8000/health \
+                python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').status)" \
                 2>/dev/null || echo "000")
               echo "  attempt $i/18: HTTP $HTTP_CODE"
               if [ "$HTTP_CODE" = "200" ]; then
