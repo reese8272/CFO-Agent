@@ -120,6 +120,14 @@ jobs:
 
             echo "=== [1/6] Syncing repo ==="
             REPO_URL="https://x-access-token:${SECRET_GH_PAT}@github.com/reese8272/CFO-Agent.git"
+            # Ensure DEPLOY_PATH exists and is writable by us; escalate with sudo
+            # only when the parent dir is root-owned (same pattern as sudo docker).
+            if [ ! -d "${SECRET_DEPLOY_PATH}" ]; then
+              mkdir -p "${SECRET_DEPLOY_PATH}" 2>/dev/null || sudo mkdir -p "${SECRET_DEPLOY_PATH}"
+            fi
+            if [ ! -w "${SECRET_DEPLOY_PATH}" ]; then
+              sudo chown -R "$(id -un):$(id -gn)" "${SECRET_DEPLOY_PATH}"
+            fi
             if [ ! -d "${SECRET_DEPLOY_PATH}/.git" ]; then
               git clone "${REPO_URL}" "${SECRET_DEPLOY_PATH}"
             fi
