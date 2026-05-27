@@ -4,6 +4,7 @@
 Usage:
     python scripts/check_env.py           # reads .env automatically
     python scripts/check_env.py --strict  # treat optional-but-recommended as failures
+    python scripts/check_env.py --live    # also verify each credential actually works
     ENV_FILE=.env.staging python scripts/check_env.py
 """
 import base64
@@ -27,6 +28,7 @@ if env_file.exists():
             os.environ[key] = value
 
 STRICT = "--strict" in sys.argv
+LIVE = "--live" in sys.argv
 
 # ---------------------------------------------------------------------------
 # Check definitions
@@ -174,6 +176,62 @@ for v in ["PLAID_CLIENT_ID", "PLAID_SECRET", "PLAID_ENV"]:
     val = os.environ.get(v, "")
     status = OK if val else f"\033[90m-\033[0m"
     print(f"  {status}  {v} {'(set)' if val else '(not set — expected, phase 2)'}")
+
+# ---------------------------------------------------------------------------
+# Live connectivity (opt-in via --live): prove each credential actually works.
+# Reports PASS/FAIL only — never echoes the secret. Run it where the app runs
+# (inside the container or with host-resolvable DATABASE_URL / REDIS_URL).
+# ---------------------------------------------------------------------------
+
+def live(label: str, fn) -> None:
+    try:
+        detail = fn()
+        print(f"  {OK}  {label}{(' — ' + detail) if detail else ''}")
+    except Exception as exc:
+        msg = f"{type(exc).__name__}: {exc}".replace("\n", " ").strip()[:140]
+        failures.append(f"  {FAIL}  {label} — {msg}")
+
+
+if LIVE:
+    print("\n── Live connectivity (does each credential actually work?) ─────────────")
+
+    def _live_fernet() -> str:
+        from cryptography.fernet import Fernet
+        f = Fernet(os.environ.get("VAULT_ENCRYPTION_KEY", "").encode())
+        if f.decrypt(f.encrypt(b"ping")) != b"ping":
+            raise ValueError("round-trip mismatch")
+        return "encrypt/decrypt round-trip OK"
+    live("VAULT_ENCRYPTION_KEY (Fernet)", _live_fernet)
+
+    def _live_postgres() -> str:
+        import psycopg
+        url = os.environ.get("DATABASE_URL", "").replace("+psycopg", "")
+        with psycopg.connect(url, connect_timeout=5) as conn:
+            conn.execute("SELECT 1")
+        return "connected; SELECT 1 OK"
+    live("DATABASE_URL (Postgres)", _live_postgres)
+
+    def _live_redis() -> str:
+        import redis
+        redis.from_url(os.environ.get("REDIS_URL", ""), socket_connect_timeout=5).ping()
+        return "PING OK"
+    live("REDIS_URL (Redis)", _live_redis)
+
+    def _live_anthropic() -> str:
+        import anthropic
+        anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""), timeout=10).models.list()
+        return "authenticated"
+    live("ANTHROPIC_API_KEY (Anthropic)", _live_anthropic)
+
+    if os.environ.get("SMTP_HOST", "").strip():
+        def _live_smtp() -> str:
+            import smtplib
+            port = int(os.environ.get("SMTP_PORT", "587") or "587")
+            with smtplib.SMTP(os.environ["SMTP_HOST"].strip(), port, timeout=10) as s:
+                s.starttls()
+                s.login(os.environ.get("SMTP_USER", ""), os.environ.get("SMTP_PASSWORD", ""))
+            return "STARTTLS + login OK"
+        live("SMTP (login)", _live_smtp)
 
 # ---------------------------------------------------------------------------
 # Summary

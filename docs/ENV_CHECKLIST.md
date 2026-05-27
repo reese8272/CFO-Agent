@@ -182,9 +182,19 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 # 3. Fill in ANTHROPIC_API_KEY, DIGEST_RECIPIENT, and SMTP_* in .env
 
-# 4. Validate
+# 4. Validate format (presence + shape, never prints values)
 python scripts/check_env.py
+
+# 4b. Validate that each credential actually WORKS (live connections).
+#     Run inside the container or with host-resolvable DB/Redis URLs.
+#     Reports PASS/FAIL per service — still never prints a secret.
+python scripts/check_env.py --live
 
 # 5. Start
 docker compose up -d
 ```
+
+> **Troubleshooting tip**: when something won't connect and you can't see the
+> secret to debug it, `check_env.py --live` is your friend — it tells you
+> *which* credential fails and *how* (bad API key, DB refused, SMTP login
+> rejected) without ever echoing the value.
