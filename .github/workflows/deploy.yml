@@ -5,97 +5,36 @@ on:
     branches: [main]
 
 jobs:
-  # ── Job 1: Validate all required secrets exist before doing any real work ───
+  # ── Job 1: Validate all required secrets before doing any real work ─────────
   validate-secrets:
     runs-on: ubuntu-latest
     environment: Production
     steps:
-      - name: Check required deployment secrets
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Validate deployment secrets
         env:
-          _ANTHROPIC: ${{ secrets.ANTHROPIC_API_KEY }}
-          _JWT: ${{ secrets.JWT_SECRET_KEY }}
-          _FERNET: ${{ secrets.VAULT_ENCRYPTION_KEY }}
-          _CF: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-          _HOST: ${{ secrets.DEPLOY_HOST }}
-          _USER: ${{ secrets.DEPLOY_USER }}
-          _KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          _PAT: ${{ secrets.GH_PAT }}
-          _PATH: ${{ secrets.DEPLOY_PATH }}
-        run: |
-          echo "=== Pre-Deploy Secret Audit ==="
-          echo ""
-          FAIL=0
-
-          check_required() {
-            local name="$1"
-            local val="$2"
-            local min_len="${3:-1}"
-            local len="${#val}"
-            if [ "$len" -eq 0 ]; then
-              echo "✗ $name : NOT SET — deploy will fail"
-              FAIL=1
-            elif [ "$len" -lt "$min_len" ]; then
-              echo "✗ $name : SET but too short (${len} chars, need ≥${min_len}) — deploy will fail"
-              FAIL=1
-            else
-              echo "✓ $name : OK (${len} chars)"
-            fi
-          }
-
-          check_format() {
-            local name="$1"
-            local val="$2"
-            local expected_prefix="$3"
-            local len="${#val}"
-            if [ "$len" -eq 0 ]; then
-              echo "✗ $name : NOT SET"
-              FAIL=1
-              return
-            fi
-            actual_prefix=$(printf '%s' "$val" | cut -c1-${#expected_prefix})
-            if [ "$actual_prefix" = "$expected_prefix" ]; then
-              echo "✓ $name : OK (${len} chars, prefix=${expected_prefix}✓)"
-            else
-              echo "⚠ $name : SET (${len} chars) but unexpected prefix — expected '${expected_prefix}'"
-            fi
-          }
-
-          check_fernet() {
-            local name="$1"
-            local val="$2"
-            local len="${#val}"
-            if [ "$len" -eq 0 ]; then
-              echo "✗ $name : NOT SET — all vault data will be unreadable"
-              FAIL=1
-              return
-            fi
-            # Fernet keys are 44 chars of url-safe base64
-            if [ "$len" -eq 44 ]; then
-              echo "✓ $name : OK (${len} chars, correct Fernet length)"
-            else
-              echo "⚠ $name : SET (${len} chars) — Fernet keys should be exactly 44 chars. Re-generate if wrong."
-            fi
-          }
-
-          check_format    "ANTHROPIC_API_KEY    " "$_ANTHROPIC" "sk-ant-"
-          check_required  "JWT_SECRET_KEY       " "$_JWT"       32
-          check_fernet    "VAULT_ENCRYPTION_KEY " "$_FERNET"
-          check_required  "CLOUDFLARE_TUNNEL_TOK" "$_CF"
-          check_required  "DEPLOY_HOST          " "$_HOST"
-          check_required  "DEPLOY_USER          " "$_USER"
-          check_required  "SSH_PRIVATE_KEY      " "$_KEY"       200
-          check_required  "GH_PAT               " "$_PAT"
-          check_required  "DEPLOY_PATH          " "$_PATH"
-
-          echo ""
-          if [ "$FAIL" -eq 1 ]; then
-            echo "✗ One or more required secrets are missing or malformed."
-            echo "  Go to: Settings → Secrets and variables → Actions → New repository secret"
-            echo "  See docs/ENV_CHECKLIST.md for generation instructions."
-            exit 1
-          else
-            echo "✓ All required secrets present. Proceeding with build + deploy."
-          fi
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          JWT_SECRET_KEY:          ${{ secrets.JWT_SECRET_KEY }}
+          VAULT_ENCRYPTION_KEY:    ${{ secrets.VAULT_ENCRYPTION_KEY }}
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+          SSH_PRIVATE_KEY:         ${{ secrets.SSH_PRIVATE_KEY }}
+          DEPLOY_HOST:             ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER:             ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH:             ${{ secrets.DEPLOY_PATH }}
+          GH_PAT:                  ${{ secrets.GH_PAT }}
+          SMTP_HOST:               ${{ secrets.SMTP_HOST }}
+          SMTP_USER:               ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD:           ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM:               ${{ secrets.SMTP_FROM }}
+          DATABASE_URL:            "placeholder"
+          REDIS_URL:               "placeholder"
+          DIGEST_RECIPIENT:        "placeholder"
+        run: python scripts/audit_secrets.py
 
   # ── Job 2: Build and push Docker image to GHCR ────────────────────────────
   build:
