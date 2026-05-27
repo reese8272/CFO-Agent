@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-cfo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cfo}
@@ -17,6 +18,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     command: ["redis-server", "--save", "60", "1"]
     volumes:
       - redis_data:/data
@@ -46,6 +48,8 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+    labels:
+      autoheal: "true"
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
       interval: 10s
@@ -59,6 +63,19 @@ services:
     depends_on:
       - app
     restart: unless-stopped
+
+  # Restarts any container marked unhealthy by its healthcheck (e.g. app).
+  # restart:unless-stopped only fires on exit, not on an unhealthy-but-running
+  # container — autoheal closes that gap.
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 10
+      AUTOHEAL_START_PERIOD: 30
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   postgres_data:

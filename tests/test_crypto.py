@@ -68,6 +68,22 @@ def test_encrypted_json_round_trip() -> None:
     assert decorator.process_result_value(bound, dialect=None) == value
 
 
+def test_encrypted_json_serializes_decimal() -> None:
+    """Decimal values (e.g. computed snapshot figures) must serialize, not crash.
+    They round-trip back as strings to preserve exact precision."""
+    decorator = EncryptedJSON()
+    value = {"net_worth": Decimal("12345.67"), "nested": {"gap": Decimal("9001")}}
+    bound = decorator.process_bind_param(value, dialect=None)
+    assert isinstance(bound, bytes)
+    out = decorator.process_result_value(bound, dialect=None)
+    assert out == {"net_worth": "12345.67", "nested": {"gap": "9001"}}
+
+
+def test_encrypted_json_rejects_unserializable_type() -> None:
+    with pytest.raises(TypeError):
+        EncryptedJSON().process_bind_param({"bad": object()}, dialect=None)
+
+
 def test_missing_vault_encryption_key_fails_app_start() -> None:
     """Booting config without VAULT_ENCRYPTION_KEY must raise at import-time validation."""
     # Use Settings(_env_file=None) so pydantic-settings cannot fall back to the

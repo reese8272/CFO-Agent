@@ -47,6 +47,11 @@ FAIL = f"{RED}✗{RESET}"
 WARN = f"{YELLOW}⚠{RESET}"
 SKIP = f"{DIM}–{RESET}"
 
+# deploy.yml passes this literal for JWT_SECRET_KEY because the real key is
+# generated fresh inside the deploy script (openssl rand -hex 32), not stored
+# as a GitHub secret. Keep in sync with .github/workflows/deploy.yml.
+JWT_AUTOGEN_SENTINEL = "auto-generated-per-deploy"
+
 
 # ── Result tracking ──────────────────────────────────────────────────────────
 @dataclass
@@ -187,8 +192,12 @@ def run_audit(env: dict[str, str]) -> bool:
     s = len(results)
     check_prefix("ANTHROPIC_API_KEY", g("ANTHROPIC_API_KEY", ""), "sk-ant-",
                  hint="console.anthropic.com → API Keys")
-    check_required("JWT_SECRET_KEY", g("JWT_SECRET_KEY", ""), 32,
-                   hint="Generate: openssl rand -hex 32")
+    jwt_val = g("JWT_SECRET_KEY", "")
+    if jwt_val == JWT_AUTOGEN_SENTINEL:
+        _record("JWT_SECRET_KEY", "ok", "generated fresh per deploy (not a stored secret)")
+    else:
+        check_required("JWT_SECRET_KEY", jwt_val, 32,
+                       hint="Generate: openssl rand -hex 32")
     check_fernet("VAULT_ENCRYPTION_KEY", g("VAULT_ENCRYPTION_KEY", ""))
     flush_section(s)
 

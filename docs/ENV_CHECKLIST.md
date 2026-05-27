@@ -136,6 +136,12 @@ All five must be set together or digest sending will be silently skipped (no cra
 - **Production**: set to your Cloudflare Tunnel domain, e.g. `["https://cfo.yourdomain.com"]`
 - [ ] Set to your production domain before going live
 
+### `HEALTHCHECK_PING_URL`
+- **What**: External dead-man's-switch. The worker pings this URL every 5 minutes; if pings stop (app crashed, VM down), the monitor alerts you. Complements Docker's `restart: unless-stopped` + `autoheal` (which handle container-level recovery) by catching whole-stack outages.
+- **Without it**: no ping is sent (container auto-restart/autoheal still work; you just won't get an external alert).
+- **Free tier**: [healthchecks.io](https://healthchecks.io) — 20 checks free. Create a check, copy its ping URL (`https://hc-ping.com/<uuid>`).
+- [ ] Set if you want to be alerted when the whole stack goes down
+
 ---
 
 ## Tier 5 — Tuning (safe to leave at defaults)
@@ -176,9 +182,19 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 # 3. Fill in ANTHROPIC_API_KEY, DIGEST_RECIPIENT, and SMTP_* in .env
 
-# 4. Validate
+# 4. Validate format (presence + shape, never prints values)
 python scripts/check_env.py
+
+# 4b. Validate that each credential actually WORKS (live connections).
+#     Run inside the container or with host-resolvable DB/Redis URLs.
+#     Reports PASS/FAIL per service — still never prints a secret.
+python scripts/check_env.py --live
 
 # 5. Start
 docker compose up -d
 ```
+
+> **Troubleshooting tip**: when something won't connect and you can't see the
+> secret to debug it, `check_env.py --live` is your friend — it tells you
+> *which* credential fails and *how* (bad API key, DB refused, SMTP login
+> rejected) without ever echoing the value.

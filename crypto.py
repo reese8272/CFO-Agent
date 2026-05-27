@@ -75,6 +75,14 @@ class EncryptedNumeric(TypeDecorator):
         return Decimal(decrypt(bytes(value)))
 
 
+def _json_default(obj: Any) -> str:
+    """Serialize types json doesn't handle natively. Decimal → str preserves
+    exact precision and matches EncryptedNumeric's storage convention."""
+    if isinstance(obj, Decimal):
+        return str(obj)
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
 class EncryptedJSON(TypeDecorator):
     impl = LargeBinary
     cache_ok = True
@@ -82,7 +90,7 @@ class EncryptedJSON(TypeDecorator):
     def process_bind_param(self, value: dict | None, dialect: Any) -> bytes | None:
         if value is None:
             return None
-        return encrypt(json.dumps(value, sort_keys=True, separators=(",", ":")))
+        return encrypt(json.dumps(value, sort_keys=True, separators=(",", ":"), default=_json_default))
 
     def process_result_value(self, value: bytes | None, dialect: Any) -> dict | None:
         if value is None:

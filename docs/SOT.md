@@ -370,9 +370,10 @@ Full threat model in `docs/THREAT_MODEL.md`.
 
 ## Known Production Gaps
 
-- `VAULT_ENCRYPTION_KEY` rotation runbook not written
+- `VAULT_ENCRYPTION_KEY` rotation runbook — **written** (`docs/DEPLOYMENT.md` §8); a re-encryption helper script still needs to be added before the first real rotation
 - No rate limiting on `/chat` (single-user, but LLM cost ceiling matters)
 - Plaid deferred; sync gaps when added
 - Agent eval harness (`tests/eval/`) covers happy paths only; needs adversarial coverage
 - Digest email has no opt-out or pause mechanism
-- No external monitoring/alerting wired up
+- External monitoring — **wired** (optional `HEALTHCHECK_PING_URL` dead-man's-switch + `autoheal` container); enable by setting the var
+- Production compose still bind-mounts source + runs `--reload`; a `docker-compose.prod.yml` override should make the prebuilt GHCR image authoritative (`docs/DEPLOYMENT.md` §5)

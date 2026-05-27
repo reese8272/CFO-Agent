@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import math
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_CEILING
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -251,6 +251,6 @@ def _build_vault_snapshot(full_wealth: VaultWealthPosition, full_income: VaultIn
 
 
 def _round100(val: object) -> Decimal:
-    """Round to nearest 100 for prompt safety."""
+    """Round up to the next 100 for prompt safety (never understate a figure)."""
     d = Decimal(str(val))
-    return Decimal(str(int(round(float(d) / 100)) * 100))
+    return (d / Decimal("100")).quantize(Decimal("1"), rounding=ROUND_CEILING) * Decimal("100")

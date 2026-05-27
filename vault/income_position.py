@@ -33,9 +33,8 @@ class IncomeLadder(TypedDict):
 
 
 async def compute_income_position(session: AsyncSession, user_id: str) -> IncomeLadder:
-    ladder = await _build_income_ladder(session)
+    ladder, total = await _build_income_ladder(session)
     open_gaps = [s for s in ladder if not s["funded"]]
-    total = sum(s["monthly_actual"] for s in ladder)
 
     return IncomeLadder(
         total_monthly_income=total,
@@ -45,7 +44,7 @@ async def compute_income_position(session: AsyncSession, user_id: str) -> Income
     )
 
 
-async def _build_income_ladder(session: AsyncSession) -> list[IncomeStep]:
+async def _build_income_ladder(session: AsyncSession) -> tuple[list[IncomeStep], Decimal]:
     from vault.models import IncomeStream, Expense, SideIncomeEconomics, TaxDeduction1099, NegotiationMilestone
 
     # Monthly expenses baseline
@@ -166,7 +165,9 @@ async def _build_income_ladder(session: AsyncSession) -> list[IncomeStep]:
         funded=len(milestone_rows) > 0,
     )
 
-    return [step1, step2, step3, step4, step5]
+    # total monthly income is the actual income-stream sum; ladder steps are
+    # analytical stages that restate the same income and must not be summed.
+    return [step1, step2, step3, step4, step5], total_monthly
 
 
 def _to_monthly(amount: Decimal, cadence: str) -> Decimal:
