@@ -49,7 +49,7 @@ Synthesizer commits to ONE move across both tracks.
 | 12 | Weekly digest cron + email | **Closed 2026-05-25** |
 | 13 | Plaid integration | **Deferred indefinitely 2026-05-24** — preserved as escape hatch |
 | **15** | **Financial Intake Wizard — backend (models, migration, analysis engine, router)** | **In Progress 2026-05-26** — broken tests repaired 2026-05-27 (see Issue 16) |
-| **16** | **Secrets & deploy operations hardening** *(branch `claude/ops-hardening`)* | **In Progress 2026-05-27** |
+| **16** | **Secrets & deploy operations hardening** *(merged PR #24)* | **Closed 2026-05-27** — production deploy live & green |
 
 ## Blocked
 
@@ -73,10 +73,11 @@ Create these rows so Tracker has calibration anchors:
 - `career_position`: `current_comp=80000`, `target_comp=140000`, `target_date=2029-05-25`, `employer="current"`, `role="current"`
 - SMTP: fill real credentials in `.env` for weekly digest — `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
 
-### Gate 4 — Production deploy (after Gates 2 & 3)
-1. Provision Oracle Cloud Free ARM VM (if not already done)
-2. Update `CLAUDE.md` placeholders: target host, SSH user, domain
-3. Set GitHub Actions secrets: `SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH` (see `.github/workflows/deploy.yml`)
-4. `git push origin main` — CI runs automatically
-5. SSH to host: `git pull && docker compose pull && docker compose up -d`
-6. Configure Cloudflare Tunnel to forward to `localhost:8000`
+### Gate 4 — Production deploy ✅ LIVE (2026-05-27)
+Automated CI/CD is working end-to-end. Push to `main` (non-docs) →
+`validate-secrets` → build+push to GHCR → SSH deploy → `/health` gate (HTTP 200)
+→ Alembic migrations. Full runbook in `docs/DEPLOYMENT.md`.
+Remaining owner follow-ups:
+- Set `SMTP_*` Production secrets to enable weekly digest emails (currently skipped)
+- Set `HEALTHCHECK_PING_URL` (healthchecks.io) for an external dead-man's-switch
+- Optional hardening: `docker-compose.prod.yml` override to drop the bind mount + `--reload`

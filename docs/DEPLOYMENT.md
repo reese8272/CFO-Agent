@@ -275,6 +275,8 @@ it in the secret, redeploy. There is nothing to re-encrypt.
 | App returns 503 at `/health` | Postgres or Redis down: `docker compose ps`, `docker compose logs postgres redis`. |
 | "invalid x-api-key" / auth errors | `python3 scripts/check_env.py --live` — pinpoints the failing credential without printing it. |
 | Can't SSH from CI | `SSH_PRIVATE_KEY` secret lost its newlines on paste, or its public half isn't in the VM `authorized_keys`. Re-paste the full key file. |
+| `could not create work tree dir: Permission denied` (step [1/6]) | `DEPLOY_PATH` isn't writable by the deploy user. The deploy script now auto-creates + `chown`s it (using `sudo` when the parent is root-owned), so this needs either passwordless sudo on the VM or a `DEPLOY_PATH` under the user's home (e.g. `/home/ubuntu/personal-cfo`). |
+| Health gate: `exec: "curl": executable file not found` | The probes use python `urllib`, not curl (curl isn't in the `python:3.13-slim` image). If you reintroduce a curl-based check, install curl in the Dockerfile runtime stage. |
 | Digest emails never arrive | `SMTP_*` not set (non-fatal — silently skipped). Add them in the Production env. |
 
 For format vs. live validation: `check_env.py` (format) → `check_env.py --live` (does it
