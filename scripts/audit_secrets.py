@@ -183,16 +183,21 @@ def run_audit(env: dict[str, str]) -> bool:
     print(f"{'='*64}")
 
     # Tier 1
-    section("Tier 1: Required — app won't start without these")
+    section("Tier 1: Required GitHub Secrets — cryptographic / external service keys")
     s = len(results)
     check_prefix("ANTHROPIC_API_KEY", g("ANTHROPIC_API_KEY", ""), "sk-ant-",
                  hint="console.anthropic.com → API Keys")
-    check_required("DATABASE_URL", g("DATABASE_URL", ""), 1)
-    check_required("REDIS_URL", g("REDIS_URL", ""), 1)
     check_required("JWT_SECRET_KEY", g("JWT_SECRET_KEY", ""), 32,
                    hint="Generate: openssl rand -hex 32")
     check_fernet("VAULT_ENCRYPTION_KEY", g("VAULT_ENCRYPTION_KEY", ""))
-    check_required("DIGEST_RECIPIENT", g("DIGEST_RECIPIENT", ""))
+    flush_section(s)
+
+    # Hardcoded in deploy — not secrets
+    section("Hardcoded in deploy.yml — not GitHub Secrets")
+    s = len(results)
+    _record("DATABASE_URL",     "skip", "hardcoded: postgresql+psycopg://cfo:cfo@postgres:5432/personal_cfo")
+    _record("REDIS_URL",        "skip", "hardcoded: redis://redis:6379/0")
+    _record("DIGEST_RECIPIENT", "skip", "hardcoded: reesepludwick@gmail.com")
     flush_section(s)
 
     # Tier 2

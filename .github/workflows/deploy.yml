@@ -32,9 +32,6 @@ jobs:
           SMTP_USER:               ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD:           ${{ secrets.SMTP_PASSWORD }}
           SMTP_FROM:               ${{ secrets.SMTP_FROM }}
-          DATABASE_URL:            "placeholder"
-          REDIS_URL:               "placeholder"
-          DIGEST_RECIPIENT:        "placeholder"
         run: python scripts/audit_secrets.py
 
   # ── Job 2: Build and push Docker image to GHCR ────────────────────────────
