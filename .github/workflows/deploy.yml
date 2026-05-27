@@ -3,9 +3,15 @@ name: Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual deploy"
+        required: false
+        default: "manual trigger"
 
 jobs:
-  # ── Job 1: Validate all required secrets before doing any real work ─────────
+  # ── Job 1: Validate all required secrets before doing any real work ──────────
   validate-secrets:
     runs-on: ubuntu-latest
     environment: Production
@@ -19,7 +25,6 @@ jobs:
       - name: Validate deployment secrets
         env:
           ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
-          # JWT_SECRET_KEY is auto-generated on the server each deploy — not a GitHub secret
           JWT_SECRET_KEY:          "auto-generated-per-deploy"
           VAULT_ENCRYPTION_KEY:    ${{ secrets.VAULT_ENCRYPTION_KEY }}
           CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
@@ -34,7 +39,7 @@ jobs:
           SMTP_FROM:               ${{ secrets.SMTP_FROM }}
         run: python scripts/audit_secrets.py
 
-  # ── Job 2: Build and push Docker image to GHCR ────────────────────────────
+  # ── Job 2: Build and push Docker image to GHCR ───────────────────────────────
   build:
     runs-on: ubuntu-latest
     needs: [validate-secrets]
@@ -69,7 +74,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ── Job 3: Deploy to server via SSH ───────────────────────────────────────
+  # ── Job 3: Deploy to server via SSH ──────────────────────────────────────────
   deploy:
     runs-on: ubuntu-latest
     environment: Production
@@ -84,32 +89,41 @@ jobs:
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
+        env:
+          # Passed as env vars so they never appear as interpolated text in the script.
+          # appleboy/ssh-action forwards these to the remote shell via its envs: list.
+          SECRET_ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          SECRET_VAULT_ENCRYPTION_KEY:    ${{ secrets.VAULT_ENCRYPTION_KEY }}
+          SECRET_CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+          SECRET_GH_PAT:                  ${{ secrets.GH_PAT }}
+          SECRET_DEPLOY_PATH:             ${{ secrets.DEPLOY_PATH }}
+          SECRET_SMTP_HOST:               ${{ secrets.SMTP_HOST }}
+          SECRET_SMTP_PORT:               ${{ secrets.SMTP_PORT }}
+          SECRET_SMTP_USER:               ${{ secrets.SMTP_USER }}
+          SECRET_SMTP_PASSWORD:           ${{ secrets.SMTP_PASSWORD }}
+          SECRET_SMTP_FROM:               ${{ secrets.SMTP_FROM }}
+          DEPLOY_SHA:                     ${{ github.sha }}
         with:
           host: ${{ steps.host.outputs.value }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 10m
-          debug: true
+          envs: SECRET_ANTHROPIC_API_KEY,SECRET_VAULT_ENCRYPTION_KEY,SECRET_CLOUDFLARE_TUNNEL_TOKEN,SECRET_GH_PAT,SECRET_DEPLOY_PATH,SECRET_SMTP_HOST,SECRET_SMTP_PORT,SECRET_SMTP_USER,SECRET_SMTP_PASSWORD,SECRET_SMTP_FROM,DEPLOY_SHA
           script: |
             set -euo pipefail
             export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
-            # Use sudo if the current session isn't in the docker group yet
             DOCKER="docker"
             if ! groups | grep -q docker; then
               DOCKER="sudo docker"
             fi
 
-            GH_TOKEN="${{ secrets.GH_PAT }}"
-            REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/reese8272/CFO-Agent.git"
-            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
-
             echo "=== [1/6] Syncing repo ==="
-            if [ ! -d "${DEPLOY_PATH}/.git" ]; then
-              echo "  Fresh clone to ${DEPLOY_PATH}"
-              git clone "${REPO_URL}" "${DEPLOY_PATH}"
+            REPO_URL="https://x-access-token:${SECRET_GH_PAT}@github.com/reese8272/CFO-Agent.git"
+            if [ ! -d "${SECRET_DEPLOY_PATH}/.git" ]; then
+              git clone "${REPO_URL}" "${SECRET_DEPLOY_PATH}"
             fi
-            cd "${DEPLOY_PATH}"
+            cd "${SECRET_DEPLOY_PATH}"
             git remote set-url origin "${REPO_URL}"
             git fetch origin main
             git reset --hard origin/main
@@ -117,54 +131,42 @@ jobs:
 
             echo ""
             echo "=== [2/6] Writing .env ==="
-
-            # VAULT_ENCRYPTION_KEY: must come from GitHub secret — never auto-generate.
-            # Changing it makes all encrypted vault data permanently unreadable.
-            VAULT_KEY="${{ secrets.VAULT_ENCRYPTION_KEY }}"
-            if [ -z "$VAULT_KEY" ]; then
-              echo "✗ VAULT_ENCRYPTION_KEY secret is not set — aborting."
-              echo "  Generate once with:"
-              echo "    python3 -c \"import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())\""
-              echo "  Then save to GitHub Secrets. Never rotate without a migration runbook."
+            if [ -z "${SECRET_VAULT_ENCRYPTION_KEY}" ]; then
+              echo "VAULT_ENCRYPTION_KEY is not set — aborting. See docs/ENV_CHECKLIST.md."
               exit 1
             fi
-
-            # JWT_SECRET_KEY: auto-generated on the server each deploy.
-            # Rotating it on deploy invalidates active sessions (logs user out) — acceptable
-            # for a single-user app and better security practice than a static value.
             JWT_KEY=$(openssl rand -hex 32)
-            echo "  JWT_SECRET_KEY: generated fresh for this deploy ✓"
-
-            cat > .env <<ENVEOF
-ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-DATABASE_URL=postgresql+psycopg://cfo:cfo@postgres:5432/personal_cfo
-REDIS_URL=redis://redis:6379/0
-JWT_SECRET_KEY=${JWT_KEY}
-VAULT_ENCRYPTION_KEY=${VAULT_KEY}
-CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-SMTP_HOST=${{ secrets.SMTP_HOST }}
-SMTP_PORT=${{ secrets.SMTP_PORT || '587' }}
-SMTP_USER=${{ secrets.SMTP_USER }}
-SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
-SMTP_FROM=${{ secrets.SMTP_FROM }}
-DIGEST_RECIPIENT=reesepludwick@gmail.com
-JWT_EXPIRY_MINUTES=60
-LLM_TIMEOUT_SECONDS=120
-ENV=production
-LANGGRAPH_CHECKPOINT_BACKEND=redis
-ALERT_DRIFT_PCT_THRESHOLD=25
-ALERT_INCOME_DROP_PCT_THRESHOLD=30
-POSTGRES_USER=cfo
-POSTGRES_PASSWORD=cfo
-POSTGRES_DB=personal_cfo
-ENVEOF
+            echo "  JWT_SECRET_KEY: generated fresh ✓"
+            {
+              printf 'ANTHROPIC_API_KEY=%s\n'       "${SECRET_ANTHROPIC_API_KEY}"
+              printf 'VAULT_ENCRYPTION_KEY=%s\n'    "${SECRET_VAULT_ENCRYPTION_KEY}"
+              printf 'CLOUDFLARE_TUNNEL_TOKEN=%s\n' "${SECRET_CLOUDFLARE_TUNNEL_TOKEN}"
+              printf 'JWT_SECRET_KEY=%s\n'           "${JWT_KEY}"
+              printf 'DATABASE_URL=%s\n'             "postgresql+psycopg://cfo:cfo@postgres:5432/personal_cfo"
+              printf 'REDIS_URL=%s\n'                "redis://redis:6379/0"
+              printf 'SMTP_HOST=%s\n'                "${SECRET_SMTP_HOST}"
+              printf 'SMTP_PORT=%s\n'                "${SECRET_SMTP_PORT:-587}"
+              printf 'SMTP_USER=%s\n'                "${SECRET_SMTP_USER}"
+              printf 'SMTP_PASSWORD=%s\n'            "${SECRET_SMTP_PASSWORD}"
+              printf 'SMTP_FROM=%s\n'                "${SECRET_SMTP_FROM}"
+              printf 'DIGEST_RECIPIENT=%s\n'         "reesepludwick@gmail.com"
+              printf 'JWT_EXPIRY_MINUTES=%s\n'       "60"
+              printf 'LLM_TIMEOUT_SECONDS=%s\n'      "120"
+              printf 'ENV=%s\n'                      "production"
+              printf 'LANGGRAPH_CHECKPOINT_BACKEND=%s\n' "redis"
+              printf 'ALERT_DRIFT_PCT_THRESHOLD=%s\n'    "25"
+              printf 'ALERT_INCOME_DROP_PCT_THRESHOLD=%s\n' "30"
+              printf 'POSTGRES_USER=%s\n'            "cfo"
+              printf 'POSTGRES_PASSWORD=%s\n'        "cfo"
+              printf 'POSTGRES_DB=%s\n'              "personal_cfo"
+            } > .env
             echo "  .env written ($(wc -l < .env) lines)"
 
             echo ""
             echo "=== [3/6] Pulling image from GHCR ==="
-            echo "${GH_TOKEN}" | $DOCKER login ghcr.io -u reese8272 --password-stdin
+            echo "${SECRET_GH_PAT}" | $DOCKER login ghcr.io -u reese8272 --password-stdin
             $DOCKER compose pull app
-            echo "  Image pulled: ghcr.io/reese8272/cfo-agent:${{ github.sha }}"
+            echo "  Image pulled: ghcr.io/reese8272/cfo-agent:${DEPLOY_SHA}"
 
             echo ""
             echo "=== [4/6] Starting containers ==="
@@ -175,8 +177,6 @@ ENVEOF
             echo "=== [5/6] Waiting for app to be ready (max 90s) ==="
             READY=0
             for i in $(seq 1 18); do
-              # Try a real HTTP check — healthier than relying on Docker health state
-              # which requires a HEALTHCHECK in the image.
               HTTP_CODE=$($DOCKER compose exec -T app \
                 curl -sf -o /dev/null -w "%{http_code}" http://localhost:8000/health \
                 2>/dev/null || echo "000")
@@ -189,14 +189,13 @@ ENVEOF
               sleep 5
             done
             if [ "$READY" -eq 0 ]; then
-              echo "✗ App did not respond within 90s — dumping logs:"
+              echo "App did not respond within 90s — dumping logs:"
               $DOCKER compose logs --tail 80 app
               exit 1
             fi
 
             echo ""
             echo "=== [6/6] Alembic migrations ==="
-            # Check whether migrations need running rather than guessing from git diff.
             CURRENT=$($DOCKER compose exec -T app alembic current 2>&1 || echo "error")
             echo "  alembic current: $CURRENT"
             if echo "$CURRENT" | grep -q "(head)"; then
