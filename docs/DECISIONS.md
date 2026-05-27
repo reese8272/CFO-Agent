@@ -14,6 +14,24 @@ Format:
 
 ---
 
+## 2026-05-27 — Issue 16: Secrets & deploy operations hardening
+
+**Context**: Owner pain points — too many keys with unclear purpose, no way to troubleshoot a credential without seeing its value, scattered SSH keys, and deploys that failed/timed out. On checking out `main`, much of the ops scaffolding already existed (GHCR pipeline, `ENV_CHECKLIST.md`, `check_env.py`, `audit_secrets.py`); both CI and Deploy were red.
+
+**Decisions**:
+- **Secrets source of truth = Bitwarden (free) + `docs/ENV_CHECKLIST.md` registry.** GitHub Actions secrets are write-only and cannot be a system of record. Chosen over SOPS+age (added a tool/key to learn; owner wanted clarity over machinery). `VAULT_ENCRYPTION_KEY` kept in 3 copies / 2 formats (Bitwarden + second store + paper) because it is irreplaceable.
+- **Deploy image = build in CI → GHCR → pull on VM** (already implemented on `main`; ratified). Build-on-host ruled out (OOM/slow on the free ARM VM).
+- **Container recovery stack = `restart: unless-stopped` + Docker `healthcheck` + `willfarrell/autoheal` + optional Healthchecks.io dead-man's-switch** (`HEALTHCHECK_PING_URL`). Uptime Kuma ruled out (dies with the VM); GH-Actions-cron ruled out as primary (5-min floor, no alerting).
+- **Troubleshooting = `check_env.py --live`** makes the cheapest real call per credential (Anthropic auth, Postgres `SELECT 1`, Redis `PING`, Fernet round-trip, SMTP login) and reports PASS/FAIL without ever printing the value.
+
+**Fixes made**: 9 red CI tests repaired — `EncryptedJSON` now serializes `Decimal`; `_round100` ceilings; `EXPECTED_TABLES` synced; and a real income bug where `compute_income_position` summed `monthly_actual` across ladder steps (triple-counting a single income). Deploy gate fixed — `audit_secrets.py` no longer rejects `deploy.yml`'s `JWT_SECRET_KEY="auto-generated-per-deploy"` sentinel. Deleted clutter secrets `VAULT_ECRYPTION_KEY` (typo) and the vestigial Production `JWT_SECRET_KEY`.
+
+**Deferred**: `docker-compose.prod.yml` override to drop the bind mount + `--reload` so the GHCR image is authoritative; a re-encryption helper for the key-rotation runbook.
+
+**Owner**: reesepludwick@gmail.com (approved 2026-05-27)
+
+---
+
 ## 2026-05-25 — Issue 14: audit log actor passed as User ORM object (bug fix)
 
 **What changed**: All 57 `actor=user` call sites in `routers/vault.py` and `routers/holdings.py` changed to `actor=user.username`. The `vault/crud.py` signature declares `actor: str`; passing the ORM object caused `psycopg.ProgrammingError: cannot adapt type 'User'` at commit time.
