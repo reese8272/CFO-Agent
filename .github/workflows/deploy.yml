@@ -19,7 +19,8 @@ jobs:
       - name: Validate deployment secrets
         env:
           ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
-          JWT_SECRET_KEY:          ${{ secrets.JWT_SECRET_KEY }}
+          # JWT_SECRET_KEY is auto-generated on the server each deploy — not a GitHub secret
+          JWT_SECRET_KEY:          "auto-generated-per-deploy"
           VAULT_ENCRYPTION_KEY:    ${{ secrets.VAULT_ENCRYPTION_KEY }}
           CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
           SSH_PRIVATE_KEY:         ${{ secrets.SSH_PRIVATE_KEY }}
@@ -119,32 +120,47 @@ jobs:
 
             echo ""
             echo "=== [2/6] Writing .env ==="
-            # Write each line explicitly — no indentation issues, SMTP optional.
+
+            # VAULT_ENCRYPTION_KEY: must come from GitHub secret — never auto-generate.
+            # Changing it makes all encrypted vault data permanently unreadable.
+            VAULT_KEY="${{ secrets.VAULT_ENCRYPTION_KEY }}"
+            if [ -z "$VAULT_KEY" ]; then
+              echo "✗ VAULT_ENCRYPTION_KEY secret is not set — aborting."
+              echo "  Generate once with:"
+              echo "    python3 -c \"import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())\""
+              echo "  Then save to GitHub Secrets. Never rotate without a migration runbook."
+              exit 1
+            fi
+
+            # JWT_SECRET_KEY: auto-generated on the server each deploy.
+            # Rotating it on deploy invalidates active sessions (logs user out) — acceptable
+            # for a single-user app and better security practice than a static value.
+            JWT_KEY=$(openssl rand -hex 32)
+            echo "  JWT_SECRET_KEY: generated fresh for this deploy ✓"
+
             cat > .env <<ENVEOF
-            ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-            DATABASE_URL=postgresql+psycopg://cfo:cfo@postgres:5432/personal_cfo
-            REDIS_URL=redis://redis:6379/0
-            JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
-            VAULT_ENCRYPTION_KEY=${{ secrets.VAULT_ENCRYPTION_KEY }}
-            CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-            SMTP_HOST=${{ secrets.SMTP_HOST }}
-            SMTP_PORT=${{ secrets.SMTP_PORT || '587' }}
-            SMTP_USER=${{ secrets.SMTP_USER }}
-            SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
-            SMTP_FROM=${{ secrets.SMTP_FROM }}
-            DIGEST_RECIPIENT=reesepludwick@gmail.com
-            JWT_EXPIRY_MINUTES=60
-            LLM_TIMEOUT_SECONDS=120
-            ENV=production
-            LANGGRAPH_CHECKPOINT_BACKEND=redis
-            ALERT_DRIFT_PCT_THRESHOLD=25
-            ALERT_INCOME_DROP_PCT_THRESHOLD=30
-            POSTGRES_USER=cfo
-            POSTGRES_PASSWORD=cfo
-            POSTGRES_DB=personal_cfo
-            ENVEOF
-            # Strip leading whitespace python-dotenv might otherwise see
-            sed -i 's/^[[:space:]]*//' .env
+ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+DATABASE_URL=postgresql+psycopg://cfo:cfo@postgres:5432/personal_cfo
+REDIS_URL=redis://redis:6379/0
+JWT_SECRET_KEY=${JWT_KEY}
+VAULT_ENCRYPTION_KEY=${VAULT_KEY}
+CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+SMTP_HOST=${{ secrets.SMTP_HOST }}
+SMTP_PORT=${{ secrets.SMTP_PORT || '587' }}
+SMTP_USER=${{ secrets.SMTP_USER }}
+SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+SMTP_FROM=${{ secrets.SMTP_FROM }}
+DIGEST_RECIPIENT=reesepludwick@gmail.com
+JWT_EXPIRY_MINUTES=60
+LLM_TIMEOUT_SECONDS=120
+ENV=production
+LANGGRAPH_CHECKPOINT_BACKEND=redis
+ALERT_DRIFT_PCT_THRESHOLD=25
+ALERT_INCOME_DROP_PCT_THRESHOLD=30
+POSTGRES_USER=cfo
+POSTGRES_PASSWORD=cfo
+POSTGRES_DB=personal_cfo
+ENVEOF
             echo "  .env written ($(wc -l < .env) lines)"
 
             echo ""
