@@ -25,10 +25,12 @@ EXPECTED_TABLES = {
     "debts",
     "decisions",
     "expenses",
+    "financial_snapshots",
     "goals",
     "holdings",
     "import_batches",
     "income_streams",
+    "intake_submissions",
     "messages",
     "negotiation_milestones",
     "net_worth_snapshots",
@@ -39,6 +41,7 @@ EXPECTED_TABLES = {
     "side_income_events",
     "tax_deductions_1099",
     "transactions",
+    "user_profile",
     "users",
 }
 
