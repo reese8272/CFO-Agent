@@ -136,6 +136,12 @@ All five must be set together or digest sending will be silently skipped (no cra
 - **Production**: set to your Cloudflare Tunnel domain, e.g. `["https://cfo.yourdomain.com"]`
 - [ ] Set to your production domain before going live
 
+### `HEALTHCHECK_PING_URL`
+- **What**: External dead-man's-switch. The worker pings this URL every 5 minutes; if pings stop (app crashed, VM down), the monitor alerts you. Complements Docker's `restart: unless-stopped` + `autoheal` (which handle container-level recovery) by catching whole-stack outages.
+- **Without it**: no ping is sent (container auto-restart/autoheal still work; you just won't get an external alert).
+- **Free tier**: [healthchecks.io](https://healthchecks.io) — 20 checks free. Create a check, copy its ping URL (`https://hc-ping.com/<uuid>`).
+- [ ] Set if you want to be alerted when the whole stack goes down
+
 ---
 
 ## Tier 5 — Tuning (safe to leave at defaults)

@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     rentcast_api_key: str | None = None
     alpha_vantage_key: str | None = None
 
+    healthcheck_ping_url: str | None = None
+
     plaid_client_id: str | None = None
     plaid_secret: str | None = None
     plaid_env: str | None = None
