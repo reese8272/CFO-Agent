@@ -57,6 +57,9 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 ├── docker-compose.yml
 ├── Dockerfile
 │
+├── scripts/
+│   └── check_env.py            # Pre-flight env validator; run before docker compose up
+│
 ├── main.py                     # FastAPI entrypoint
 ├── config.py                   # Env loading; fail-fast on missing required
 ├── db.py                       # SQLAlchemy engine + session

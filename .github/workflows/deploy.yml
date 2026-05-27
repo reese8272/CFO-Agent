@@ -5,8 +5,42 @@ on:
     branches: [main]
 
 jobs:
+  # ── Job 1: Validate all required secrets before doing any real work ─────────
+  validate-secrets:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Validate deployment secrets
+        env:
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          # JWT_SECRET_KEY is auto-generated on the server each deploy — not a GitHub secret
+          JWT_SECRET_KEY:          "auto-generated-per-deploy"
+          VAULT_ENCRYPTION_KEY:    ${{ secrets.VAULT_ENCRYPTION_KEY }}
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+          SSH_PRIVATE_KEY:         ${{ secrets.SSH_PRIVATE_KEY }}
+          DEPLOY_HOST:             ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER:             ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH:             ${{ secrets.DEPLOY_PATH }}
+          GH_PAT:                  ${{ secrets.GH_PAT }}
+          SMTP_HOST:               ${{ secrets.SMTP_HOST }}
+          SMTP_USER:               ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD:           ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM:               ${{ secrets.SMTP_FROM }}
+          DATABASE_URL:            "placeholder"
+          REDIS_URL:               "placeholder"
+          DIGEST_RECIPIENT:        "placeholder"
+        run: python scripts/audit_secrets.py
+
+  # ── Job 2: Build and push Docker image to GHCR ────────────────────────────
   build:
     runs-on: ubuntu-latest
+    needs: [validate-secrets]
     permissions:
       contents: read
       packages: write
@@ -38,6 +72,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # ── Job 3: Deploy to server via SSH ───────────────────────────────────────
   deploy:
     runs-on: ubuntu-latest
     environment: Production
@@ -56,10 +91,10 @@ jobs:
           host: ${{ steps.host.outputs.value }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 5m
+          command_timeout: 10m
           debug: true
           script: |
-            set -e
+            set -euo pipefail
             export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
             # Use sudo if the current session isn't in the docker group yet
@@ -70,65 +105,111 @@ jobs:
 
             GH_TOKEN="${{ secrets.GH_PAT }}"
             REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/reese8272/CFO-Agent.git"
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
 
-            # Bootstrap repo on first deploy
-            if [ ! -d "${{ secrets.DEPLOY_PATH }}/.git" ]; then
-              git clone "${REPO_URL}" ${{ secrets.DEPLOY_PATH }}
+            echo "=== [1/6] Syncing repo ==="
+            if [ ! -d "${DEPLOY_PATH}/.git" ]; then
+              echo "  Fresh clone to ${DEPLOY_PATH}"
+              git clone "${REPO_URL}" "${DEPLOY_PATH}"
+            fi
+            cd "${DEPLOY_PATH}"
+            git remote set-url origin "${REPO_URL}"
+            git fetch origin main
+            git reset --hard origin/main
+            echo "  Repo at: $(git log -1 --oneline)"
+
+            echo ""
+            echo "=== [2/6] Writing .env ==="
+
+            # VAULT_ENCRYPTION_KEY: must come from GitHub secret — never auto-generate.
+            # Changing it makes all encrypted vault data permanently unreadable.
+            VAULT_KEY="${{ secrets.VAULT_ENCRYPTION_KEY }}"
+            if [ -z "$VAULT_KEY" ]; then
+              echo "✗ VAULT_ENCRYPTION_KEY secret is not set — aborting."
+              echo "  Generate once with:"
+              echo "    python3 -c \"import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())\""
+              echo "  Then save to GitHub Secrets. Never rotate without a migration runbook."
+              exit 1
             fi
 
-            cd ${{ secrets.DEPLOY_PATH }}
-            git remote set-url origin "${REPO_URL}"
-            git pull origin main
+            # JWT_SECRET_KEY: auto-generated on the server each deploy.
+            # Rotating it on deploy invalidates active sessions (logs user out) — acceptable
+            # for a single-user app and better security practice than a static value.
+            JWT_KEY=$(openssl rand -hex 32)
+            echo "  JWT_SECRET_KEY: generated fresh for this deploy ✓"
 
-            # Write .env from secrets (safe to re-run — overwrites each deploy)
-            cat > .env <<'ENVEOF'
-            ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-            DATABASE_URL=postgresql+psycopg://cfo:cfo@postgres:5432/personal_cfo
-            REDIS_URL=redis://redis:6379/0
-            JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
-            VAULT_ENCRYPTION_KEY=${{ secrets.VAULT_ENCRYPTION_KEY }}
-            CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-            SMTP_HOST=
-            SMTP_PORT=587
-            SMTP_USER=
-            SMTP_PASSWORD=
-            SMTP_FROM=
-            DIGEST_RECIPIENT=reesepludwick@gmail.com
-            JWT_EXPIRY_MINUTES=60
-            LLM_TIMEOUT_SECONDS=120
-            ENV=production
-            LANGGRAPH_CHECKPOINT_BACKEND=redis
-            ALERT_DRIFT_PCT_THRESHOLD=25
-            ALERT_INCOME_DROP_PCT_THRESHOLD=30
-            POSTGRES_USER=cfo
-            POSTGRES_PASSWORD=cfo
-            POSTGRES_DB=personal_cfo
-            ENVEOF
+            cat > .env <<ENVEOF
+ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+DATABASE_URL=postgresql+psycopg://cfo:cfo@postgres:5432/personal_cfo
+REDIS_URL=redis://redis:6379/0
+JWT_SECRET_KEY=${JWT_KEY}
+VAULT_ENCRYPTION_KEY=${VAULT_KEY}
+CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+SMTP_HOST=${{ secrets.SMTP_HOST }}
+SMTP_PORT=${{ secrets.SMTP_PORT || '587' }}
+SMTP_USER=${{ secrets.SMTP_USER }}
+SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+SMTP_FROM=${{ secrets.SMTP_FROM }}
+DIGEST_RECIPIENT=reesepludwick@gmail.com
+JWT_EXPIRY_MINUTES=60
+LLM_TIMEOUT_SECONDS=120
+ENV=production
+LANGGRAPH_CHECKPOINT_BACKEND=redis
+ALERT_DRIFT_PCT_THRESHOLD=25
+ALERT_INCOME_DROP_PCT_THRESHOLD=30
+POSTGRES_USER=cfo
+POSTGRES_PASSWORD=cfo
+POSTGRES_DB=personal_cfo
+ENVEOF
+            echo "  .env written ($(wc -l < .env) lines)"
 
-            # Pull the pre-built image from GHCR (no docker build on server)
+            echo ""
+            echo "=== [3/6] Pulling image from GHCR ==="
             echo "${GH_TOKEN}" | $DOCKER login ghcr.io -u reese8272 --password-stdin
             $DOCKER compose pull app
+            echo "  Image pulled: ghcr.io/reese8272/cfo-agent:${{ github.sha }}"
 
+            echo ""
+            echo "=== [4/6] Starting containers ==="
             $DOCKER compose up -d --no-build --remove-orphans
+            $DOCKER compose ps
 
-            # Wait for app to be healthy (max 90s)
+            echo ""
+            echo "=== [5/6] Waiting for app to be ready (max 90s) ==="
+            READY=0
             for i in $(seq 1 18); do
-              STATUS=$($DOCKER inspect --format='{{.State.Health.Status}}' \
-                $($DOCKER compose ps -q app) 2>/dev/null || echo "missing")
-              echo "  attempt $i: health=$STATUS"
-              if [ "$STATUS" = "healthy" ]; then break; fi
-              if [ "$i" = "18" ]; then
-                echo "App did not become healthy in 90s"
-                $DOCKER compose logs --tail 50 app
-                exit 1
+              # Try a real HTTP check — healthier than relying on Docker health state
+              # which requires a HEALTHCHECK in the image.
+              HTTP_CODE=$($DOCKER compose exec -T app \
+                curl -sf -o /dev/null -w "%{http_code}" http://localhost:8000/health \
+                2>/dev/null || echo "000")
+              echo "  attempt $i/18: HTTP $HTTP_CODE"
+              if [ "$HTTP_CODE" = "200" ]; then
+                READY=1
+                echo "  App is responding ✓"
+                break
               fi
               sleep 5
             done
-
-            # Run migrations only when migration files changed
-            if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q '^migrations/'; then
-              echo "Running Alembic migrations..."
-              $DOCKER compose exec -T app alembic upgrade head
+            if [ "$READY" -eq 0 ]; then
+              echo "✗ App did not respond within 90s — dumping logs:"
+              $DOCKER compose logs --tail 80 app
+              exit 1
             fi
 
+            echo ""
+            echo "=== [6/6] Alembic migrations ==="
+            # Check whether migrations need running rather than guessing from git diff.
+            CURRENT=$($DOCKER compose exec -T app alembic current 2>&1 || echo "error")
+            echo "  alembic current: $CURRENT"
+            if echo "$CURRENT" | grep -q "(head)"; then
+              echo "  Already at head — skipping."
+            else
+              echo "  Running: alembic upgrade head"
+              $DOCKER compose exec -T app alembic upgrade head
+              echo "  Migrations complete."
+            fi
+
+            echo ""
+            echo "=== Deploy complete ==="
             $DOCKER compose ps

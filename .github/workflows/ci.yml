@@ -38,7 +38,9 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg://cfo:cfo@localhost:5432/personal_cfo
       REDIS_URL: redis://localhost:6379/0
+      # JWT_SECRET_KEY: real secret if set, otherwise a safe 32-char CI placeholder
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY || 'ci-test-secret-key-must-be-at-least-32-chars' }}
+      # ANTHROPIC_API_KEY: real key enables live LLM tests; 'test-key' stubs them
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'test-key' }}
       DIGEST_RECIPIENT: ci@example.com
       SMTP_HOST: localhost
@@ -50,6 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── Python setup ────────────────────────────────────────────────────────
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -70,12 +73,47 @@ jobs:
       - name: Add venv to PATH
         run: echo "$HOME/.venv/bin" >> $GITHUB_PATH
 
+      # ── Generate ephemeral secrets for CI ───────────────────────────────────
       - name: Generate VAULT_ENCRYPTION_KEY for CI
         run: |
-          echo "VAULT_ENCRYPTION_KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" >> $GITHUB_ENV
+          KEY=$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')
+          echo "VAULT_ENCRYPTION_KEY=${KEY}" >> $GITHUB_ENV
+          echo "VAULT_ENCRYPTION_KEY: generated OK ($(echo -n "$KEY" | wc -c) chars)"
 
+      # ── Audit secrets available to this CI run ──────────────────────────────
+      - name: Audit CI secrets
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'test-key' }}
+          JWT_SECRET_KEY:    ${{ secrets.JWT_SECRET_KEY || 'ci-test-secret-key-must-be-at-least-32-chars' }}
+        run: python scripts/audit_secrets.py
+        # Non-blocking — CI env uses placeholders for missing secrets by design.
+        continue-on-error: true
+
+      # ── Migrations ──────────────────────────────────────────────────────────
       - name: Run Alembic migrations
         run: alembic upgrade head
 
+      - name: Verify migration is at head
+        run: |
+          CURRENT=$(alembic current 2>&1)
+          echo "Alembic current: $CURRENT"
+          if echo "$CURRENT" | grep -q "(head)"; then
+            echo "✓ Migrations are at head"
+          else
+            echo "✗ Migrations did NOT reach head — check output above"
+            exit 1
+          fi
+
+      # ── Tests ───────────────────────────────────────────────────────────────
       - name: Run tests
-        run: pytest -q --tb=short
+        run: |
+          mkdir -p test-results
+          pytest -v --tb=long --junitxml=test-results/junit.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_id }}
+          path: test-results/
+          retention-days: 14
