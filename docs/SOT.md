@@ -51,6 +51,7 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 ```
 /                               # project root
 ├── CLAUDE.md
+├── LEFT_OFF.md                 # living session-handoff contract (start here on resume)
 ├── .env / .env.example
 ├── requirements.txt
 ├── pytest.ini
