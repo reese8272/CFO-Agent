@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from auth import get_current_user
 from db import get_session
-from memory.models import Decision, Pattern
+from memory.models import Conversation, Decision, Message, Pattern
 
 router = APIRouter(prefix="/memory", tags=["memory"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -31,6 +31,21 @@ class DecisionPatch(BaseModel):
     status: str  # "active" | "superseded" | "abandoned"
 
 
+class ConversationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    started_at: datetime
+
+
+class MessageRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+    cited_principle: str | None
+
+
 class PatternRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -39,6 +54,24 @@ class PatternRead(BaseModel):
     severity: str
     summary: str
     acknowledged_at: datetime | None
+
+
+@router.get("/conversations", response_model=list[ConversationRead])
+async def list_conversations(session: Session, _user: CurrentUser):
+    result = await session.execute(
+        select(Conversation).order_by(Conversation.started_at.desc()).limit(20)
+    )
+    return result.scalars().all()
+
+
+@router.get("/conversations/{conversation_id}/messages", response_model=list[MessageRead])
+async def list_messages(conversation_id: int, session: Session, _user: CurrentUser):
+    result = await session.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.asc())
+    )
+    return result.scalars().all()
 
 
 @router.get("/decisions", response_model=list[DecisionRead])

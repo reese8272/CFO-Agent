@@ -52,6 +52,17 @@ def _is_htmx(hx_request: str | None) -> bool:
     return hx_request == "true"
 
 
+def _htmx_list(entity_type: str, objs: list, fields: list[tuple[str, str]]) -> HTMLResponse:
+    """Return all rows as an HTML fragment for HTMX list load responses."""
+    if not objs:
+        colspan = len(fields) + 1
+        return HTMLResponse(
+            f'<tr><td colspan="{colspan}" '
+            f'class="px-3 py-4 text-sm text-center opacity-40">No entries yet.</td></tr>'
+        )
+    return HTMLResponse("".join(_entity_row_html(entity_type, o, fields) for o in objs))
+
+
 def _entity_row_html(entity_type: str, obj: object, fields: list[tuple[str, str]]) -> str:
     """Render a minimal HTML table row for HTMX swap responses."""
     cells = "".join(
@@ -94,8 +105,15 @@ async def create_account(
 
 
 @router.get("/accounts", response_model=list[AccountRead])
-async def list_accounts(session: Session, user: CurrentUser):
-    return await crud.list_accounts(session)
+async def list_accounts(session: Session, user: CurrentUser,
+                        hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_accounts(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("accounts", objs, [
+            ("Institution", "institution"), ("Nickname", "nickname"),
+            ("Type", "type"), ("Balance", "current_balance"), ("Status", "status"),
+        ])
+    return objs
 
 
 @router.get("/accounts/{account_id}", response_model=AccountRead)
@@ -146,8 +164,15 @@ async def create_card(
 
 
 @router.get("/cards", response_model=list[CardRead])
-async def list_cards(session: Session, user: CurrentUser):
-    return await crud.list_cards(session)
+async def list_cards(session: Session, user: CurrentUser,
+                     hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_cards(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("cards", objs, [
+            ("Issuer", "issuer"), ("Network", "network"), ("Last 4", "last4"),
+            ("Limit", "credit_limit"), ("Status", "status"),
+        ])
+    return objs
 
 
 @router.get("/cards/{card_id}", response_model=CardRead)
@@ -196,8 +221,15 @@ async def create_income_stream(
 
 
 @router.get("/income-streams", response_model=list[IncomeStreamRead])
-async def list_income_streams(session: Session, user: CurrentUser):
-    return await crud.list_income_streams(session)
+async def list_income_streams(session: Session, user: CurrentUser,
+                               hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_income_streams(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("income-streams", objs, [
+            ("Source", "source"), ("Type", "source_type"), ("Cadence", "cadence"),
+            ("Typical Gross", "typical_gross_amount"), ("Status", "status"),
+        ])
+    return objs
 
 
 @router.get("/income-streams/{stream_id}", response_model=IncomeStreamRead)
@@ -246,8 +278,15 @@ async def create_expense(
 
 
 @router.get("/expenses", response_model=list[ExpenseRead])
-async def list_expenses(session: Session, user: CurrentUser):
-    return await crud.list_expenses(session)
+async def list_expenses(session: Session, user: CurrentUser,
+                        hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_expenses(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("expenses", objs, [
+            ("Name", "name"), ("Category", "category"), ("Cadence", "cadence"),
+            ("Amount", "typical_amount"), ("Active", "active"),
+        ])
+    return objs
 
 
 @router.get("/expenses/{expense_id}", response_model=ExpenseRead)
@@ -296,8 +335,15 @@ async def create_debt(
 
 
 @router.get("/debts", response_model=list[DebtRead])
-async def list_debts(session: Session, user: CurrentUser):
-    return await crud.list_debts(session)
+async def list_debts(session: Session, user: CurrentUser,
+                     hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_debts(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("debts", objs, [
+            ("Name", "name"), ("Balance", "balance"), ("APR", "apr"),
+            ("Min Payment", "minimum_payment"), ("Strategy", "strategy"),
+        ])
+    return objs
 
 
 @router.get("/debts/{debt_id}", response_model=DebtRead)
@@ -345,8 +391,14 @@ async def create_asset(
 
 
 @router.get("/assets", response_model=list[AssetRead])
-async def list_assets(session: Session, user: CurrentUser):
-    return await crud.list_assets(session)
+async def list_assets(session: Session, user: CurrentUser,
+                      hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_assets(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("assets", objs, [
+            ("Kind", "kind"), ("Nickname", "nickname"), ("Value", "value_estimate"),
+        ])
+    return objs
 
 
 @router.get("/assets/{asset_id}", response_model=AssetRead)
@@ -395,8 +447,15 @@ async def create_real_estate(
 
 
 @router.get("/real-estate", response_model=list[RealEstateRead])
-async def list_real_estate(session: Session, user: CurrentUser):
-    return await crud.list_real_estate(session)
+async def list_real_estate(session: Session, user: CurrentUser,
+                            hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_real_estate(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("real-estate", objs, [
+            ("Address", "address"), ("Type", "property_type"),
+            ("Value", "current_value"), ("Equity", "equity_estimate"),
+        ])
+    return objs
 
 
 @router.get("/real-estate/{re_id}", response_model=RealEstateRead)
@@ -489,8 +548,15 @@ async def create_business_income(
 
 
 @router.get("/business-income", response_model=list[BusinessIncomeRead])
-async def list_business_income(session: Session, user: CurrentUser):
-    return await crud.list_business_income(session)
+async def list_business_income(session: Session, user: CurrentUser,
+                                hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_business_income(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("business-income", objs, [
+            ("Name", "business_name"), ("Entity", "entity_type"),
+            ("Revenue", "monthly_revenue"), ("Margin", "net_margin"),
+        ])
+    return objs
 
 
 @router.get("/business-income/{bi_id}", response_model=BusinessIncomeRead)
@@ -539,8 +605,15 @@ async def create_retirement_account(
 
 
 @router.get("/retirement-accounts", response_model=list[RetirementAccountRead])
-async def list_retirement_accounts(session: Session, user: CurrentUser):
-    return await crud.list_retirement_accounts(session)
+async def list_retirement_accounts(session: Session, user: CurrentUser,
+                                    hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_retirement_accounts(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("retirement-accounts", objs, [
+            ("Kind", "kind"), ("Institution", "institution"),
+            ("Balance", "balance"), ("YTD Contrib", "ytd_contribution"),
+        ])
+    return objs
 
 
 @router.get("/retirement-accounts/{ra_id}", response_model=RetirementAccountRead)
@@ -589,8 +662,15 @@ async def create_goal(
 
 
 @router.get("/goals", response_model=list[GoalRead])
-async def list_goals(session: Session, user: CurrentUser):
-    return await crud.list_goals(session)
+async def list_goals(session: Session, user: CurrentUser,
+                     hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_goals(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("goals", objs, [
+            ("Title", "title"), ("Kind", "kind"),
+            ("Target", "target_amount"), ("Status", "status"),
+        ])
+    return objs
 
 
 @router.get("/goals/{goal_id}", response_model=GoalRead)
@@ -639,8 +719,15 @@ async def create_career_position(
 
 
 @router.get("/career-position", response_model=list[CareerPositionRead])
-async def list_career_positions(session: Session, user: CurrentUser):
-    return await crud.list_career_positions(session)
+async def list_career_positions(session: Session, user: CurrentUser,
+                                 hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_career_positions(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("career-position", objs, [
+            ("Role", "current_role"), ("Employer", "current_employer"),
+            ("Comp", "current_comp_total"), ("Target Role", "target_role"),
+        ])
+    return objs
 
 
 @router.get("/career-position/{cp_id}", response_model=CareerPositionRead)
@@ -689,8 +776,15 @@ async def create_career_history(
 
 
 @router.get("/career-history", response_model=list[CareerHistoryRead])
-async def list_career_history(session: Session, user: CurrentUser):
-    return await crud.list_career_history(session)
+async def list_career_history(session: Session, user: CurrentUser,
+                               hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_career_history(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("career-history", objs, [
+            ("Role", "role"), ("Employer", "employer"),
+            ("Comp", "comp_total"), ("Start", "start_date"), ("End", "end_date"),
+        ])
+    return objs
 
 
 @router.get("/career-history/{ch_id}", response_model=CareerHistoryRead)
@@ -739,8 +833,15 @@ async def create_comp_benchmark(
 
 
 @router.get("/comp-benchmarks", response_model=list[CompBenchmarkRead])
-async def list_comp_benchmarks(session: Session, user: CurrentUser):
-    return await crud.list_comp_benchmarks(session)
+async def list_comp_benchmarks(session: Session, user: CurrentUser,
+                                hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_comp_benchmarks(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("comp-benchmarks", objs, [
+            ("Role", "role"), ("Metro", "metro"), ("Source", "source"),
+            ("P50", "comp_p50"), ("P75", "comp_p75"), ("P90", "comp_p90"),
+        ])
+    return objs
 
 
 @router.get("/comp-benchmarks/{cb_id}", response_model=CompBenchmarkRead)
@@ -790,8 +891,16 @@ async def create_side_income_economics(
 
 
 @router.get("/side-income-economics", response_model=list[SideIncomeEconomicsRead])
-async def list_side_income_economics(session: Session, user: CurrentUser):
-    return await crud.list_side_income_economics(session)
+async def list_side_income_economics(session: Session, user: CurrentUser,
+                                      hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_side_income_economics(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("side-income-economics", objs, [
+            ("Period Start", "period_start"), ("Period End", "period_end"),
+            ("Gross", "gross"), ("Hours", "hours_worked"),
+            ("Net", "net"), ("Net/hr", "net_hourly"),
+        ])
+    return objs
 
 
 @router.get("/side-income-economics/{sie_id}", response_model=SideIncomeEconomicsRead)
@@ -839,8 +948,14 @@ async def create_tax_deduction(
 
 
 @router.get("/tax-deductions", response_model=list[TaxDeduction1099Read])
-async def list_tax_deductions(session: Session, user: CurrentUser):
-    return await crud.list_tax_deductions(session)
+async def list_tax_deductions(session: Session, user: CurrentUser,
+                               hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_tax_deductions(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("tax-deductions", objs, [
+            ("Year", "tax_year"), ("Category", "category"), ("Amount", "amount"),
+        ])
+    return objs
 
 
 @router.get("/tax-deductions/{td_id}", response_model=TaxDeduction1099Read)
@@ -889,8 +1004,15 @@ async def create_negotiation_milestone(
 
 
 @router.get("/negotiation-milestones", response_model=list[NegotiationMilestoneRead])
-async def list_negotiation_milestones(session: Session, user: CurrentUser):
-    return await crud.list_negotiation_milestones(session)
+async def list_negotiation_milestones(session: Session, user: CurrentUser,
+                                       hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_negotiation_milestones(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("negotiation-milestones", objs, [
+            ("Kind", "kind"), ("Date", "trigger_date"),
+            ("Role", "related_role"), ("Status", "status"),
+        ])
+    return objs
 
 
 @router.get("/negotiation-milestones/{nm_id}", response_model=NegotiationMilestoneRead)
@@ -939,8 +1061,15 @@ async def create_net_worth_snapshot(
 
 
 @router.get("/net-worth-snapshots", response_model=list[NetWorthSnapshotRead])
-async def list_net_worth_snapshots(session: Session, user: CurrentUser):
-    return await crud.list_net_worth_snapshots(session)
+async def list_net_worth_snapshots(session: Session, user: CurrentUser,
+                                    hx_request: Annotated[str | None, Header()] = None):
+    objs = await crud.list_net_worth_snapshots(session)
+    if _is_htmx(hx_request):
+        return _htmx_list("net-worth-snapshots", objs, [
+            ("Date", "snapshot_at"), ("Assets", "assets_total"),
+            ("Liabilities", "liabilities_total"), ("Net Worth", "net_worth"),
+        ])
+    return objs
 
 
 @router.get("/net-worth-snapshots/{snap_id}", response_model=NetWorthSnapshotRead)

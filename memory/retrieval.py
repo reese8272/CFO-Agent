@@ -13,12 +13,24 @@ from decimal import Decimal, ROUND_CEILING
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import logging
+
 from vault.wealth_position import WealthLadder as VaultWealthPosition
 from vault.income_position import IncomeLadder as VaultIncomePosition
 from memory.models import Decision, Pattern
 from vault.income_position import compute_income_position
 from vault.wealth_position import compute_wealth_position
 from vault.models import FinancialSnapshot
+
+logger = logging.getLogger(__name__)
+
+_EMPTY_WEALTH: dict = {
+    "open_gaps": [], "allocation_ladder": [],
+    "net_worth": Decimal("0"), "total_assets": Decimal("0"), "total_liabilities": Decimal("0"),
+}
+_EMPTY_INCOME: dict = {
+    "open_gaps": [], "income_ladder": [], "total_monthly_income": Decimal("0"),
+}
 
 
 # These TypedDicts match CONTRACTS.md §1 — different from the vault-layer TypedDicts.
@@ -37,9 +49,18 @@ async def build_retrieval_context(session: AsyncSession, user_id: str) -> dict:
     All dollar values are rounded to the nearest $100 to limit precision exposure
     in the LLM prompt (see THREAT_MODEL §4).
     """
-    # --- wealth + income positions ---
-    full_wealth: VaultWealthPosition = await compute_wealth_position(session, user_id)
-    full_income: VaultIncomePosition = await compute_income_position(session, user_id)
+    # --- wealth + income positions (safe: sparse vault after first intake must not crash chat) ---
+    try:
+        full_wealth: VaultWealthPosition = await compute_wealth_position(session, user_id)
+    except Exception as exc:
+        logger.warning("compute_wealth_position failed, using empty defaults: %s", exc)
+        full_wealth = _EMPTY_WEALTH
+
+    try:
+        full_income: VaultIncomePosition = await compute_income_position(session, user_id)
+    except Exception as exc:
+        logger.warning("compute_income_position failed, using empty defaults: %s", exc)
+        full_income = _EMPTY_INCOME
 
     wealth_pos = _bridge_wealth(full_wealth)
     income_pos = _bridge_income(full_income)

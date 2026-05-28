@@ -191,11 +191,41 @@
       } catch (_) {}
     })();
 
-    let conversationId = null;
+    let conversationId = parseInt(localStorage.getItem('cfo_conversation_id')) || null;
     let isThinking = false;
+
+    // Restore last conversation from DB on mount
+    (async () => {
+      if (!conversationId) return;
+      try {
+        const r = await fetch(`/memory/conversations/${conversationId}/messages`, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (!r.ok) { localStorage.removeItem('cfo_conversation_id'); conversationId = null; return; }
+        const messages = await r.json();
+        if (!messages.length) return;
+        const msgs = document.getElementById('messages');
+        const empty = document.getElementById('empty-state');
+        if (empty) empty.remove();
+        for (const msg of messages) {
+          if (msg.role === 'user') {
+            appendUserMessage(msg.content);
+          } else {
+            appendAgentMessage({
+              recommendation: msg.content,
+              principle: msg.cited_principle || '',
+              vision_stamp: '',
+              reasoning: '',
+              disclaimer: null,
+            });
+          }
+        }
+      } catch (_) { conversationId = null; }
+    })();
 
     function newConversation() {
       conversationId = null;
+      localStorage.removeItem('cfo_conversation_id');
       const msgs = document.getElementById('messages');
       msgs.innerHTML = `<div class="empty-state" id="empty-state">
         <p class="empty-title">What do you want to know?</p>
@@ -265,6 +295,7 @@
 
         const data = await resp.json();
         conversationId = data.conversation_id;
+        localStorage.setItem('cfo_conversation_id', conversationId);
         appendAgentMessage(data);
       } catch (e) {
         typingEl.remove();

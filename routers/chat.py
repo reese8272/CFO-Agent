@@ -44,6 +44,9 @@ async def chat(body: ChatRequest, _user: CurrentUser):
         "recent_patterns": [],
         "memory_summary": None,
         "vault_snapshot": {},
+        "financial_snapshot": None,
+        "wealth_position": {},
+        "income_position": {},
     }
     config = {"configurable": {"thread_id": str(body.conversation_id or "new")}}
     try:

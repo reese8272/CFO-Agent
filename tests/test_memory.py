@@ -154,3 +154,81 @@ async def test_decisions_endpoint_returns_list():
         assert isinstance(resp.json(), list)
     except OperationalError:
         pytest.skip("live DB required for auth round-trip")
+
+
+# --- New conversation/messages endpoints ---
+
+@pytest.mark.asyncio
+async def test_conversations_endpoint_returns_list():
+    """GET /memory/conversations returns a list."""
+    from httpx import AsyncClient, ASGITransport
+    from unittest.mock import patch, AsyncMock, MagicMock
+    from sqlalchemy.exc import OperationalError
+
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    from main import app
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            await client.post("/auth/register", json={"username": "convuser", "password": "TestPass123!"})
+            token_resp = await client.post(
+                "/auth/token",
+                data={"username": "convuser", "password": "TestPass123!"},
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if token_resp.status_code != 200:
+                pytest.skip("live DB required for auth round-trip")
+            token = token_resp.json()["access_token"]
+
+            with patch("routers.memory.get_session") as mock_gs:
+                mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+                mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
+                resp = await client.get(
+                    "/memory/conversations",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+    except OperationalError:
+        pytest.skip("live DB required for auth round-trip")
+
+
+@pytest.mark.asyncio
+async def test_messages_endpoint_returns_list():
+    """GET /memory/conversations/{id}/messages returns a list."""
+    from httpx import AsyncClient, ASGITransport
+    from unittest.mock import patch, AsyncMock, MagicMock
+    from sqlalchemy.exc import OperationalError
+
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    from main import app
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            await client.post("/auth/register", json={"username": "msguser", "password": "TestPass123!"})
+            token_resp = await client.post(
+                "/auth/token",
+                data={"username": "msguser", "password": "TestPass123!"},
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if token_resp.status_code != 200:
+                pytest.skip("live DB required for auth round-trip")
+            token = token_resp.json()["access_token"]
+
+            with patch("routers.memory.get_session") as mock_gs:
+                mock_gs.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+                mock_gs.return_value.__aexit__ = AsyncMock(return_value=False)
+                resp = await client.get(
+                    "/memory/conversations/999/messages",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+    except OperationalError:
+        pytest.skip("live DB required for auth round-trip")

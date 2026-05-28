@@ -52,6 +52,7 @@ Synthesizer commits to ONE move across both tracks.
 | **16** | **Secrets & deploy operations hardening** *(merged PR #24)* | **Closed 2026-05-27** — production deploy live & green |
 | **17** | **UX: global navigation + settings / re-run intake** | **Closed 2026-05-27** — nav on all pages, settings.html, intake reset endpoint, token bug fixed |
 | **18** | **docs: web standards reference — evergreen technical + style** | **Closed 2026-05-28** — `docs/WEB_STANDARDS.md` created; CLAUDE.md read-order updated |
+| **19** | **bug: vault raw JSON + agent error after intake + chat history lost** | **Closed 2026-05-28** — vault GET list HTMX fixed (17 handlers); retrieval safe defaults; chat.py initial state; conversation restore on mount |
 
 ## Blocked
 
