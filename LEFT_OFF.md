@@ -5,7 +5,7 @@
 > at the end of every session.
 
 **Last updated:** 2026-05-28
-**Branch:** `main` — HEAD `2d8f700` ("fix(deploy): always restart cloudflared after docker compose up")
+**Branch:** `main` — HEAD `2b944f7` ("chore(ops): close out Cloudflare tunnel — site is live")
 **Working tree:** clean
 **CI/Deploy:** both ✅ green on `main`
 
@@ -13,21 +13,17 @@
 
 ## 1. CURRENT FOCUS
 
-**`https://cfo.agenticlips.com` is LIVE and healthy. ✅**
-
-The Cloudflare tunnel issue is fully resolved. The site serves the app end-to-end.
+**Gate 2 complete ✅ — site is live and working. UX issues identified, queued for next issue.**
 
 ### → NEXT ACTION
 
-**Gate 2 — Manual browser walkthrough (owner action required):**
-1. Open `https://cfo.agenticlips.com` in a browser
-2. Register an account, then log in
-3. Add at least one account, one debt, one income stream in the vault
-4. Open chat — ask "where am I financially?" — verify agent responds with a single concrete recommendation
-5. Run scenario: "How long to $1M at current trajectory?" — verify months and monthly breakout render
-6. Confirm disclaimer visible on every agent response
+Two UX issues surfaced during Gate 2 walkthrough — build these before Gate 3 vault population:
 
-After Gate 2 passes, move on to **Gate 3 — Vault population** (see `docs/PROJECT_STATE.md`).
+**Issue A — Global navigation:** User gets trapped in sections (e.g. clicking Vault has no way back to chat). Need a persistent nav bar or back link across all pages (`vault.html`, `intake.html`, `scenarios.html`, chat).
+
+**Issue B — Settings / re-run intake:** No way to redo the financial intake form once submitted. Need a Settings page (or settings section) with a "Re-run intake wizard" button that clears and replays the intake flow.
+
+Suggest opening these as a single new GitHub issue ("UX: navigation + settings") before building.
 
 ---
 
