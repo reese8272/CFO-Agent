@@ -41,11 +41,18 @@
       background: var(--surface); border-right: 1px solid var(--surface-border);
       overflow-y: auto; padding: 1rem 0;
     }
+    .nav-page-link {
+      display: block; padding: 0.38rem 1rem 0.38rem 1.25rem;
+      font-size: 0.8rem; color: var(--surface-muted); text-decoration: none;
+      border-left: 2px solid transparent; transition: color 0.1s, background 0.1s;
+    }
+    .nav-page-link:hover { color: var(--surface-text); background: rgba(255,255,255,0.05); }
+    .nav-page-link.active { color: var(--surface-text); font-weight: 500; border-left-color: var(--sage); background: rgba(255,255,255,0.06); }
+    .nav-divider { border: none; border-top: 1px solid var(--surface-border); margin: 0.75rem 0; }
     .nav-section {
       font-size: 0.62rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
       color: var(--surface-muted); padding: 0 1rem; margin: 1.1rem 0 0.3rem; opacity: 0.6;
     }
-    .nav-section:first-child { margin-top: 0; }
     .nav-item {
       display: block; width: 100%; background: none; border: none;
       border-left: 2px solid transparent; text-align: left;
@@ -123,6 +130,13 @@
 
   <div class="layout">
     <nav id="sidebar">
+      <span class="nav-section" style="display:block; padding-top: 0.85rem;">Navigate</span>
+      <a href="/static/chat.html" class="nav-page-link">Chat</a>
+      <a href="/static/vault.html" class="nav-page-link active">Vault</a>
+      <a href="/static/scenarios.html" class="nav-page-link">Scenarios</a>
+      <a href="/static/digest.html" class="nav-page-link">Digest</a>
+      <a href="/static/settings.html" class="nav-page-link">Settings</a>
+      <hr class="nav-divider" />
       <p class="nav-section">Accounts & Credit</p>
       <button class="nav-item active" onclick="showTab('accounts', this)">Accounts</button>
       <button class="nav-item" onclick="showTab('cards', this)">Cards</button>

@@ -262,6 +262,25 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 
 ---
 
+---
+
+## Issue 17: UX — global navigation + settings / re-run intake
+- [x] Closed (2026-05-27) — GitHub Issue #25
+- **Depends on**: 15
+- **Acceptance criteria**:
+  - [x] All pages (`vault.html`, `intake.html`, `scenarios.html`, `digest.html`, `chat.html`) have consistent nav linking to Chat, Vault, Scenarios, Digest, Settings
+  - [x] Active page highlighted in nav on each page
+  - [x] `vault.html` retains internal section nav; cross-page nav added to top of sidebar
+  - [x] `scenarios.html` and `digest.html` converted to sidebar layout (match `chat.html`)
+  - [x] `intake.html` gets header nav links (nav in header, not sidebar — wizard is a focused centered flow)
+  - [x] `static/settings.html` — shows intake status, net worth, Re-run intake wizard button
+  - [x] `POST /intake/reset` — clears `user_profile.intake_completed_at`; vault data preserved
+  - [x] Settings linked from all page navs
+  - [x] **Bug fix**: `token` variable scoping in `intake.html` — was `const` inside IIFE, invisible to `ivCallApi` / `sendDrawerMessage` / `ivExtractAndSubmit`; promoted to outer `let token` assigned in `init()`. This caused "Network error" on every chat/interview call.
+  - [x] Tests: `test_reset_clears_intake_completed`, `test_reset_without_profile_is_safe`
+
+---
+
 ## Issue 16+: Eval harness, monitoring, key-rotation runbook, opt-out controls
 
 See `docs/SOT.md` "Known Production Gaps" — each becomes its own issue when the core loop is shipped.

@@ -6,7 +6,6 @@
   <title>Scenario Modeler — Personal CFO</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   <style>
     :root {
       --bg: #E4EDE6; --surface: #252B28; --surface-text: #C8D8CC; --surface-muted: #7A9A87; --surface-border: #363F3B;
@@ -15,7 +14,34 @@
       --text: #2E3D36; --text-muted: #7A9585; --text-dim: #A8BDB2;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 2.5rem; max-width: 680px; margin: auto; min-height: 100vh; font-size: 14px; }
+    html, body { height: 100%; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; display: flex; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 220px; flex-shrink: 0;
+      background: var(--surface); border-right: 1px solid var(--surface-border);
+      display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0;
+    }
+    .sidebar-top { padding: 1.25rem 1rem 1rem; border-bottom: 1px solid var(--surface-border); }
+    .logo { font-size: 0.875rem; font-weight: 600; color: var(--sage-light); letter-spacing: -0.02em; display: block; text-decoration: none; }
+    .nav-links { padding: 1rem 0; flex: 1; }
+    .nav-label { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--surface-muted); padding: 0 1rem; margin: 0.75rem 0 0.3rem; opacity: 0.6; }
+    .nav-link {
+      display: block; padding: 0.38rem 1rem 0.38rem 1.25rem;
+      font-size: 0.8rem; color: var(--surface-muted); text-decoration: none;
+      border-left: 2px solid transparent; transition: color 0.1s, background 0.1s;
+    }
+    .nav-link:hover { color: var(--surface-text); background: rgba(255,255,255,0.05); }
+    .nav-link.active { color: var(--surface-text); font-weight: 500; border-left-color: var(--sage); background: rgba(255,255,255,0.06); }
+    .sidebar-bottom { padding: 1rem; border-top: 1px solid var(--surface-border); }
+    .btn-signout { font-family: 'Inter', sans-serif; font-size: 0.75rem; color: var(--surface-muted); background: none; border: none; cursor: pointer; padding: 0; transition: color 0.12s; }
+    .btn-signout:hover { color: var(--surface-text); }
+
+    /* Main content */
+    .main-area { flex: 1; overflow-y: auto; }
+    .page-wrap { max-width: 680px; padding: 2.5rem 2rem 4rem; }
+
     h1 { font-size: 1.1rem; font-weight: 600; color: var(--text); letter-spacing: -0.02em; margin-bottom: 0.2rem; }
     .subtitle { color: var(--text-dim); font-size: 0.8rem; margin-bottom: 2rem; }
     .tabs { display: flex; border-bottom: 1px solid var(--border-light); margin-bottom: 1.75rem; }
@@ -31,8 +57,8 @@
       background: var(--bg); color: var(--text); margin-bottom: 1rem; outline: none;
       transition: border-color 0.15s, background 0.15s; appearance: none;
     }
-    input:focus { border-color: var(--sage); background: var(--surface); }
-    .btn { display: inline-block; padding: 0.45rem 1.25rem; background: var(--sage-dark); color: var(--surface); border: none; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-family: 'Inter', sans-serif; font-weight: 500; transition: background 0.15s; }
+    input:focus { border-color: var(--sage); background: var(--surface); color: var(--surface-text); }
+    .btn { display: inline-block; padding: 0.45rem 1.25rem; background: var(--sage-dark); color: var(--surface-text); border: none; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-family: 'Inter', sans-serif; font-weight: 500; transition: background 0.15s; }
     .btn:hover { background: var(--sage); }
     .btn:disabled { background: var(--border); color: var(--text-dim); cursor: wait; }
     .result-card { background: var(--surface); border: 1px solid var(--surface-border); border-left: 3px solid var(--sage); border-radius: 12px; padding: 1rem 1.25rem; margin-top: 1rem; }
@@ -40,56 +66,85 @@
     .result-card p { font-size: 0.8rem; color: var(--surface-text); margin-bottom: 0.35rem; line-height: 1.6; }
     .disclaimer { background: var(--sage-xs); border: 1px solid var(--sage-light); border-radius: 8px; padding: 0.65rem 0.9rem; font-size: 0.73rem; color: var(--text-muted); margin-top: 0.75rem; line-height: 1.5; }
     #status { font-size: 0.775rem; color: var(--text-dim); margin-bottom: 0.5rem; }
-    .htmx-indicator { display: none; } .htmx-request .htmx-indicator { display: inline; }
   </style>
 </head>
 <body>
-  <h1>Scenario Modeler</h1>
-  <p class="subtitle">Deterministic forward projections — no guesswork, just math.</p>
 
-  <div class="tabs">
-    <button class="tab-btn active" onclick="showTab('tti', this)">Time to Target</button>
-    <button class="tab-btn" onclick="showTab('ic', this)">Income Change</button>
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <a href="/static/chat.html" class="logo">Personal CFO</a>
+    </div>
+    <div class="nav-links">
+      <span class="nav-label">Navigate</span>
+      <a href="/static/chat.html" class="nav-link">Chat</a>
+      <a href="/static/vault.html" class="nav-link">Vault</a>
+      <a href="/static/scenarios.html" class="nav-link active">Scenarios</a>
+      <a href="/static/digest.html" class="nav-link">Digest</a>
+      <a href="/static/settings.html" class="nav-link">Settings</a>
+    </div>
+    <div class="sidebar-bottom">
+      <button class="btn-signout" onclick="signOut()">Sign out</button>
+    </div>
   </div>
 
-  <div id="tab-tti" class="panel active">
-    <div class="card">
-      <form id="form-tti" onsubmit="submitScenario(event, 'tti', 'time_to_target')">
-        <label for="tti-current">Current balance ($)</label>
-        <input type="number" id="tti-current" name="current_amount" min="0" step="100" value="0" required>
-        <label for="tti-contrib">Monthly contribution ($)</label>
-        <input type="number" id="tti-contrib" name="monthly_contribution" min="0" step="50" value="500" required>
-        <label for="tti-return">Annual return (%) — use 0 for cash / savings</label>
-        <input type="number" id="tti-return" name="annual_return_pct" min="0" max="50" step="0.1" value="7">
-        <label for="tti-target">Target amount ($)</label>
-        <input type="number" id="tti-target" name="target_amount" min="1" step="100" value="100000" required>
-        <button type="submit" class="btn" id="btn-tti">Calculate <span class="htmx-indicator">…</span></button>
-      </form>
-    </div>
-    <div id="result-tti"></div>
-  </div>
+  <div class="main-area">
+    <div class="page-wrap">
+      <h1>Scenario Modeler</h1>
+      <p class="subtitle">Deterministic forward projections — no guesswork, just math.</p>
 
-  <div id="tab-ic" class="panel">
-    <div class="card">
-      <form id="form-ic" onsubmit="submitScenario(event, 'ic', 'income_change')">
-        <label for="ic-current">Current monthly income ($)</label>
-        <input type="number" id="ic-current" name="current_monthly_income" min="0" step="100" value="5000" required>
-        <label for="ic-delta">Monthly change ($, use negative for a cut)</label>
-        <input type="number" id="ic-delta" name="delta_monthly" step="50" value="-500" required>
-        <button type="submit" class="btn" id="btn-ic">Calculate <span class="htmx-indicator">…</span></button>
-      </form>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('tti', this)">Time to Target</button>
+        <button class="tab-btn" onclick="showTab('ic', this)">Income Change</button>
+      </div>
+
+      <div id="tab-tti" class="panel active">
+        <div class="card">
+          <form id="form-tti" onsubmit="submitScenario(event, 'tti', 'time_to_target')">
+            <label for="tti-current">Current balance ($)</label>
+            <input type="number" id="tti-current" name="current_amount" min="0" step="100" value="0" required>
+            <label for="tti-contrib">Monthly contribution ($)</label>
+            <input type="number" id="tti-contrib" name="monthly_contribution" min="0" step="50" value="500" required>
+            <label for="tti-return">Annual return (%) — use 0 for cash / savings</label>
+            <input type="number" id="tti-return" name="annual_return_pct" min="0" max="50" step="0.1" value="7">
+            <label for="tti-target">Target amount ($)</label>
+            <input type="number" id="tti-target" name="target_amount" min="1" step="100" value="100000" required>
+            <button type="submit" class="btn" id="btn-tti">Calculate</button>
+          </form>
+        </div>
+        <div id="result-tti"></div>
+      </div>
+
+      <div id="tab-ic" class="panel">
+        <div class="card">
+          <form id="form-ic" onsubmit="submitScenario(event, 'ic', 'income_change')">
+            <label for="ic-current">Current monthly income ($)</label>
+            <input type="number" id="ic-current" name="current_monthly_income" min="0" step="100" value="5000" required>
+            <label for="ic-delta">Monthly change ($, use negative for a cut)</label>
+            <input type="number" id="ic-delta" name="delta_monthly" step="50" value="-500" required>
+            <button type="submit" class="btn" id="btn-ic">Calculate</button>
+          </form>
+        </div>
+        <div id="result-ic"></div>
+      </div>
     </div>
-    <div id="result-ic"></div>
   </div>
 
   <script>
     const token = localStorage.getItem("cfo_token");
+    if (!token) window.location.href = '/static/login.html';
+
+    function signOut() {
+      localStorage.removeItem('cfo_token');
+      window.location.href = '/static/login.html';
+    }
+
     function showTab(id, btn) {
       document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       document.getElementById("tab-" + id).classList.add("active");
       btn.classList.add("active");
     }
+
     async function submitScenario(evt, panelId, kind) {
       evt.preventDefault();
       const form = evt.target;
@@ -102,10 +157,10 @@
       try {
         const resp = await fetch("/scenarios/run", {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
           body: JSON.stringify(data),
         });
-        if (resp.status === 401) { resultDiv.innerHTML = "<p>Session expired. Please log in again.</p>"; return; }
+        if (resp.status === 401) { window.location.href = '/static/login.html'; return; }
         const out = await resp.json();
         if (!resp.ok) { resultDiv.innerHTML = `<p style="color:#A05050">${out.detail || "Error"}</p>`; return; }
         renderResult(panelId, out);
@@ -113,6 +168,7 @@
         resultDiv.innerHTML = `<p style="color:#A05050">Network error: ${e.message}</p>`;
       } finally { btn.disabled = false; }
     }
+
     function renderResult(panelId, out) {
       const div = document.getElementById("result-" + panelId);
       let html = `<div class="result-card"><h3>Result</h3>`;
@@ -120,7 +176,7 @@
         const r = out.result;
         if (r.not_reachable) { html += `<p>${r.message}</p>`; }
         else { html += `<p><strong>${r.months} months</strong> (${r.years} years)</p><p>${r.message}</p>`; }
-        html += `<p style="font-size:0.72rem;color:var(--text-dim);margin-top:0.4rem">Trace: ${out.reasoning_trace}</p>`;
+        html += `<p style="font-size:0.72rem;color:var(--surface-muted);margin-top:0.4rem">Trace: ${out.reasoning_trace}</p>`;
       } else {
         const r = out.result;
         const sign = parseFloat(r.monthly_delta) >= 0 ? "+" : "";
@@ -131,6 +187,7 @@
       if (out.disclaimer) html += `<div class="disclaimer">${out.disclaimer}</div>`;
       div.innerHTML = html;
     }
+
     function fmt(v) { return parseFloat(v).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
   </script>
 </body>

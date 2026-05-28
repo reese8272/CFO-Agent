@@ -136,10 +136,14 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │
 ├── static/
 │   ├── index.html              # Chat UI
+│   ├── chat.html               # Chat UI (canonical)
 │   ├── vault.html              # Vault edit forms
 │   ├── goals.html              # Goal progress + trajectory
 │   ├── scenarios.html          # Scenario modeler UI
-│   └── digest.html             # Latest digest view
+│   ├── digest.html             # Latest digest view
+│   ├── intake.html             # Financial intake wizard
+│   ├── login.html              # Auth
+│   └── settings.html           # Settings + intake reset
 │
 ├── tests/
 │   ├── conftest.py

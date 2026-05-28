@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — Personal CFO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #E4EDE6; --surface: #252B28; --surface-text: #C8D8CC;
+      --surface-muted: #7A9A87; --surface-border: #363F3B;
+      --sage-xs: #EEF3EF; --sage-light: #B8CCBB; --sage: #7A9B83; --sage-dark: #4D5E58;
+      --text: #2E3D36; --text-muted: #7A9585; --text-dim: #A8BDB2;
+      --border: #D4DDD6; --border-light: #E8EDE9;
+      --danger: #A05050; --danger-bg: rgba(160,80,80,0.08); --danger-border: rgba(160,80,80,0.2);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); font-size: 14px; display: flex; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 220px; flex-shrink: 0;
+      background: var(--surface); border-right: 1px solid var(--surface-border);
+      display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0;
+    }
+    .sidebar-top { padding: 1.25rem 1rem 1rem; border-bottom: 1px solid var(--surface-border); }
+    .logo { font-size: 0.875rem; font-weight: 600; color: var(--sage-light); letter-spacing: -0.02em; display: block; margin-bottom: 0; text-decoration: none; }
+    .nav-links { padding: 1rem 0; flex: 1; }
+    .nav-label { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--surface-muted); padding: 0 1rem; margin: 0.75rem 0 0.3rem; opacity: 0.6; }
+    .nav-link {
+      display: block; padding: 0.38rem 1rem 0.38rem 1.25rem;
+      font-size: 0.8rem; color: var(--surface-muted); text-decoration: none;
+      border-left: 2px solid transparent; transition: color 0.1s, background 0.1s;
+    }
+    .nav-link:hover { color: var(--surface-text); background: rgba(255,255,255,0.05); }
+    .nav-link.active { color: var(--surface-text); font-weight: 500; border-left-color: var(--sage); background: rgba(255,255,255,0.06); }
+    .sidebar-bottom { padding: 1rem; border-top: 1px solid var(--surface-border); }
+    .btn-signout { font-family: 'Inter', sans-serif; font-size: 0.75rem; color: var(--surface-muted); background: none; border: none; cursor: pointer; padding: 0; transition: color 0.12s; }
+    .btn-signout:hover { color: var(--surface-text); }
+
+    /* Main content */
+    .main-area { flex: 1; overflow-y: auto; }
+    .page-wrap { max-width: 560px; padding: 2.5rem 2rem 4rem; }
+
+    .page-title { font-size: 1.05rem; font-weight: 600; color: var(--text); letter-spacing: -0.02em; margin-bottom: 0.25rem; }
+    .page-sub { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2rem; }
+
+    .settings-card {
+      background: #fff; border: 1px solid var(--border-light);
+      border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem;
+    }
+    .card-title { font-size: 0.875rem; font-weight: 600; color: var(--text); margin-bottom: 0.25rem; }
+    .card-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 1.25rem; }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      font-size: 0.75rem; font-weight: 500; padding: 0.25rem 0.65rem;
+      border-radius: 20px; margin-bottom: 1rem;
+    }
+    .status-badge.complete { background: rgba(122,155,131,0.12); color: var(--sage-dark); border: 1px solid rgba(122,155,131,0.3); }
+    .status-badge.pending { background: rgba(160,80,80,0.08); color: var(--danger); border: 1px solid rgba(160,80,80,0.2); }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    .snapshot-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    .snapshot-item { }
+    .snapshot-label { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.2rem; }
+    .snapshot-value { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+
+    .btn-primary {
+      font-family: 'Inter', sans-serif; font-size: 0.825rem; font-weight: 500;
+      color: var(--surface-text); background: var(--sage-dark);
+      border: none; border-radius: 8px; padding: 0.5rem 1.1rem;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--sage); }
+    .btn-primary:disabled { background: var(--border); color: var(--text-dim); cursor: wait; }
+
+    .btn-danger {
+      font-family: 'Inter', sans-serif; font-size: 0.825rem; font-weight: 500;
+      color: var(--danger); background: var(--danger-bg);
+      border: 1px solid var(--danger-border); border-radius: 8px; padding: 0.5rem 1.1rem;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-danger:hover { background: rgba(160,80,80,0.14); border-color: rgba(160,80,80,0.35); }
+    .btn-danger:disabled { opacity: 0.5; cursor: wait; }
+
+    .msg { font-size: 0.775rem; margin-top: 0.65rem; min-height: 1.1em; }
+    .msg.ok { color: var(--sage-dark); }
+    .msg.err { color: var(--danger); }
+
+    .disclaimer-note {
+      font-size: 0.72rem; color: var(--text-dim); line-height: 1.5;
+      background: var(--sage-xs); border: 1px solid var(--border-light);
+      border-radius: 8px; padding: 0.75rem 1rem; margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <a href="/static/chat.html" class="logo">Personal CFO</a>
+    </div>
+    <div class="nav-links">
+      <span class="nav-label">Navigate</span>
+      <a href="/static/chat.html" class="nav-link">Chat</a>
+      <a href="/static/vault.html" class="nav-link">Vault</a>
+      <a href="/static/scenarios.html" class="nav-link">Scenarios</a>
+      <a href="/static/digest.html" class="nav-link">Digest</a>
+      <a href="/static/settings.html" class="nav-link active">Settings</a>
+    </div>
+    <div class="sidebar-bottom">
+      <button class="btn-signout" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main-area">
+    <div class="page-wrap">
+      <h1 class="page-title">Settings</h1>
+      <p class="page-sub">Manage your account and financial profile.</p>
+
+      <!-- Intake status card -->
+      <div class="settings-card">
+        <div class="card-title">Financial Intake</div>
+        <div class="card-desc">Your intake wizard collects your financial profile so the CFO can give you accurate, personalized advice. You can re-run it at any time — your vault data is preserved.</div>
+
+        <div id="intake-status-badge" class="status-badge pending">
+          <span class="status-dot"></span>
+          <span id="intake-status-text">Checking…</span>
+        </div>
+
+        <div id="snapshot-row" class="snapshot-row" style="display:none;">
+          <div class="snapshot-item">
+            <div class="snapshot-label">Net Worth</div>
+            <div class="snapshot-value" id="snap-net-worth">—</div>
+          </div>
+          <div class="snapshot-item">
+            <div class="snapshot-label">Allocation Step</div>
+            <div class="snapshot-value" id="snap-alloc-step">—</div>
+          </div>
+          <div class="snapshot-item">
+            <div class="snapshot-label">Income Step</div>
+            <div class="snapshot-value" id="snap-income-step">—</div>
+          </div>
+          <div class="snapshot-item">
+            <div class="snapshot-label">Completed</div>
+            <div class="snapshot-value" id="snap-completed-at">—</div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+          <a href="/static/intake.html" class="btn-primary" id="btn-run-intake">Run intake wizard</a>
+          <button class="btn-danger" id="btn-reset-intake" onclick="resetIntake()" style="display:none;">Re-run intake wizard</button>
+        </div>
+        <div class="msg" id="reset-msg"></div>
+      </div>
+
+      <div class="settings-card">
+        <div class="card-title">Account</div>
+        <div class="card-desc">You are logged in as the single authorized user of this Personal CFO instance.</div>
+        <button class="btn-primary" onclick="signOut()">Sign out</button>
+      </div>
+
+      <div class="disclaimer-note">
+        This tool is for financial education and personal organization only. It is not a licensed financial advisor. For tax strategy, real estate transactions, and investment decisions, consult a licensed professional.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('cfo_token');
+    if (!token) window.location.href = '/static/login.html';
+
+    function formatDollar(n) {
+      if (n == null || isNaN(n)) return '—';
+      const v = parseFloat(n);
+      if (Math.abs(v) >= 1_000_000) return (v < 0 ? '-' : '') + '$' + (Math.abs(v) / 1_000_000).toFixed(2) + 'M';
+      if (Math.abs(v) >= 1_000) return (v < 0 ? '-' : '') + '$' + Math.round(Math.abs(v)).toLocaleString();
+      return (v < 0 ? '-' : '') + '$' + Math.abs(v).toFixed(0);
+    }
+
+    async function loadStatus() {
+      try {
+        const r = await fetch('/intake/status', { headers: { Authorization: 'Bearer ' + token } });
+        if (!r.ok) return;
+        const d = await r.json();
+        const badge = document.getElementById('intake-status-badge');
+        const statusText = document.getElementById('intake-status-text');
+        const btnRun = document.getElementById('btn-run-intake');
+        const btnReset = document.getElementById('btn-reset-intake');
+        const snapRow = document.getElementById('snapshot-row');
+
+        if (d.intake_completed) {
+          badge.className = 'status-badge complete';
+          statusText.textContent = 'Intake complete';
+          btnRun.style.display = 'none';
+          btnReset.style.display = '';
+          snapRow.style.display = 'flex';
+          document.getElementById('snap-net-worth').textContent = d.net_worth ? formatDollar(d.net_worth) : '—';
+          document.getElementById('snap-alloc-step').textContent = d.allocation_step != null ? 'Step ' + d.allocation_step : '—';
+          document.getElementById('snap-income-step').textContent = d.income_step != null ? 'Step ' + d.income_step : '—';
+          if (d.completed_at) {
+            const dt = new Date(d.completed_at);
+            document.getElementById('snap-completed-at').textContent = dt.toLocaleDateString();
+          }
+        } else {
+          badge.className = 'status-badge pending';
+          statusText.textContent = 'Not completed';
+          btnRun.style.display = '';
+          btnReset.style.display = 'none';
+        }
+      } catch (e) { /* non-blocking */ }
+    }
+
+    async function resetIntake() {
+      const btn = document.getElementById('btn-reset-intake');
+      const msg = document.getElementById('reset-msg');
+      btn.disabled = true;
+      msg.textContent = '';
+      try {
+        const r = await fetch('/intake/reset', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+        if (r.ok) {
+          msg.className = 'msg ok';
+          msg.textContent = 'Intake reset. Redirecting to intake wizard…';
+          setTimeout(() => window.location.href = '/static/intake.html', 1200);
+        } else {
+          const d = await r.json().catch(() => ({}));
+          msg.className = 'msg err';
+          msg.textContent = d.detail || 'Reset failed.';
+          btn.disabled = false;
+        }
+      } catch (e) {
+        msg.className = 'msg err';
+        msg.textContent = 'Network error.';
+        btn.disabled = false;
+      }
+    }
+
+    function signOut() {
+      localStorage.removeItem('cfo_token');
+      window.location.href = '/static/login.html';
+    }
+
+    loadStatus();
+  </script>
+</body>
+</html>

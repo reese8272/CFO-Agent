@@ -4,31 +4,37 @@
 > doc — those live in `docs/`. Update this whenever the active goal changes, and run `/close-out`
 > at the end of every session.
 
-**Last updated:** 2026-05-28
-**Branch:** `main` — HEAD `d375b50` ("chore(ops): Gate 2 complete — log UX issues for next session")
-**Working tree:** clean
-**CI/Deploy:** both ✅ green on `main`
+**Last updated:** 2026-05-27
+**Branch:** `main`
+**Working tree:** modified (Issue 17 complete — needs commit + push to trigger CI/deploy)
+**CI/Deploy:** green on prior `main`; current changes not yet pushed
 
 ---
 
 ## 1. CURRENT FOCUS
 
-**Build Issue 17 — UX: global navigation + settings/re-run intake.**
-
-Gate 2 (manual browser walkthrough) is complete. The app is live and working at
-`https://cfo.agenticlips.com`. Two UX gaps surfaced that block comfortable daily use.
+**Issue 17 is built and ready to ship.** Commit + push to `main` to trigger CI and deploy.
 
 ### → NEXT ACTION
 
-1. Open a GitHub issue: **"UX: global navigation + settings / re-run intake"**
-2. Run the issue workflow (`/issue-workflow`) and implement:
-   - **Nav:** persistent header/nav bar across all pages (`vault.html`, `intake.html`,
-     `scenarios.html`, chat) — user should never be trapped in a section with no way back
-   - **Settings:** a settings page or panel with a "Re-run intake wizard" button that clears
-     previous intake answers and replays the `intake.html` flow
-3. Run full pytest suite before closing
-4. Browser-verify: navigate freely between all sections; confirm intake can be redone; confirm
-   disclaimer still visible on agent responses
+1. `git add` the changed files and commit Issue 17
+2. Push to `main` — CI will run full pytest suite + deploy to production
+3. Verify deploy green at `https://cfo.agenticlips.com`
+4. Browser-verify: navigate between all sections; confirm intake can be re-run via Settings; confirm disclaimer still visible on agent responses
+
+### Changes in this session
+
+- **`static/settings.html`** — new settings page with intake status, net worth snapshot, Re-run intake wizard button
+- **`static/chat.html`** — added Settings nav link
+- **`static/vault.html`** — added cross-page nav links (Chat/Vault/Scenarios/Digest/Settings) to top of sidebar
+- **`static/scenarios.html`** — added sidebar nav (converted from plain centered layout)
+- **`static/digest.html`** — added sidebar nav (converted from plain centered layout)
+- **`static/intake.html`** — fixed token scoping bug (was `const` inside IIFE → promoted to outer `let`; this was causing "Network error" on every chat/interview call in the intake wizard); added header nav links
+- **`routers/intake.py`** — added `POST /intake/reset` endpoint
+- **`tests/test_intake.py`** — added `test_reset_clears_intake_completed` + `test_reset_without_profile_is_safe`
+- **`docs/issues.md`** — added Issue 17 entry
+- **`docs/PROJECT_STATE.md`** — updated Issue 17 status
+- **`docs/SOT.md`** — updated static file tree
 
 ---
 
@@ -41,6 +47,7 @@ Gate 2 (manual browser walkthrough) is complete. The app is live and working at
 - ✅ **Deploy pipeline green** — validate-secrets → GHCR build → SSH deploy → `/health` gate → Alembic migrations
 - ✅ **`cloudflared` always restarts on deploy** — `docker compose restart cloudflared` in step 4; stale token can never persist
 - ✅ **Issue 16 closed** — secrets hardening, container auto-recovery, `check_env.py --live`, `docs/DEPLOYMENT.md`
+- ✅ **Issue 17 built** — global nav, settings page, intake reset endpoint, token bug fixed
 
 ---
 
@@ -51,6 +58,7 @@ Gate 2 (manual browser walkthrough) is complete. The app is live and working at
 3. Root cause: DNS CNAME pointed to an old tunnel UUID. Old tunnel was accidentally deleted; new
    tunnel created (`daba5893...`); CNAME updated manually; token rotated.
 4. Site came up. Gate 2 walkthrough completed — HTML good, app functional, two UX gaps noted.
+5. Issue 17 — global nav + settings + intake reset + token bug fix. Ready to push.
 
 ---
 

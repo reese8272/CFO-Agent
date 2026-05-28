@@ -45,10 +45,16 @@
       padding: 0 1.5rem; height: 52px;
       display: flex; align-items: center; justify-content: space-between;
     }
-    .logo { font-size: 0.875rem; font-weight: 600; color: var(--sage-light); letter-spacing: -0.02em; }
+    .logo { font-size: 0.875rem; font-weight: 600; color: var(--sage-light); letter-spacing: -0.02em; text-decoration: none; }
+    .header-nav { display: flex; align-items: center; gap: 0.15rem; flex: 1; padding: 0 1.5rem; }
+    .header-nav-link {
+      font-size: 0.775rem; color: var(--surface-muted); text-decoration: none;
+      padding: 0.25rem 0.6rem; border-radius: 5px; transition: color 0.1s, background 0.1s;
+    }
+    .header-nav-link:hover { color: var(--surface-text); background: rgba(255,255,255,0.06); }
     .disclaimer {
       font-size: 0.67rem; color: var(--surface-muted);
-      max-width: 380px; text-align: right; line-height: 1.4;
+      max-width: 300px; text-align: right; line-height: 1.4;
     }
 
     /* ── Page wrapper ── */
@@ -713,8 +719,15 @@
 <body>
 
   <header>
-    <span class="logo">Personal CFO</span>
-    <p class="disclaimer">For financial education and personal organization only. Not licensed financial advice. Consult a licensed professional for tax, real estate, and investment decisions.</p>
+    <a href="/static/chat.html" class="logo">Personal CFO</a>
+    <nav class="header-nav">
+      <a href="/static/chat.html" class="header-nav-link">Chat</a>
+      <a href="/static/vault.html" class="header-nav-link">Vault</a>
+      <a href="/static/scenarios.html" class="header-nav-link">Scenarios</a>
+      <a href="/static/digest.html" class="header-nav-link">Digest</a>
+      <a href="/static/settings.html" class="header-nav-link">Settings</a>
+    </nav>
+    <p class="disclaimer">For financial education only. Not licensed financial advice.</p>
   </header>
 
   <!-- ═══════════════════════════════════════════════
@@ -1282,6 +1295,7 @@
     // ══════════════════════════════════════════════════
     // State
     // ══════════════════════════════════════════════════
+    let token = null;  // set in init(); needs outer scope so ivCallApi / sendDrawerMessage can reach it
     let currentStep = 1;
     const TOTAL_STEPS = 9;
     const stepStatus = {}; // 'done' | 'skipped' | undefined
@@ -1298,7 +1312,7 @@
     // Init
     // ══════════════════════════════════════════════════
     (function init() {
-      const token = localStorage.getItem('cfo_token');
+      token = localStorage.getItem('cfo_token');
       if (!token) { window.location.href = '/static/login.html'; return; }
 
       // Restore from localStorage backup

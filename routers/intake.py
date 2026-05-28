@@ -736,3 +736,16 @@ async def extract_intake(
             return block.input
 
     raise HTTPException(status_code=500, detail="Extraction failed — no structured output returned.")
+
+
+@router.post("/reset", status_code=200)
+async def reset_intake(
+    session: Session,
+    current_user: CurrentUser,
+) -> dict:
+    """Clear intake_completed_at so the user can redo the intake wizard. Vault data is preserved."""
+    profile = (await session.execute(select(UserProfile))).scalar_one_or_none()
+    if profile is not None:
+        profile.intake_completed_at = None
+        await session.commit()
+    return {"reset": True}

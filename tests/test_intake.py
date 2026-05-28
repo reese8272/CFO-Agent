@@ -291,3 +291,32 @@ async def test_snapshot_math(auth_client: AsyncClient):
     assert int(body["income_step"]) >= 1
     assert body["vault_hash"] is not None
     assert len(body["vault_hash"]) == 16  # sha256[:16]
+
+
+# ---------------------------------------------------------------------------
+# Reset
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_reset_clears_intake_completed(auth_client: AsyncClient):
+    await auth_client.post("/intake/submit", json=_PAYLOAD)
+
+    # Confirm completed before reset
+    status_before = await auth_client.get("/intake/status")
+    assert status_before.json()["intake_completed"] is True
+
+    reset_resp = await auth_client.post("/intake/reset")
+    assert reset_resp.status_code == 200
+    assert reset_resp.json()["reset"] is True
+
+    # Vault data preserved; intake_completed_at cleared
+    status_after = await auth_client.get("/intake/status")
+    assert status_after.json()["intake_completed"] is False
+
+
+@pytest.mark.asyncio
+async def test_reset_without_profile_is_safe(auth_client: AsyncClient):
+    # No intake submitted — reset should still return 200 without error
+    resp = await auth_client.post("/intake/reset")
+    assert resp.status_code == 200
+    assert resp.json()["reset"] is True

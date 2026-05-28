@@ -50,6 +50,7 @@ Synthesizer commits to ONE move across both tracks.
 | 13 | Plaid integration | **Deferred indefinitely 2026-05-24** — preserved as escape hatch |
 | **15** | **Financial Intake Wizard — backend (models, migration, analysis engine, router)** | **In Progress 2026-05-26** — broken tests repaired 2026-05-27 (see Issue 16) |
 | **16** | **Secrets & deploy operations hardening** *(merged PR #24)* | **Closed 2026-05-27** — production deploy live & green |
+| **17** | **UX: global navigation + settings / re-run intake** | **Closed 2026-05-27** — nav on all pages, settings.html, intake reset endpoint, token bug fixed |
 
 ## Blocked
 
