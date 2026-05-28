@@ -182,6 +182,7 @@ jobs:
             echo ""
             echo "=== [4/6] Starting containers ==="
             $DOCKER compose up -d --no-build --remove-orphans
+            $DOCKER compose restart cloudflared
             $DOCKER compose ps
 
             echo ""
