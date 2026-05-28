@@ -281,6 +281,19 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 
 ---
 
+---
+
+## Issue 18: docs — web standards reference (evergreen technical + style)
+- [x] Closed (2026-05-28) — GitHub Issue #26
+- **Depends on**: none
+- **Acceptance criteria**:
+  - [x] `docs/WEB_STANDARDS.md` covers: performance (Core Web Vitals), DB (pooling, indexing, migrations, backups), caching (Redis patterns, HTTP headers, LLM caching), API (rate limiting, status codes, pagination, timeouts), frontend (loading/error/empty states, WCAG AA, keyboard nav, semantic HTML), deployment (health endpoint, structured logging, graceful shutdown, secrets, auto-restart, migration order), cost (free-tier map, LLM controls, connection limits, billing alerts)
+  - [x] Style section covers: concept-to-palette mappings (finance, tech/SaaS, healthcare, enterprise, consumer, minimal/editorial) with psychological rationale; typography standards; 8px spacing grid; contrast ratio quick reference
+  - [x] Each item marked ✦ non-negotiable vs. ◇ nice-to-have
+  - [x] CLAUDE.md read-order updated to include the doc at item 8
+
+---
+
 ## Issue 16+: Eval harness, monitoring, key-rotation runbook, opt-out controls
 
 See `docs/SOT.md` "Known Production Gaps" — each becomes its own issue when the core loop is shipped.

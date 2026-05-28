@@ -23,6 +23,7 @@ Before writing a single line of code, read these files in order:
 5. `docs/THREAT_MODEL.md` — security posture (data is sensitive)
 6. `docs/WEALTH_PRINCIPLES.md` — named principles the Coach cites
 7. `docs/CONTRACTS.md` — frozen interfaces (agent state, node I/O, endpoints, principle-key registry); do not diverge without amending it first
+8. `docs/WEB_STANDARDS.md` — evergreen technical standards (performance, DB, cache, API, deployment, cost) + style/color reference; check against this when building any new endpoint, page, or design element
 
 If any are missing or stale, flag it before proceeding.
 

@@ -167,7 +167,8 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
     ├── THREAT_MODEL.md
     ├── WEALTH_PRINCIPLES.md
     ├── CONTRACTS.md            # Frozen interfaces (agent state, node I/O, endpoints, principle keys)
-    └── DEPLOYMENT.md
+    ├── DEPLOYMENT.md
+    └── WEB_STANDARDS.md        # Evergreen technical standards + style/color reference
 ```
 
 ## Data Model (initial)
