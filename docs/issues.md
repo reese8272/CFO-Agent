@@ -297,3 +297,375 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ## Issue 16+: Eval harness, monitoring, key-rotation runbook, opt-out controls
 
 See `docs/SOT.md` "Known Production Gaps" — each becomes its own issue when the core loop is shipped.
+
+---
+
+## Codebase Assessment Issues (Issues 20–41)
+
+Generated 2026-06-28 by a 10-agent production-standards audit (Sonnet 4.6 fan-out + synthesis). Full evidence base and per-dimension findings in `docs/ASSESSMENT.md`. Each issue follows the standard Check → Approve → Build → Review workflow.
+
+> **Disclaimer**: This tool is for financial education and personal organization. It is not a licensed financial advisor. For tax strategy, real estate transactions, and investment decisions, consult a licensed professional.
+
+
+## Issue 20: Fix stale 2026 year-versioned tax constants in agent/principles.py
+- [ ] Open
+- **Priority**: 🔴 High
+- **Depends on**: none
+- **What**: Four (six values) year-versioned tax constants are wrong for 2026 relative to the project's own RESEARCH_NOTES.md sourced from IRS Notice 2025-67 / Rev. Proc. 2025-19. These are injected verbatim into agent prompts and principle-cite strings, so the agent tells the user lower contribution limits than the law allows, risking real under-contribution. Update the constants, fix WEALTH_PRINCIPLES.md prose, and add a regression test cross-checking each constant against RESEARCH_NOTES.md.
+- **Evidence**:
+  - `agent/principles.py:11 ROTH_IRA_LIMIT_2026=7_000 (should be 7_500)`
+  - `agent/principles.py:12 TRADITIONAL_IRA_LIMIT_2026=7_000 (should be 7_500)`
+  - `agent/principles.py:13 HSA_LIMIT_SINGLE_2026=4_300 (should be 4_400)`
+  - `agent/principles.py:14 HSA_LIMIT_FAMILY_2026=8_550 (should be 8_750)`
+  - `agent/principles.py:15 K401_EMPLOYEE_LIMIT_2026=23_500 (should be 24_500)`
+  - `agent/principles.py:16 SOLO_401K_TOTAL_LIMIT_2026=69_000 (should be 72_000)`
+  - `docs/RESEARCH_NOTES.md:73-80,91`
+  - `docs/WEALTH_PRINCIPLES.md:20 still says ~$69k/year`
+- **Acceptance criteria**:
+  - [ ] All six constants match the IRS 2026 figures documented in RESEARCH_NOTES.md
+  - [ ] WEALTH_PRINCIPLES.md prose updated to the corrected Solo 401k figure
+  - [ ] A test in tests/test_agent.py asserts each constant equals the RESEARCH_NOTES.md value and fails on drift
+  - [ ] Full pytest run green
+- **Standards**: CLAUDE.md Wealth-Strategy Rules: year-versioned tax constants live in agent/principles.py; CLAUDE.md Phase-4: Year-versioned tax constants sourced from agent/principles.py
+
+## Issue 21: Wire LLM_TIMEOUT_SECONDS to the Anthropic client and add timeouts to all external calls
+- [ ] Open
+- **Priority**: 🔴 High
+- **Depends on**: none
+- **What**: External-call timeouts are incomplete. The Anthropic client is built with only api_key, so the defined llm_timeout_seconds never applies and every LLM call is open-ended; SMTP opens with no timeout; and yfinance is called synchronously inside async handlers, blocking the event loop. Pass timeout to the AsyncAnthropic constructor, add a timeout to smtplib.SMTP, and wrap yfinance fetches in asyncio.to_thread.
+- **Evidence**:
+  - `clients.py:56-58 AsyncAnthropic(api_key=...) with no timeout=`
+  - `config.py:34 llm_timeout_seconds default 120 defined but unused`
+  - `digest.py:133 smtplib.SMTP(host, port) no timeout`
+  - `routers/holdings.py:95 fetch_price called sync in async refresh_all_prices`
+  - `routers/holdings.py:118 single-holding refresh same blocking call`
+  - `integrations/market_data.py:41-49 synchronous yf.Ticker(...).fast_info`
+- **Acceptance criteria**:
+  - [ ] AsyncAnthropic constructed with timeout=settings.llm_timeout_seconds
+  - [ ] smtplib.SMTP given a configurable timeout (e.g. SMTP_TIMEOUT_SECONDS in .env.example)
+  - [ ] yfinance fetches in both holdings refresh paths wrapped in asyncio.to_thread
+  - [ ] A test asserts the Anthropic client carries a non-default timeout
+- **Standards**: WEB_STANDARDS.md §4: Timeouts on every external call; no open-ended await; CLAUDE.md Phase-4 Resource lifecycle: external clients module-level singletons
+
+## Issue 22: Add rate limiting to /chat and the LLM-calling intake endpoints
+- [ ] Open
+- **Priority**: 🔴 High
+- **Depends on**: none
+- **What**: slowapi is wired but only auth endpoints carry @limiter.limit. The three endpoints that each trigger an Anthropic call — POST /chat, POST /intake/interview, POST /intake/extract — have no rate limit, and the 429 handler omits the required Retry-After header. This is a self-documented known gap and a non-negotiable standard; the LLM cost ceiling is unprotected. Add decorators with a Request parameter and a Retry-After header on the handler.
+- **Evidence**:
+  - `routers/chat.py:31 POST /chat no @limiter.limit`
+  - `routers/intake.py:678 intake_interview no limit`
+  - `routers/intake.py:711 extract_intake no limit`
+  - `auth.py:85,107 only limited endpoints`
+  - `main.py:77-79 RateLimitExceeded handler missing Retry-After`
+  - `docs/SOT.md:380 Known Production Gap: No rate limiting on /chat`
+- **Acceptance criteria**:
+  - [ ] @limiter.limit applied to chat, intake_interview, extract with a Request param
+  - [ ] 429 responses include a Retry-After header
+  - [ ] SOT.md Known Production Gaps note updated/removed
+  - [ ] A test asserts repeated /chat calls eventually return 429
+- **Standards**: WEB_STANDARDS.md §4: Rate limiting on every public endpoint; 429 with Retry-After; critical on /chat; SOT.md Known Production Gaps
+
+## Issue 23: Write audit-log rows for every vault mutation, including the intake submit path
+- [ ] Open
+- **Priority**: 🔴 High
+- **Depends on**: none
+- **What**: The append-only audit log is the only tamper-evident record of financial-data changes, yet several write paths bypass it. POST /intake/submit creates 10+ entity types via bare session.add() with no audit rows; CategoryMapping create/delete and the holdings price-refresh also skip the audit log. Route these through the existing crud.* helpers (which call write_audit_log) or add explicit write_audit_log calls with the authenticated username as actor.
+- **Evidence**:
+  - `routers/intake.py:222-389 session.add() for Goal, Account, Debt, Holdings, RealEstate, RetirementAccount, etc. with no audit`
+  - `vault/crud.py:76-93 write_audit_log helper that intake bypasses`
+  - `routers/imports.py:87-106 CategoryMapping create/delete no audit`
+  - `routers/holdings.py:101-108,120-124 price refresh mutates last_known_price with no audit`
+- **Acceptance criteria**:
+  - [ ] submit_intake routes entity creation through crud.create_* (or adds write_audit_log) for every entity type
+  - [ ] CategoryMapping create and delete write audit rows
+  - [ ] Holdings price-refresh writes an audit row (actor 'system' or user)
+  - [ ] A test asserts an audit_log row exists after /intake/submit and after a category-mapping mutation
+- **Standards**: CLAUDE.md Phase-4 Security: Audit log row written for every vault mutation; THREAT_MODEL.md Posture Statement: audit every mutation
+
+## Issue 24: Enforce state-specific tax/legal refusal with CPA/CFP pointer in prompts and tests
+- [ ] Open
+- **Priority**: 🔴 High
+- **Depends on**: none
+- **What**: CLAUDE.md mandates that state-specific tax/legal questions get a refusal plus a CPA/CFP pointer every time, but no node prompt contains this rule and no test enforces it. Add the refusal directive to CFO_SYSTEM_PROMPT and tax_optimizer._SYSTEM, and add a structural eval scenario that sends a state-specific question and asserts a CPA/CFP refusal with no state-specific rate or dollar figure.
+- **Evidence**:
+  - `agent/prompts.py:14-51 CFO_SYSTEM_PROMPT has no state-specific refusal rule`
+  - `agent/nodes/tax_optimizer.py:23-36 no refusal directive`
+  - `tests/test_disclaimer.py:1-68 no state-specific scenario`
+  - `tests/eval/test_eval_scenarios.py:1-142 no state-specific scenario; grep finds zero 'CPA'/'CFP'/'state-specific' in runnable code`
+- **Acceptance criteria**:
+  - [ ] CFO_SYSTEM_PROMPT and tax_optimizer._SYSTEM instruct refusal + CPA/CFP pointer for state-specific tax/legal questions
+  - [ ] An eval/structural test sends a state-specific question and asserts the response contains CPA or CFP and no state tax rate/dollar figure
+  - [ ] Full pytest run green
+- **Standards**: CLAUDE.md Wealth-Strategy Rules: State-specific tax/legal advice -> refusal + CPA/CFP pointer, every time; CLAUDE.md Phase-4: No state-specific tax/legal advice without refusal + CPA/CFP pointer
+
+## Issue 25: Fix Coach node proposal double-counting against the additive reducer
+- [ ] Open
+- **Priority**: 🔴 High
+- **Depends on**: none
+- **What**: AgentState.proposals uses an operator.add reducer, but coach_node returns the full enriched proposal list with a comment claiming it 'replaces' existing ones. The reducer instead appends, so the Synthesizer sees both the original specialist proposals and the coach copies and double-counts their leverage scores. Either have Coach append only a single authored proposal or switch proposals to a replace-last reducer (with a CONTRACTS amendment); remove the misleading comment.
+- **Evidence**:
+  - `agent/state.py:56 proposals: Annotated[list[NodeProposal], operator.add]`
+  - `agent/nodes/coach.py:135-136 comment 'replace existing ones' but returns {'proposals': new_proposals}`
+  - `docs/CONTRACTS.md:97-115 Coach 'enriches each proposal' not 'creates a parallel set'`
+- **Acceptance criteria**:
+  - [ ] Synthesizer receives each proposal exactly once after Coach runs
+  - [ ] The misleading coach.py comment is removed
+  - [ ] A test asserts proposal count after Coach equals the specialist count (no duplication)
+  - [ ] If reducer semantics change, CONTRACTS.md/DECISIONS.md amended
+- **Standards**: CONTRACTS.md §1: proposals uses an additive reducer; CONTRACTS.md §2 Coach output: enriches each proposal's principle + one-sentence why
+
+## Issue 26: Run Alembic migrations before the new app serves traffic in deploy
+- [ ] Open
+- **Priority**: 🔴 High
+- **Depends on**: none
+- **What**: The deploy workflow brings the new app online with docker compose up -d and only then runs alembic upgrade head, so new code serves requests against an unmigrated schema during the window — risking 500s or data corruption on any schema-changing migration. Move the migration to run before the stack comes up, e.g. docker compose run --rm app alembic upgrade head against the already-healthy DB.
+- **Evidence**:
+  - `.github/workflows/deploy.yml:184 docker compose up -d (app online)`
+  - `.github/workflows/deploy.yml:211-217 alembic upgrade head runs after app is up`
+- **Acceptance criteria**:
+  - [ ] alembic upgrade head executes before docker compose up -d for the app
+  - [ ] Migration runs against the existing healthy DB without starting the full new app stack
+  - [ ] Deploy doc/runbook reflects the new ordering
+- **Standards**: WEB_STANDARDS.md §6: Alembic migrations run before app boot; never migrate after a new code version is serving traffic
+
+## Issue 27: Add HTTP-surface tests and remove DB mocking / silent skips to harden the test gate
+- [ ] Open
+- **Priority**: 🔴 High
+- **Depends on**: none
+- **What**: Several testing rules are violated in ways that let the pre-deploy gate pass hollow. DB sessions are mocked in memory and digest tests (against the no-DB-mocking rule); the primary /chat endpoint plus /wealth/*, /digest/run-now, and /import/transactions have no HTTP-surface coverage; and OperationalError is caught and pytest.skip'd so tests silently pass when the DB is down. Replace mocked sessions with the real clean_db/auth_client pattern, add AsyncClient tests for the uncovered endpoints (mocking only the LLM/SMTP boundary), and remove the try/except-skip blocks.
+- **Evidence**:
+  - `tests/test_memory.py:145,186,224 patch routers.memory.get_session with AsyncMock`
+  - `tests/test_digest.py:40-45,82-90 AsyncMock session passed to generate_digest`
+  - `routers/chat.py:1-60 no /chat HTTP test (grep '/chat' in tests/ empty)`
+  - `routers/wealth.py and routers/digest.py no HTTP-level tests`
+  - `routers/imports.py POST /import/transactions no multipart test`
+  - `tests/test_memory.py:155-156, tests/test_scenarios.py:167-168 except OperationalError: pytest.skip`
+- **Acceptance criteria**:
+  - [ ] Memory and digest tests use a real Postgres session, not AsyncMock
+  - [ ] AsyncClient tests cover POST /chat (200/401/500), /wealth/* (200/401), POST /digest/run-now (200/502), POST /import/transactions (201 + dedup + audit row)
+  - [ ] try/except OperationalError skip blocks removed; missing DB fails loudly
+  - [ ] Full pytest run green with a live DB
+- **Standards**: CLAUDE.md Testing Rules: No DB mocking; API-surface end-to-end with FastAPI TestClient; full pytest before issue close
+
+## Issue 28: Reconcile frozen CONTRACTS.md interfaces with the implemented /wealth endpoints, signatures, and AgentState
+- [ ] Open
+- **Priority**: 🟡 Medium
+- **Depends on**: none
+- **What**: Several frozen contracts have drifted from code without the required CONTRACTS.md/DECISIONS.md amendment. /wealth/position returns key 'wealth' not the frozen 'allocation'; /wealth/trajectory is missing entirely; net-worth-trajectory has path and shape drift (missing target_curve and on_pace, renamed history fields, extra 'current' block); AgentState adds three undeclared fields; and compute_wealth_position/compute_income_position carry an extra user_id with changed return types. For each, either align code to the contract or amend CONTRACTS.md plus DECISIONS.md.
+- **Evidence**:
+  - `routers/wealth.py:32 returns {'wealth':...} vs CONTRACTS.md:147 'allocation'`
+  - `CONTRACTS.md:148 GET /wealth/trajectory not implemented in routers/wealth.py`
+  - `routers/wealth.py:47-74 vs CONTRACTS.md:149 path+shape drift (no target_curve/on_pace)`
+  - `agent/state.py:63,73-74 financial_snapshot/is_decision/decision_summary not in CONTRACTS.md §1`
+  - `vault/wealth_position.py:47 and vault/income_position.py:35 add user_id, return WealthLadder/IncomeLadder vs frozen §3`
+- **Acceptance criteria**:
+  - [ ] /wealth/position returns the frozen 'allocation' key (or contract amended with a DECISIONS.md entry)
+  - [ ] /wealth/trajectory either implemented or formally removed from CONTRACTS.md
+  - [ ] net-worth-trajectory path/shape reconciled (target_curve + on_pace added or contract amended)
+  - [ ] AgentState's three extra fields and the computation signatures documented in CONTRACTS.md §1/§3 with DECISIONS.md entries
+- **Standards**: CONTRACTS.md §1/§3 frozen interfaces; preamble: stop and amend this file first; CLAUDE.md Docs checklist: DECISIONS.md updated if implementation diverged
+
+## Issue 29: Fan out to all matching specialist nodes per turn instead of routing only one
+- [ ] Open
+- **Priority**: 🟡 Medium
+- **Depends on**: Issue 28 (Reconcile frozen CONTRACTS.md interfaces with the implemented /wealth endpoints, signatures, and AgentState)
+- **What**: The Analyzer can return multiple routes (e.g. ['allocation','tax']) but _route_from_analyzer applies a fixed priority waterfall and fires exactly one specialist, silently dropping the others — so a user asking about both Roth contributions and quarterly estimated tax gets only the allocation answer. The additive proposals reducer was designed for parallel fan-out that the topology never exercises. Implement parallel fan-out to all matching specialists (LangGraph Send / parallel edges) or document the single-specialist simplification in DECISIONS.md and amend CONTRACTS.md §2 to match.
+- **Evidence**:
+  - `agent/graph.py:85-97 _route_from_analyzer returns a single node name`
+  - `agent/graph.py:120-133 conditional_edges route to only that node`
+  - `CONTRACTS.md §2: conditionally-fired nodes can run in parallel and each append its own proposal`
+- **Acceptance criteria**:
+  - [ ] A multi-route turn fires every matching specialist and each appends a proposal, OR the single-specialist behavior is documented in DECISIONS.md and CONTRACTS.md §2 updated
+  - [ ] A test sends a two-topic question and asserts proposals from both specialists (or asserts the documented single-specialist behavior)
+- **Standards**: CONTRACTS.md §2: parallel-safe via reducer; §1 state contract note on additive reducer
+
+## Issue 30: Persist agent pattern and audit rows and accumulate per-node token usage
+- [ ] Open
+- **Priority**: 🟡 Medium
+- **Depends on**: none
+- **What**: persist_node only writes Conversation, Message, and Decision rows — never the Pattern or audit rows the §2 contract requires — so detected patterns and the agent's write audit trail are silently dropped. Separately, every LLM node logs token counts but only the Synthesizer writes them into AgentState, so persisted spend understates true LLM cost. Add pattern/audit persistence to persist_node and make tokens_in/tokens_out additive reducers (or accumulate them) so every node's usage is captured.
+- **Evidence**:
+  - `agent/graph.py:37-82 persist_node writes only Conversation/Message/Decision; no Pattern/AuditLog`
+  - `CONTRACTS.md §2 Persist: DB rows messages, decisions, patterns, audit`
+  - `agent/nodes/synthesizer.py:85-86 only node writing tokens to state`
+  - `agent/nodes/analyzer.py:78-84, coach.py:128-134 log tokens but do not write to state`
+- **Acceptance criteria**:
+  - [ ] persist_node writes Pattern rows for detected patterns and an audit row for agent writes
+  - [ ] tokens_in/tokens_out aggregate across all nodes in a turn (reducer or summation)
+  - [ ] A test asserts persisted token totals exceed the Synthesizer-only count for a multi-node turn
+- **Standards**: CONTRACTS.md §2 Persist node row set; CONTRACTS.md §1 / WEB_STANDARDS §7: log token usage after every call; CLAUDE.md Phase-4: audit log row for every mutation
+
+## Issue 31: Return safe, opaque HTTP error messages from digest and scenarios endpoints
+- [ ] Open
+- **Priority**: 🟡 Medium
+- **Depends on**: none
+- **What**: Two endpoints leak raw exception text to the HTTP client. /digest/run-now returns f'Digest send failed: {exc}', exposing SMTP server host/port and credential-error text; /scenarios/run returns str(exc) from a ValueError without review. Replace with static, opaque messages and keep the full exception in server logs (already logged for digest).
+- **Evidence**:
+  - `routers/digest.py:30 detail=f'Digest send failed: {exc}'`
+  - `routers/scenarios.py:20 detail=str(exc)`
+- **Acceptance criteria**:
+  - [ ] /digest/run-now returns a static 502 detail with no SMTP internals; full exception logged
+  - [ ] /scenarios/run uses a generic detail unless every ValueError raise site in scenarios/engine.py is confirmed safe and documented
+  - [ ] A test asserts no SMTP host/port appears in the digest error response
+- **Standards**: CLAUDE.md Production Standards: Error messages safe
+
+## Issue 32: Add Pydantic response models to /wealth and /intake endpoints returning raw dicts
+- [ ] Open
+- **Priority**: 🟡 Medium
+- **Depends on**: none
+- **What**: Several endpoints return raw dict (or response_model=dict) with no schema, so FastAPI cannot validate or document the response and an inadvertently added sensitive field would serialize through uninterception. Define typed Pydantic response models for the four /wealth/* endpoints and for /intake/status, /intake/archive, and /intake/extract, and attach them via response_model=.
+- **Evidence**:
+  - `routers/wealth.py:27,36,42,48 -> dict, no response_model`
+  - `routers/intake.py:167 /intake/status raw dict`
+  - `routers/intake.py:440 /intake/archive list[dict]`
+  - `routers/intake.py:711 /intake/extract response_model=dict`
+- **Acceptance criteria**:
+  - [ ] All four /wealth/* endpoints declare a concrete Pydantic response_model
+  - [ ] /intake/status, /intake/archive, /intake/extract declare concrete response models
+  - [ ] Responses validate against the new models in tests
+- **Standards**: CLAUDE.md Production Standards: Pydantic on every endpoint
+
+## Issue 33: Harden production docker-compose: stop publishing DB/Redis ports, parameterize credentials, pin image tags, add graceful shutdown
+- [ ] Open
+- **Priority**: 🟡 Medium
+- **Depends on**: none
+- **What**: The prod compose file publishes Postgres (5432) and Redis (6379) on all host interfaces with no Redis auth and a default password; DATABASE_URL and Postgres creds are hardcoded as cfo:cfo in compose and deploy.yml (so .env POSTGRES_PASSWORD has no effect); cloudflared and autoheal use :latest tags; and the uvicorn CMD lacks --timeout-graceful-shutdown so in-flight LLM/DB writes can be hard-killed. Remove the DB/Redis ports blocks, parameterize creds via env substitution / GitHub secrets, pin image tags, and add graceful shutdown plus stop_grace_period.
+- **Evidence**:
+  - `docker-compose.yml:17 '5432:5432', :31 '6379:6379' bound to 0.0.0.0`
+  - `docker-compose.yml:46 hardcoded DATABASE_URL cfo:cfo; deploy.yml:156,170-171 hardcoded creds`
+  - `docker-compose.yml:62 cloudflared:latest, :72 autoheal:latest`
+  - `Dockerfile:37 uvicorn CMD without --timeout-graceful-shutdown`
+- **Acceptance criteria**:
+  - [ ] postgres and redis ports: blocks removed (or scoped to 127.0.0.1 in dev compose only)
+  - [ ] DB credentials sourced from env substitution / GitHub secrets, not hardcoded; default password changed from cfo
+  - [ ] cloudflared and autoheal pinned to specific version tags with a DECISIONS.md note
+  - [ ] uvicorn CMD includes --timeout-graceful-shutdown 15 and app service has stop_grace_period
+- **Standards**: CLAUDE.md Production Standards: No hardcoded secrets; requirements pinned (same principle for images); WEB_STANDARDS.md §6: graceful shutdown; THREAT_MODEL.md: sensitive financial data
+
+## Issue 34: Centralize the duplicated Anthropic-call scaffold and restore tax_optimizer latency logging
+- [ ] Open
+- **Priority**: 🟡 Medium
+- **Depends on**: none
+- **What**: A ~12-line Anthropic-call pattern (client, timing, tool-use extraction, token/latency logging, cache headers) is copy-pasted across five LLM nodes, and tax_optimizer diverged from the pattern and lost its latency/token logging entirely. Extract a shared call_llm helper in agent/ that handles timing, headers, tool-block extraction, and the standard log line so every node gets uniform observability in one place.
+- **Evidence**:
+  - `agent/nodes/strategist.py:73-102`
+  - `agent/nodes/career.py:64-89`
+  - `agent/nodes/coach.py:103-135`
+  - `agent/nodes/analyzer.py:63-85`
+  - `agent/nodes/tax_optimizer.py:81-101 missing t0/latency_ms and token logging`
+- **Acceptance criteria**:
+  - [ ] A shared call_llm helper handles timing, headers, tool-block extraction, and the standard token/latency log line
+  - [ ] All five LLM nodes call the helper; per-node LLM boilerplate reduced to 1-2 lines
+  - [ ] tax_optimizer logs tokens_in, tokens_out, latency_ms like the other nodes
+  - [ ] Agent eval harness green after the refactor
+- **Standards**: CLAUDE.md Coding Principles DRY: extract any logic used more than once; WEB_STANDARDS.md §3/§7: log token usage after every LLM call
+
+## Issue 35: Collapse the 16x duplicated CRUD and router blocks via generic helpers/factory
+- [ ] Open
+- **Priority**: 🟡 Medium
+- **Depends on**: none
+- **What**: vault/crud.py repeats an identical create/update/delete body for 16 entity types (~820 lines) and routers/vault.py repeats an identical 5-endpoint block for the same 16 entities (~1,050 lines). The TypeVar M is already declared, signaling the intended pattern. Add three generic typed CRUD helpers and a register_vault_resource router factory; each entity then registers in a few lines. This makes cross-cutting changes (audit, HTMX branching, error handling) single-edit and shrinks both files by ~80%.
+- **Evidence**:
+  - `vault/crud.py:100-781 sixteen identical create/update/delete groups; M=TypeVar at line 61`
+  - `routers/vault.py:89-1097 sixteen identical 5-endpoint blocks; ~50 lines of non-repeated logic`
+- **Acceptance criteria**:
+  - [ ] Generic _create_entity/_update_entity/_delete_entity helpers exist; each entity CRUD is a thin wrapper
+  - [ ] register_vault_resource factory registers the five standard routes per entity; special routes kept manual
+  - [ ] All existing vault tests pass unchanged
+  - [ ] vault/crud.py and routers/vault.py substantially reduced in size
+- **Standards**: CLAUDE.md Coding Principles DRY and KISS
+
+## Issue 36: Add return type annotations to all router endpoint functions
+- [ ] Open
+- **Priority**: 🟡 Medium
+- **Depends on**: none
+- **What**: 107 router endpoint functions across six files (all of routers/vault.py, plus holdings, memory, imports, chat) and agent/graph.py:get_graph lack a return type annotation, violating 'type hints on every signature'. Add concrete return annotations (the response model, list[Model], None, etc.) and verify with mypy.
+- **Evidence**:
+  - `routers/vault.py:90-139 and all 85 endpoints unannotated`
+  - `routers/holdings.py:42-71`
+  - `routers/memory.py:60-98`
+  - `routers/imports.py:19-98`
+  - `routers/chat.py:32 async def chat()`
+  - `agent/graph.py:149 def get_graph()`
+- **Acceptance criteria**:
+  - [ ] Every router endpoint function declares a return type
+  - [ ] agent/graph.py:get_graph has a return annotation
+  - [ ] mypy --strict over routers/ and agent/graph.py reports no missing-return-type errors
+- **Standards**: CLAUDE.md Code Style: type hints on every signature; Phase-4: every new function typed
+
+## Issue 37: Validate principle keys against the frozen registry and fix tests injecting an invalid key
+- [ ] Open
+- **Priority**: 🟡 Medium
+- **Depends on**: none
+- **What**: Two structural tests inject principle 'roth_ira_first', which is not in the §4 registry, and pass because synthesizer_node never validates the returned key — giving false confidence that principle-key integrity is enforced. Additionally, the Coach tool schema defines 'principle' as a free string with no enum, unlike strategist/career. Add a registry-membership guard in synthesizer_node (and/or the enum on the Coach tool schema) and replace the invalid key in tests with a real one.
+- **Evidence**:
+  - `tests/test_disclaimer.py:28 'principle': 'roth_ira_first'`
+  - `tests/eval/test_eval_scenarios.py:93 same invalid key`
+  - `agent/nodes/synthesizer.py passes principle through without get_principle() check`
+  - `agent/nodes/coach.py:39-67 'principle' is plain string, no enum (cf strategist.py:44-46, career.py:40-42)`
+- **Acceptance criteria**:
+  - [ ] synthesizer_node raises on a principle key not in PRINCIPLES (or the schema enum prevents it)
+  - [ ] Coach tool schema constrains 'principle' to enum=list(PRINCIPLES.keys())
+  - [ ] Tests use a real registry key; a test asserts an unknown key is rejected
+- **Standards**: CONTRACTS.md §4: every proposal's principle is a key from §4; CONTRACTS.md §2 Hard rules
+
+## Issue 38: Close Anthropic client cleanly on lifespan shutdown
+- [ ] Open
+- **Priority**: ⚪ Low
+- **Depends on**: none
+- **What**: The module-level AsyncAnthropic singleton owns an httpx connection pool that is never closed; the lifespan shutdown closes Redis and disposes the engine but never calls aclose() on the Anthropic client, leaving the pool open on exit and producing resource warnings in app-importing tests. Add close_anthropic() mirroring close_redis() and call it in the shutdown block.
+- **Evidence**:
+  - `clients.py:49-61 _anthropic singleton with no close function`
+  - `main.py:44-56 lifespan shutdown calls close_redis/dispose_engine but not the Anthropic client`
+- **Acceptance criteria**:
+  - [ ] clients.py exposes close_anthropic() that awaits aclose() and resets the singleton
+  - [ ] main.py lifespan shutdown calls close_anthropic()
+  - [ ] No unclosed-client resource warning when the app is imported in tests
+- **Standards**: CLAUDE.md Phase-4 Resource lifecycle: external clients module-level singletons (with teardown)
+
+## Issue 39: Expand agent eval harness to all nodes with adversarial scenarios
+- [ ] Open
+- **Priority**: ⚪ Low
+- **Depends on**: none
+- **What**: The eval harness covers only 2 of 9 agent nodes (income_optimizer, tax_optimizer) and SOT.md notes it is happy-path only. Add expected-fact scenarios for analyzer routing, strategist principle citation, synthesizer single-recommendation selection, alert triggers, and tracker pace, plus at least one adversarial scenario per node (e.g. empty proposals, None net_hourly). This is the gate that runs before every agent/ change.
+- **Evidence**:
+  - `tests/eval/test_eval_scenarios.py:1-142 only income_optimizer and tax_optimizer`
+  - `docs/SOT.md:382 'eval harness covers happy paths only; needs adversarial coverage'`
+- **Acceptance criteria**:
+  - [ ] Eval scenarios with expected facts exist for analyzer, strategist, coach, tracker, alert, synthesizer
+  - [ ] At least one adversarial scenario per node
+  - [ ] SOT.md note updated once coverage lands
+- **Standards**: CLAUDE.md Testing Rules: agent eval harness with canned scenarios and expected facts
+
+## Issue 40: Add unit tests for financial_snapshot risk_flags and opportunity_flags logic
+- [ ] Open
+- **Priority**: ⚪ Low
+- **Depends on**: none
+- **What**: vault/financial_snapshot.py contains ~270 lines of deterministic flag logic (emergency fund, high-APR debt, savings rate, Roth room, net-hourly gap, comp vs P50) but the only test verifies six scalar fields from one fixed input; none of the flag conditions are exercised. Add edge-case unit tests for each flag branch.
+- **Evidence**:
+  - `vault/financial_snapshot.py:219-265 risk_flags/opportunity_flags`
+  - `tests/test_intake.py:263-293 only test_snapshot_math, no flag coverage`
+- **Acceptance criteria**:
+  - [ ] Tests cover risk_flags emergency-fund (<3 months), high-APR debt, low savings rate (<10%)
+  - [ ] Tests cover opportunity_flags Roth-room and career below-P50 paths
+  - [ ] Full pytest run green
+- **Standards**: CLAUDE.md Testing Rules: 80/20 happy path + load-bearing edges
+
+## Issue 41: Wrap long lines, remove suppressible type: ignore, and document SOT.md gaps
+- [ ] Open
+- **Priority**: ⚪ Low
+- **Depends on**: none
+- **What**: Minor cleanliness: 169 lines exceed the 100-char limit (heaviest in vault/crud.py and routers/intake.py); four type: ignore comments mask fixable typing gaps; the conftest session fixture has the wrong return annotation; and SOT.md omits several existing files/tables (rate_limit.py, routers/intake.py, vault/financial_snapshot.py, migrations/, scripts/audit_secrets.py, financial_snapshots/intake_submissions tables) plus five env vars. Configure ruff line-length=100 and fix E501, narrow types to drop the ignores, and update SOT.md.
+- **Evidence**:
+  - `vault/crud.py:72,461 and 26 files with E501 (169 lines)`
+  - `routers/vault.py:73,77 and agent/nodes/tracker.py:76-77 type: ignore`
+  - `tests/conftest.py:84 async def session() -> AsyncSession (should be AsyncGenerator)`
+  - `docs/SOT.md:30-48,49-170 missing env vars and files; vault/models.py:515-573 FinancialSnapshot/IntakeSubmission tables`
+- **Acceptance criteria**:
+  - [ ] ruff line-length=100 configured; no E501 in code/signatures (data-literal lines may be exempted)
+  - [ ] The four type: ignore comments removed via type narrowing (Protocol for _entity_row_html, assert for tracker)
+  - [ ] conftest session fixture annotated AsyncGenerator[AsyncSession, None]
+  - [ ] SOT.md file table and Data Model updated with the missing files, tables, and five env vars
+- **Standards**: CLAUDE.md Code Style: PEP 8 max 100 chars; every function typed; CLAUDE.md Project Structure / SOT.md: update on every structural change
+

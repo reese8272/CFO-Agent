@@ -168,7 +168,8 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
     ├── WEALTH_PRINCIPLES.md
     ├── CONTRACTS.md            # Frozen interfaces (agent state, node I/O, endpoints, principle keys)
     ├── DEPLOYMENT.md
-    └── WEB_STANDARDS.md        # Evergreen technical standards + style/color reference
+    ├── WEB_STANDARDS.md        # Evergreen technical standards + style/color reference
+    └── ASSESSMENT.md           # Production-readiness audit (2026-06-28) — evidence base for Issues 20–41
 ```
 
 ## Data Model (initial)
