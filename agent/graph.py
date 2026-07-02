@@ -82,19 +82,26 @@ async def persist_node(state: AgentState) -> dict:
     return {"conversation_id": conv_id}
 
 
-def _route_from_analyzer(state: AgentState) -> str:
-    """Return node name to run after Analyzer."""
+_ROUTE_TO_NODE = {
+    "allocation": "strategist",
+    "career": "career",
+    "income": "income_optimizer",
+    "tax": "tax_optimizer",
+}
+
+
+def _route_from_analyzer(state: AgentState) -> list[str]:
+    """Return every specialist node to fan out to after Analyzer.
+
+    Returning a list makes LangGraph run all routed specialists in parallel (a
+    multi-topic "both" turn now runs Strategist AND Income-Optimizer, etc.) —
+    each appends its own proposal via the reducer before converging on Coach.
+    Falls back to Coach-only when no specialist matched.
+    """
     routes = state.get("routes", [])
-    # Priority: allocation > career > income > tax > coach-only
-    if "allocation" in routes:
-        return "strategist"
-    if "career" in routes:
-        return "career"
-    if "income" in routes:
-        return "income_optimizer"
-    if "tax" in routes:
-        return "tax_optimizer"
-    return "coach"
+    selected = [_ROUTE_TO_NODE[r] for r in routes if r in _ROUTE_TO_NODE]
+    selected = list(dict.fromkeys(selected))  # de-dupe, preserve order
+    return selected or ["coach"]
 
 
 def build_graph() -> object:

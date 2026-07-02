@@ -19,8 +19,9 @@ once the contracts below are frozen.
 ## 1. Agent state contract — `agent/state.py` (frozen for Issue 7+)
 
 The single LangGraph state object. Every node reads and writes **only** the keys assigned to
-it in §2. `proposals` uses an additive reducer so conditionally-fired nodes can run in
-parallel and each append its own proposal.
+it in §2. `proposals` uses a **replace-by-`node` reducer** (`merge_proposals`) so parallel
+specialists accumulate one entry per node while the Coach replaces (rather than duplicates)
+by node. *(Amended 2026-07-02, Phase 6 — was `operator.add`; see `docs/DECISIONS.md`.)*
 
 ```python
 import operator
@@ -74,8 +75,8 @@ class AgentState(TypedDict):
     turn_kind: TurnKind
     routes: list[str]                # subset of node names to fire conditionally
 
-    # --- conditional nodes append (parallel-safe via reducer) ---
-    proposals: Annotated[list[NodeProposal], operator.add]
+    # --- conditional nodes contribute one entry per node (parallel-safe via reducer) ---
+    proposals: Annotated[list[NodeProposal], merge_proposals]
 
     # --- Tracker node writes ---
     trajectory_note: str             # pace vs goals + target curve, one short paragraph

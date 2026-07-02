@@ -3,7 +3,6 @@
 Do not edit without amending CONTRACTS.md and docs/DECISIONS.md first.
 """
 from __future__ import annotations
-import operator
 from typing import Annotated, Literal, NotRequired, TypedDict
 
 AllocationStep = Literal[1, 2, 3, 4, 5, 6]
@@ -35,6 +34,21 @@ class NodeProposal(TypedDict):
     requires_disclaimer: bool
 
 
+def merge_proposals(
+    existing: list[NodeProposal], new: list[NodeProposal]
+) -> list[NodeProposal]:
+    """Reducer for `proposals`: keep one entry per node, replacing by node.
+
+    Parallel specialists each emit a distinct `node`, so they accumulate. The
+    Coach re-emits the same nodes enriched, so it *replaces* them — where the old
+    `operator.add` reducer duplicated (raw + enriched). Insertion order preserved.
+    """
+    merged: dict[str, NodeProposal] = {p["node"]: p for p in existing}
+    for p in new:
+        merged[p["node"]] = p
+    return list(merged.values())
+
+
 class AgentState(TypedDict):
     # inputs — set by chat router before invoke
     user_message: str
@@ -52,8 +66,8 @@ class AgentState(TypedDict):
     turn_kind: TurnKind
     routes: list[str]
 
-    # conditional nodes append (parallel-safe via reducer)
-    proposals: Annotated[list[NodeProposal], operator.add]
+    # conditional nodes contribute one proposal per node (parallel-safe via reducer)
+    proposals: Annotated[list[NodeProposal], merge_proposals]
 
     # Tracker node writes (Issue 10)
     trajectory_note: str

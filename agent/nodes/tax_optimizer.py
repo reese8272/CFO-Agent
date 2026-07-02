@@ -11,7 +11,7 @@ from clients import get_anthropic
 from agent.state import AgentState, NodeProposal
 from agent.principles import (
     MILEAGE_RATE_2026, SE_TAX_RATE, TAX_YEAR,
-    SOLO_401K_TOTAL_LIMIT_2026,
+    SOLO_401K_TOTAL_LIMIT_2026, ASSUMED_FED_MARGINAL_BRACKET_2026,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,9 @@ async def tax_optimizer_node(state: AgentState) -> dict:
     recorded_categories = {d.get("category") for d in deductions if d.get("category")}
     missing = [c for c in _DEDUCTION_CATEGORIES if c not in recorded_categories]
 
-    estimated_quarterly = (income_1099_ytd * Decimal(str(SE_TAX_RATE + 0.22))) / 4
+    estimated_quarterly = (
+        income_1099_ytd * Decimal(str(SE_TAX_RATE + ASSUMED_FED_MARGINAL_BRACKET_2026))
+    ) / 4
 
     context = (
         f"User question: {state['user_message']}\n\n"
@@ -86,7 +88,6 @@ async def tax_optimizer_node(state: AgentState) -> dict:
         messages=[{"role": "user", "content": context}],
         tools=[_TOOL],
         tool_choice={"type": "tool", "name": "propose_tax_move"},
-        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
     )
     tool_block = next(b for b in response.content if b.type == "tool_use")
     r = tool_block.input
@@ -95,7 +96,7 @@ async def tax_optimizer_node(state: AgentState) -> dict:
         node="tax_optimizer",
         move=r["move"],
         principle=r["principle"],
-        leverage_score=float(r["leverage_score"]),
+        leverage_score=max(0.0, min(1.0, float(r["leverage_score"]))),
         rationale=r["rationale"],
         requires_disclaimer=True,  # always True for tax output
     )

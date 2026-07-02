@@ -70,7 +70,6 @@ async def analyzer_node(state: AgentState) -> dict:
         messages=[{"role": "user", "content": state["user_message"]}],
         tools=[_CLASSIFY_TOOL],
         tool_choice={"type": "tool", "name": "classify_turn"},
-        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
     )
     latency_ms = int((time.monotonic() - t0) * 1000)
     tool_block = next(b for b in response.content if b.type == "tool_use")

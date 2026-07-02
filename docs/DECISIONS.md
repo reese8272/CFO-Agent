@@ -14,6 +14,31 @@ Format:
 
 ---
 
+## 2026-07-02 — Phase 6 agent correctness: proposals reducer + multi-specialist routing (CONTRACTS §1 amendment)
+
+**Context**: The assessment found the agent graph doesn't do what its design says — routing fired
+only ONE specialist (the `operator.add` fan-out and `turn_kind="both"` were dead), and the Coach's
+additive re-emit *duplicated* proposals reaching the Synthesizer.
+
+**Decision (amends CONTRACTS.md §1)**:
+- **`proposals` reducer changed from `operator.add` to `merge_proposals`** (replace-by-`node`). This
+  is the one CONTRACTS.md §1 amendment. Parallel specialists still accumulate (distinct nodes); the
+  Coach now *replaces* by node instead of appending a second enriched copy. The `NodeProposal` shape
+  is unchanged.
+- **`_route_from_analyzer` returns a `list[str]`** so LangGraph fans out to every routed specialist
+  (a "both" turn runs Strategist AND Income-Optimizer, etc.), converging on Coach. Was a single-node
+  return (top-priority only).
+- **Coach tool extraction guarded** + `MAX_TOKENS 512 → 2048` (array output truncated multi-specialist
+  turns → could 500); falls back to raw proposals on truncation.
+- **`leverage_score` clamped to 0.0–1.0** in strategist/career/tax_optimizer/coach (income_optimizer
+  already did); legacy `anthropic-beta: prompt-caching-2024-07-31` header dropped (GA).
+- **Tax quarterly-estimate 22% bracket** → year-stamped `ASSUMED_FED_MARGINAL_BRACKET_2026` in
+  `principles.py` (documented assumption; deriving from AGI deferred).
+
+**Owner**: reesepludwick@gmail.com (approved 2026-07-02)
+
+---
+
 ## 2026-07-02 — Phase 4 data-layer: index scope correction + plain create_index + deferrals
 
 **Context**: The assessment flagged "10 unindexed FK columns" and the roadmap prescribed a

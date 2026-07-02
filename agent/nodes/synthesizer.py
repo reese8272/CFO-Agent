@@ -62,7 +62,6 @@ async def synthesizer_node(state: AgentState) -> dict:
         messages=[{"role": "user", "content": user_content}],
         tools=[RESPONSE_TOOL],
         tool_choice={"type": "tool", "name": "produce_response"},
-        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
     )
     latency_ms = int((time.monotonic() - t0) * 1000)
 
