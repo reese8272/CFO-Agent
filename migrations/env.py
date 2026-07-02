@@ -50,6 +50,10 @@ def run_migrations_offline() -> None:
 def do_run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
+        # Fail fast instead of blocking indefinitely if a migration contends for
+        # a lock during a deploy rollover (ISSUE-2026-07-02-01). SET LOCAL scopes
+        # this to the migration transaction only.
+        connection.exec_driver_sql("SET LOCAL lock_timeout = '30s'")
         context.run_migrations()
 
 

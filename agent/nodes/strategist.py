@@ -4,6 +4,7 @@ Reads wealth_position + active_decisions from state. Emits one NodeProposal
 pointing at the highest-leverage allocation move.
 """
 from __future__ import annotations
+from config import get_settings
 import logging
 import time
 
@@ -13,7 +14,7 @@ from agent.principles import PRINCIPLES
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-sonnet-4-6"
+MODEL = get_settings().anthropic_model_smart
 MAX_TOKENS = 512
 
 _SYSTEM = """You are the Strategist node of a personal CFO agent.

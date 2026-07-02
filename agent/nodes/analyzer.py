@@ -3,6 +3,7 @@
 Fires first after Retrieval. Determines which specialist nodes should run.
 """
 from __future__ import annotations
+from config import get_settings
 import logging
 import time
 
@@ -11,7 +12,7 @@ from agent.state import AgentState
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-haiku-4-5-20251001"  # fastest/cheapest — classification only
+MODEL = get_settings().anthropic_model_fast  # fastest/cheapest — classification only
 MAX_TOKENS = 256
 
 _SYSTEM = """You are a turn classifier for a personal CFO assistant.

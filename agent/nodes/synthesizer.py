@@ -5,6 +5,7 @@ recommendation via tool use. Extended in Issue 8 when proposals from
 Analyzer/Strategist/Coach are available.
 """
 from __future__ import annotations
+from config import get_settings
 import logging
 import time
 
@@ -16,7 +17,7 @@ from memory.retrieval import build_profile_block
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-sonnet-4-6"
+MODEL = get_settings().anthropic_model_smart
 MAX_TOKENS = 1024
 
 

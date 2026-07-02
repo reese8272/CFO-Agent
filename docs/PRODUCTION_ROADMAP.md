@@ -82,6 +82,15 @@ row is the only ⚠️ remaining, explicitly logged.
 ## Phase 4 — Data layer: indexes, pagination, money correctness  ·  ~1–1.5 days
 *Absorbs Issue #28 P2-3 (FK indexes) + P2-5 (list pagination). Closes scale axis H + a real math bug.*
 
+> **Deploy-pipeline prerequisites (this phase ships the first migration since the pipeline was
+> found fragile; see ISSUE-2026-07-02-01):** the Phase 0/1 deploy timed out at the Alembic step
+> because the whole SSH command must finish inside `command_timeout: 10m` and `alembic current`
+> is slow (~2min). Phase 2 added `SET LOCAL lock_timeout='30s'` to `migrations/env.py` (a blocked
+> migration now fails fast). Still to do here: (1) give the migration its own SSH step / raise
+> `command_timeout`; (2) `CREATE INDEX CONCURRENTLY` **cannot** run inside
+> `context.begin_transaction()` — add an autocommit/isolation escape hatch in `env.py` (or run the
+> index DDL non-transactionally) or the migration will fail outright.
+
 - [ ] One Alembic migration, `CREATE INDEX CONCURRENTLY` (outside a txn) for the 10 vault FKs +
       `memory.Message.conversation_id` + `Pattern.detected_at` + `FinancialSnapshot.computed_at`.
 - [ ] Add `limit: int = Query(100, le=500)` (or a hard `.limit(500)` in the crud layer) to the

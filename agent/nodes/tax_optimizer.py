@@ -4,6 +4,7 @@ Uses year-versioned constants from agent/principles.py.
 Disclaimer mandatory on all output (requires_disclaimer=True always).
 """
 from __future__ import annotations
+from config import get_settings
 import logging
 from decimal import Decimal
 from clients import get_anthropic
@@ -15,7 +16,7 @@ from agent.principles import (
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-sonnet-4-6"
+MODEL = get_settings().anthropic_model_smart
 MAX_TOKENS = 512
 
 _DEDUCTION_CATEGORIES = ["mileage", "home_office", "equipment", "education", "other"]

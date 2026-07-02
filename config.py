@@ -32,6 +32,12 @@ class Settings(BaseSettings):
 
     jwt_expiry_minutes: int = 60
     llm_timeout_seconds: int = 120
+    llm_max_retries: int = 2
+    # Model ids sourced here (not hardcoded in nodes) so a model change is one edit.
+    # Defaults preserve the exact ids the app already used — changing tier is a
+    # deliberate decision, not a side effect of this setting existing.
+    anthropic_model_smart: str = "claude-sonnet-4-6"
+    anthropic_model_fast: str = "claude-haiku-4-5-20251001"
     env: str = "development"
     langgraph_checkpoint_backend: str = "redis"
     alert_drift_pct_threshold: int = 25
