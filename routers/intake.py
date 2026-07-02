@@ -13,13 +13,15 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import User, get_current_user
 from clients import get_anthropic
+from config import get_settings
+from rate_limit import limiter
 from db import get_session
 from vault.financial_snapshot import compute_and_store_snapshot
 from vault.models import (
@@ -656,9 +658,6 @@ Convert annual salary to monthly for typical_gross_amount (annual / 12). \
 Default strategy to "avalanche" for debts. Default household_size to 1 and dependents to 0 \
 if not stated."""
 
-_MODEL = "claude-sonnet-4-6"
-
-
 class InterviewTurnRequest(BaseModel):
     message: str
     history: list[dict] = []
@@ -675,7 +674,9 @@ class ExtractRequest(BaseModel):
 
 
 @router.post("/interview", response_model=InterviewTurnResponse)
+@limiter.limit("20/minute")
 async def intake_interview(
+    request: Request,
     body: InterviewTurnRequest,
     current_user: CurrentUser,
 ) -> InterviewTurnResponse:
@@ -692,9 +693,13 @@ async def intake_interview(
     # so it produces the opening greeting
 
     response = await client.messages.create(
-        model=_MODEL,
+        model=get_settings().anthropic_model_smart,
         max_tokens=512,
-        system=_INTERVIEW_SYSTEM,
+        system=[{
+            "type": "text",
+            "text": _INTERVIEW_SYSTEM,
+            "cache_control": {"type": "ephemeral"},
+        }],
         messages=history if history else [{"role": "user", "content": "Hello"}],
     )
 
@@ -703,12 +708,19 @@ async def intake_interview(
     clean_reply = reply_text.replace("[INTAKE_COMPLETE]", "").strip()
 
     history.append({"role": "assistant", "content": clean_reply})
-    logger.info("interview turn (user=%s, complete=%s, turns=%d)", current_user.username, complete, len(history))
+    logger.info(
+        "interview turn (user=%s, complete=%s, turns=%d) tokens_in=%d tokens_out=%d cache_read=%d",
+        current_user.username, complete, len(history),
+        response.usage.input_tokens, response.usage.output_tokens,
+        getattr(response.usage, "cache_read_input_tokens", 0) or 0,
+    )
     return InterviewTurnResponse(reply=clean_reply, history=history, complete=complete)
 
 
 @router.post("/extract", response_model=dict)
+@limiter.limit("6/minute")
 async def extract_intake(
+    request: Request,
     body: ExtractRequest,
     current_user: CurrentUser,
 ) -> dict:
@@ -721,17 +733,26 @@ async def extract_intake(
     )
 
     response = await client.messages.create(
-        model=_MODEL,
+        model=get_settings().anthropic_model_smart,
         max_tokens=4096,
-        system=_EXTRACT_SYSTEM,
+        system=[{
+            "type": "text",
+            "text": _EXTRACT_SYSTEM,
+            "cache_control": {"type": "ephemeral"},
+        }],
         messages=[{"role": "user", "content": f"Intake conversation:\n\n{transcript}"}],
-        tools=[_EXTRACT_TOOL],
+        tools=[{**_EXTRACT_TOOL, "cache_control": {"type": "ephemeral"}}],
         tool_choice={"type": "tool", "name": "extract_intake_payload"},
+    )
+    logger.info(
+        "intake extraction (user=%s) tokens_in=%d tokens_out=%d cache_read=%d",
+        current_user.username,
+        response.usage.input_tokens, response.usage.output_tokens,
+        getattr(response.usage, "cache_read_input_tokens", 0) or 0,
     )
 
     for block in response.content:
         if block.type == "tool_use" and block.name == "extract_intake_payload":
-            logger.info("intake extraction complete (user=%s)", current_user.username)
             return block.input
 
     raise HTTPException(status_code=500, detail="Extraction failed — no structured output returned.")

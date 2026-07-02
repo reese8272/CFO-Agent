@@ -53,8 +53,14 @@ def get_anthropic() -> anthropic_sdk.AsyncAnthropic:
     """Return the module-level async Anthropic client, creating it on first call."""
     global _anthropic
     if _anthropic is None:
+        settings = get_settings()
+        # Bound every LLM call: without an explicit timeout the SDK default is
+        # 600s, so a hung Anthropic response would stall the agent for 10 minutes
+        # with no backpressure. max_retries lets the SDK ride out 429/5xx.
         _anthropic = anthropic_sdk.AsyncAnthropic(
-            api_key=get_settings().anthropic_api_key,
+            api_key=settings.anthropic_api_key,
+            timeout=settings.llm_timeout_seconds,
+            max_retries=settings.llm_max_retries,
         )
         logger.info("anthropic client created")
     return _anthropic

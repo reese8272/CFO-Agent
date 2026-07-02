@@ -3,6 +3,7 @@
 Fires when Analyzer detects a career-related turn.
 """
 from __future__ import annotations
+from config import get_settings
 import logging
 import time
 from clients import get_anthropic
@@ -10,7 +11,7 @@ from agent.state import AgentState, NodeProposal
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-sonnet-4-6"
+MODEL = get_settings().anthropic_model_smart
 MAX_TOKENS = 512
 
 _SYSTEM = """You are the Career node of a personal CFO agent.

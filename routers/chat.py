@@ -3,11 +3,12 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from auth import get_current_user
 from agent.graph import get_graph
+from rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -29,7 +30,8 @@ class ChatResponse(BaseModel):
 
 
 @router.post("", response_model=ChatResponse)
-async def chat(body: ChatRequest, _user: CurrentUser):
+@limiter.limit("10/minute")
+async def chat(request: Request, body: ChatRequest, _user: CurrentUser):
     graph = get_graph()
     initial_state = {
         "user_message": body.message,
