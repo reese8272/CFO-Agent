@@ -1,0 +1,26 @@
+# Keep secrets, VCS, tests, and docs out of the built image (assessment 2026-07-02).
+# COPY . . in the Dockerfile would otherwise bake any local .env and the whole
+# .git history into a layer pushed to the public registry.
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+.github
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.ruff_cache
+tests
+docs
+*.md
+!README.md
+*.png
+*.jpg
+.venv
+venv
+.vscode
+.idea
+docker-compose*.yml

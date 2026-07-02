@@ -80,7 +80,13 @@ async def synthesizer_node(state: AgentState) -> dict:
         latency_ms,
     )
 
-    disclaimer = get_disclaimer() if result.get("requires_disclaimer") else None
+    # The disclaimer is mandatory whenever ANY contributing proposal set
+    # requires_disclaimer (CONTRACTS.md §2) — never trust the final LLM's flag
+    # alone, or a tax/investment recommendation can ship without it.
+    needs_disclaimer = bool(result.get("requires_disclaimer")) or any(
+        p.get("requires_disclaimer") for p in state.get("proposals", [])
+    )
+    disclaimer = get_disclaimer() if needs_disclaimer else None
 
     return {
         "recommendation": result["recommendation"],

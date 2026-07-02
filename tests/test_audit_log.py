@@ -1,6 +1,5 @@
 """Audit log is append-only at the app layer."""
 import pytest
-from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vault.models import AuditLog, AuditLogImmutableError

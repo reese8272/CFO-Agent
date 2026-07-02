@@ -6,7 +6,6 @@ assembles a deterministic 'User Profile' block for the Anthropic prompt cache.
 from __future__ import annotations
 
 import json
-import math
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_CEILING
 

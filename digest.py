@@ -28,8 +28,6 @@ async def generate_digest(session: AsyncSession) -> str:
     from vault.models import NetWorthSnapshot
     from memory.models import Pattern
 
-    settings = get_settings()
-
     # ── wealth + income position ──────────────────────────────────────────────
     wealth = await compute_wealth_position(session, "owner")
     income = await compute_income_position(session, "owner")

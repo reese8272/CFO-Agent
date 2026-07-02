@@ -277,7 +277,7 @@ async def test_net_worth_snapshot_crud(auth_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_audit_log_written_on_create(auth_client: AsyncClient, session):
-    from sqlalchemy import select, text
+    from sqlalchemy import text
 
     resp = await auth_client.post("/vault/assets", json={
         "kind": "vehicle", "nickname": "Honda Civic", "value_estimate": "8500.00",

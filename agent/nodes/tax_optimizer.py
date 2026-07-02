@@ -10,7 +10,7 @@ from clients import get_anthropic
 from agent.state import AgentState, NodeProposal
 from agent.principles import (
     MILEAGE_RATE_2026, SE_TAX_RATE, TAX_YEAR,
-    ROTH_IRA_LIMIT_2026, SOLO_401K_TOTAL_LIMIT_2026,
+    SOLO_401K_TOTAL_LIMIT_2026,
 )
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent.state import AgentState, NodeProposal
-from agent.principles import TAX_YEAR, ROTH_IRA_LIMIT_2026
+from agent.principles import TAX_YEAR
 from db import get_sessionmaker
 
 logger = logging.getLogger(__name__)
