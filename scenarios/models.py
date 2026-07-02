@@ -31,6 +31,23 @@ class ScenarioInput(BaseModel):
             raise ValueError("annual_return_pct must be between 0 and 50")
         return v
 
+    @field_validator("current_amount", "monthly_contribution", "current_monthly_income")
+    @classmethod
+    def _non_negative(cls, v: Decimal | None) -> Decimal | None:
+        # Money inputs can't be negative; a bad value should fail at the boundary
+        # (422) rather than silently produce a nonsensical projection.
+        # `delta_monthly` is intentionally excluded — a cut is a valid negative.
+        if v is not None and v < Decimal("0"):
+            raise ValueError("must be non-negative")
+        return v
+
+    @field_validator("target_amount")
+    @classmethod
+    def _positive_target(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and v <= Decimal("0"):
+            raise ValueError("target_amount must be positive")
+        return v
+
 
 class ScenarioOutput(BaseModel):
     kind: ScenarioKind

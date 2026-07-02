@@ -14,6 +14,38 @@ Format:
 
 ---
 
+## 2026-07-02 — Phase 4 data-layer: index scope correction + plain create_index + deferrals
+
+**Context**: The assessment flagged "10 unindexed FK columns" and the roadmap prescribed a
+`CREATE INDEX CONCURRENTLY` migration. Investigating before writing it revealed the finding was
+partly inaccurate.
+
+**Decisions**:
+- **Index scope corrected to 5, not 10.** Migration `d4e7f2a1b9c3` already indexed 7 of the flagged
+  FKs, and `ix_side_income_events_stream_occurred` already leads with `income_stream_id`. The
+  assessment subagent read `models.py` (no `index=True` declared) and missed the migration-level
+  indexes — model-vs-migration drift, not missing indexes. New migration `a7e3f9c21b84` adds only
+  the genuinely-missing 5: `expenses.card_id`, `side_income_economics.income_stream_id`,
+  `intake_submissions.snapshot_id`, `patterns.detected_at`, `financial_snapshots.computed_at`.
+- **Plain `op.create_index`, not `CONCURRENTLY`** — tiny single-user tables, matches the `d4e7`
+  precedent, and the `SET LOCAL lock_timeout='30s'` (Phase 2) bounds contention. Sidesteps the
+  CONCURRENTLY-in-a-transaction problem, which only matters for large tables.
+- **`_to_monthly` unified** into `vault/_money.py` from 3 divergent copies; canonical uses the more
+  precise 4.333 / 2.167 factors + full cadence set + case-folding (tiny accuracy shift for
+  income/wealth position, which were 4.33 / 2.17).
+- **HSA family limit via `household_size` proxy** (no single/family coverage field exists; adding
+  one would need a schema migration for marginal value).
+- **`analysis_jsonb` Decimal concern was already handled** — `EncryptedJSON` serializes Decimal→str
+  (Issue-16 fix); the assessment's `(needs-runtime-confirmation)` resolved to a non-issue.
+
+**Deferred to Phase 4b / 5**: list-endpoint pagination caps (SEV2 bounded-work; doesn't bite at
+single-user scale) and `Account.plaid_account_id` encryption (Phase 5 security; Plaid deferred so
+column is empty). `k401_match_capture_pct` left as a documented NULL placeholder.
+
+**Owner**: reesepludwick@gmail.com (approved 2026-07-02)
+
+---
+
 ## 2026-07-02 — Public launch as "Road A" portfolio / single-user (not multi-tenant SaaS)
 
 **Context**: Owner decided to make the project public (GitHub / LinkedIn) and asked for a "100%
