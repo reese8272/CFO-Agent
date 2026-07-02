@@ -10,7 +10,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, MultiFernet, InvalidToken
 from sqlalchemy import LargeBinary
 from sqlalchemy.types import TypeDecorator
 
@@ -24,10 +24,18 @@ class FernetDecryptionError(ValueError):
 
 
 @lru_cache(maxsize=1)
-def _fernet() -> Fernet:
-    key = get_settings().vault_encryption_key
-    key_bytes = key.encode("utf-8") if isinstance(key, str) else key
-    return Fernet(key_bytes)
+def _fernet() -> MultiFernet:
+    """Build the encryption primitive, supporting key rotation.
+
+    VAULT_ENCRYPTION_KEYS (comma-separated) supersedes VAULT_ENCRYPTION_KEY: the
+    FIRST key encrypts, and ANY listed key can decrypt. To rotate: prepend the
+    new key, redeploy (new writes use it, old ciphertext still decrypts), then
+    re-encrypt at leisure and drop the retired key. A single key still works.
+    """
+    settings = get_settings()
+    raw = settings.vault_encryption_keys or settings.vault_encryption_key
+    keys = [k.strip() for k in raw.split(",") if k.strip()]
+    return MultiFernet([Fernet(k.encode("utf-8")) for k in keys])
 
 
 def encrypt(plaintext: str) -> bytes:

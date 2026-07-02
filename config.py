@@ -22,7 +22,11 @@ class Settings(BaseSettings):
     database_url: str = Field(..., min_length=1)
     redis_url: str = Field(..., min_length=1)
     jwt_secret_key: str = Field(..., min_length=32)
-    vault_encryption_key: str = Field(..., min_length=1)
+    # A real Fernet key is 44 url-safe-base64 chars; fail fast on a truncated one.
+    vault_encryption_key: str = Field(..., min_length=44)
+    # Optional comma-separated keys for rotation (first encrypts, all decrypt).
+    # When set, supersedes vault_encryption_key. See crypto._fernet / DEPLOYMENT.md.
+    vault_encryption_keys: Optional[str] = None
     digest_recipient: str = Field(..., min_length=1)
     smtp_host: Optional[str] = None
     smtp_port: int = 587

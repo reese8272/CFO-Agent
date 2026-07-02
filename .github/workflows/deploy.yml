@@ -110,7 +110,7 @@ jobs:
           host: ${{ steps.host.outputs.value }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 10m
+          command_timeout: 20m  # alembic startup is ~5min on the ARM VM (ISSUE-2026-07-02-01); headroom so a real migration can't blow the ceiling
           envs: SECRET_ANTHROPIC_API_KEY,SECRET_VAULT_ENCRYPTION_KEY,SECRET_CLOUDFLARE_TUNNEL_TOKEN,SECRET_GH_PAT,SECRET_DEPLOY_PATH,SECRET_SMTP_HOST,SECRET_SMTP_PORT,SECRET_SMTP_USER,SECRET_SMTP_PASSWORD,SECRET_SMTP_FROM,DEPLOY_SHA
           script: |
             set -euo pipefail

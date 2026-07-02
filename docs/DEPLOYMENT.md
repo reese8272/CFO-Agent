@@ -247,22 +247,26 @@ python3 scripts/check_env.py --live      # verify every credential actually work
 
 ## 8. `VAULT_ENCRYPTION_KEY` rotation runbook
 
-Rotating the Fernet key requires re-encrypting all existing ciphertext, because the old key
-can no longer decrypt data written under it. **Never** just swap the key.
+`crypto._fernet()` now uses **`MultiFernet`**, so rotation is zero-downtime: the FIRST key in
+`VAULT_ENCRYPTION_KEYS` encrypts, and ANY listed key can decrypt. **Never drop the old key until
+all ciphertext has been re-encrypted under the new one.**
 
 1. **Back up the database first** (encrypted dump, off-host).
-2. Put the app in maintenance (stop writes): `docker compose stop app cloudflared`.
-3. Run a re-encryption migration: load each encrypted column with the **old** key, re-encrypt
-   with the **new** key, write back. (Write a one-off script that instantiates two `Fernet`s;
-   there is no built-in command yet — add one before the first real rotation.)
-4. Update `VAULT_ENCRYPTION_KEY` everywhere in the sync map (Bitwarden, paper, GitHub repo
-   secret) **simultaneously**.
-5. Redeploy and verify with `python3 scripts/check_env.py --live` (Fernet round-trip) and a
-   read of a known record.
-6. Destroy the old key copies only **after** confirming the new key reads existing data.
+2. Generate a new key:
+   `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+3. Set `VAULT_ENCRYPTION_KEYS="<new>,<old>"` (new first) — as a GitHub secret + `.env`. Redeploy.
+   New writes now use `<new>`; existing ciphertext still decrypts under `<old>`. No downtime, no
+   maintenance window. (Update the Bitwarden/paper sync map for `<new>` too.)
+4. Re-encrypt existing rows under the new key: read each encrypted column and write it back
+   (a plain `UPDATE ... SET col = col` through the ORM re-encrypts via the `Encrypted*`
+   TypeDecorators, since MultiFernet always encrypts with the first key). A one-off
+   `scripts/reencrypt_vault.py` should do this; add it before the first real rotation.
+5. Verify with `python3 scripts/check_env.py --live` (Fernet round-trip) and read a known record.
+6. Once every row is re-encrypted, drop `<old>` from `VAULT_ENCRYPTION_KEYS` (or move back to a
+   single `VAULT_ENCRYPTION_KEY=<new>`), redeploy, then destroy the old key copies.
 
-If you are still pre-data (no real records yet), rotation is trivial: generate a new key, set
-it in the secret, redeploy. There is nothing to re-encrypt.
+If you are still pre-data (no real records yet), rotation is trivial: set the new key and redeploy.
+There is nothing to re-encrypt.
 
 ---
 

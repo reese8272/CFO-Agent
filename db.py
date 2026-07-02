@@ -32,6 +32,7 @@ def get_engine() -> AsyncEngine:
             pool_pre_ping=True,
             pool_size=5,
             max_overflow=5,
+            pool_recycle=1800,  # recycle connections < server/pooler idle timeouts
         )
         logger.info("postgres engine created")
     return _engine
