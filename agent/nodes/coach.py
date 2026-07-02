@@ -15,7 +15,7 @@ from agent.principles import PRINCIPLES
 logger = logging.getLogger(__name__)
 
 MODEL = get_settings().anthropic_model_smart
-MAX_TOKENS = 512
+MAX_TOKENS = 2048  # array output scales with proposal count; 512 truncated multi-specialist turns
 
 _SYSTEM = """You are the Coach node of a personal CFO agent.
 
@@ -109,18 +109,25 @@ async def coach_node(state: AgentState) -> dict:
         messages=[{"role": "user", "content": context}],
         tools=[_TOOL],
         tool_choice={"type": "tool", "name": "coach_output"},
-        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
     )
     latency_ms = int((time.monotonic() - t0) * 1000)
-    tool_block = next(b for b in response.content if b.type == "tool_use")
-    enriched = tool_block.input["enriched_proposals"]
+    # Guard the extraction: an array-valued tool output can truncate at max_tokens,
+    # leaving no/incomplete tool_use. Fall back to the raw proposals rather than 500.
+    tool_block = next((b for b in response.content if b.type == "tool_use"), None)
+    enriched = (tool_block.input.get("enriched_proposals") if tool_block else None) or []
+    if not enriched:
+        logger.warning(
+            "coach: no usable enriched_proposals (stop_reason=%s); passing proposals through",
+            response.stop_reason,
+        )
+        return {"proposals": proposals}
 
     new_proposals = [
         NodeProposal(
             node=p["node"],
             move=p["move"],
             principle=p["principle"],
-            leverage_score=float(p["leverage_score"]),
+            leverage_score=max(0.0, min(1.0, float(p["leverage_score"]))),
             rationale=p.get("principle_cite", p["rationale"]),
             requires_disclaimer=bool(p["requires_disclaimer"]),
         )

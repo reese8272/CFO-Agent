@@ -16,6 +16,9 @@ K401_EMPLOYEE_LIMIT_2026: int = 23_500
 SOLO_401K_TOTAL_LIMIT_2026: int = 69_000
 MILEAGE_RATE_2026: float = 0.70          # IRS standard business mileage rate $/mile
 SE_TAX_RATE: float = 0.1530             # 15.3% self-employment tax (SS + Medicare)
+# Assumed federal marginal bracket for a rough quarterly-estimate calc when the
+# user's actual bracket isn't derived. Year-stamped; revisit annually.
+ASSUMED_FED_MARGINAL_BRACKET_2026: float = 0.22
 STANDARD_DEDUCTION_SINGLE_2026: int = 15_000
 STANDARD_DEDUCTION_MFJ_2026: int = 30_000
 HIGH_INTEREST_APR_THRESHOLD: float = 7.0  # debts above this APR beat expected market return

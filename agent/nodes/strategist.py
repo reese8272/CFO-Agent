@@ -79,7 +79,6 @@ async def strategist_node(state: AgentState) -> dict:
         messages=[{"role": "user", "content": context}],
         tools=[_TOOL],
         tool_choice={"type": "tool", "name": "propose_allocation_move"},
-        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
     )
     latency_ms = int((time.monotonic() - t0) * 1000)
     tool_block = next(b for b in response.content if b.type == "tool_use")
@@ -89,7 +88,7 @@ async def strategist_node(state: AgentState) -> dict:
         node="strategist",
         move=r["move"],
         principle=r["principle"],
-        leverage_score=float(r["leverage_score"]),
+        leverage_score=max(0.0, min(1.0, float(r["leverage_score"]))),
         rationale=r["rationale"],
         requires_disclaimer=bool(r["requires_disclaimer"]),
     )
