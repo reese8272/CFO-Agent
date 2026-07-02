@@ -11,13 +11,16 @@ import json
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+if TYPE_CHECKING:
+    from vault.models import FinancialSnapshot
+
 from agent.principles import (
-    ROTH_IRA_LIMIT_2026, HSA_LIMIT_SINGLE_2026, HSA_LIMIT_FAMILY_2026,
-    K401_EMPLOYEE_LIMIT_2026, HIGH_INTEREST_APR_THRESHOLD, TAX_YEAR,
+    ROTH_IRA_LIMIT_2026, HSA_LIMIT_SINGLE_2026, HIGH_INTEREST_APR_THRESHOLD, TAX_YEAR,
     MILEAGE_RATE_2026,
 )
 from vault.wealth_position import compute_wealth_position
@@ -29,7 +32,7 @@ _ZERO = Decimal("0")
 _HUNDRED = Decimal("100")
 
 
-async def compute_and_store_snapshot(session: AsyncSession, user_id: str) -> "FinancialSnapshot":
+async def compute_and_store_snapshot(session: AsyncSession, user_id: str) -> FinancialSnapshot:
     """Compute a fresh snapshot, persist it, and return the ORM row."""
     from vault.models import FinancialSnapshot
 
@@ -63,7 +66,7 @@ async def _compute_snapshot_data(session: AsyncSession, user_id: str) -> dict:
     from vault.models import (
         Account, Debt, Expense, IncomeStream, RetirementAccount,
         SideIncomeEconomics, TaxDeduction1099, CareerPosition, CompBenchmark,
-        Goal, RealEstate, Holdings, UserProfile,
+        Goal, UserProfile,
     )
 
     # --- positions ---
@@ -116,7 +119,6 @@ async def _compute_snapshot_data(session: AsyncSession, user_id: str) -> dict:
     roth_contrib = _ZERO
     k401_contrib = _ZERO
     hsa_contrib = _ZERO
-    k401_match_pct_offered = _ZERO  # placeholder — stored in analysis_jsonb when available
 
     for r in ret_rows:
         kind = getattr(r, "kind", "")
@@ -133,7 +135,6 @@ async def _compute_snapshot_data(session: AsyncSession, user_id: str) -> dict:
     hsa_limit = Decimal(str(HSA_LIMIT_SINGLE_2026))
 
     roth_utilization_pct = _pct(roth_contrib, Decimal(str(ROTH_IRA_LIMIT_2026)))
-    k401_utilization_pct = _pct(k401_contrib, Decimal(str(K401_EMPLOYEE_LIMIT_2026)))
     hsa_utilization_pct = _pct(hsa_contrib, hsa_limit) if has_hsa else None
     k401_match_capture_pct: Decimal | None = None  # computed below if benchmark data available
 

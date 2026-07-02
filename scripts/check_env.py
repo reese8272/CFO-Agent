@@ -174,7 +174,7 @@ optional("ALERT_INCOME_DROP_PCT_THRESHOLD", default="30")
 print("\n── Tier 6: Phase 2 / Plaid (deferred — do not wire yet) ────────────────")
 for v in ["PLAID_CLIENT_ID", "PLAID_SECRET", "PLAID_ENV"]:
     val = os.environ.get(v, "")
-    status = OK if val else f"\033[90m-\033[0m"
+    status = OK if val else "\033[90m-\033[0m"
     print(f"  {status}  {v} {'(set)' if val else '(not set — expected, phase 2)'}")
 
 # ---------------------------------------------------------------------------
@@ -251,5 +251,5 @@ if failures:
     print("See docs/ENV_CHECKLIST.md for acquisition instructions.")
     sys.exit(1)
 else:
-    print(f"\033[32mAll required vars present.\033[0m Run `docker compose up -d` when ready.")
+    print("\033[32mAll required vars present.\033[0m Run `docker compose up -d` when ready.")
     sys.exit(0)

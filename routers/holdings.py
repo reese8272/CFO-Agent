@@ -8,15 +8,12 @@ Covers:
 """
 import logging
 from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user
-from config import get_settings
 from db import get_session
 from integrations.market_data import fetch_price
 from vault import crud

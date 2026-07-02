@@ -8,11 +8,10 @@ GET  /intake/snapshot        — returns latest financial snapshot (full analysi
 POST /intake/snapshot/refresh — recomputes snapshot from current vault state
 GET  /intake/archive         — returns the original intake submission
 """
-import json
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Annotated, Optional, Any
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel

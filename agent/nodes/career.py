@@ -7,7 +7,6 @@ import logging
 import time
 from clients import get_anthropic
 from agent.state import AgentState, NodeProposal
-from agent.principles import PRINCIPLES
 
 logger = logging.getLogger(__name__)
 

@@ -14,6 +14,35 @@ Format:
 
 ---
 
+## 2026-07-02 — Public launch as "Road A" portfolio / single-user (not multi-tenant SaaS)
+
+**Context**: Owner decided to make the project public (GitHub / LinkedIn) and asked for a "100%
+production" plan. A full production assessment (`docs/assessment/REPORT.md`) surfaced 1 BLOCKER,
+~20 SEV1s, and a large latent tenant-isolation gap (no `user_id` column or owner filter anywhere).
+The scope of "public" changes whether that gap is a BLOCKER or a deferred item.
+
+**Decision**: Ship **Road A** — public *code* + self-hosted *single-user* (one operator). In scope:
+the disclaimer BLOCKER, rate limiting, LLM/external timeouts, async-loop hygiene, secrets & CVE'd-
+dependency hygiene, FK indexes + pagination, money-math correctness, prod hardening, and agent-
+design correctness. **Out of scope for Road A**: multi-tenant isolation (`user_id`/RLS, per-user
+quotas, OAuth2, ToS/Privacy, erasure endpoint), which stays the documented Pre-GA / Road-B backlog.
+The finish line is `/assess` → PRODUCTION-READY — YES (Road A). Sequenced in `docs/PRODUCTION_ROADMAP.md`
+(supersedes the old Issue #28 P2 hardening).
+
+**Reasoning**: Road A is the highest-value résumé artifact per unit of effort and is reachable in a
+focused multi-phase sprint; the single-user constraint is honest to the current auth model and is
+itself a defensible design decision to present. Promoting tenant isolation to a BLOCKER now would
+balloon scope into a real multi-tenant product (OAuth2, RLS, quotas, legal) with no second user to
+justify it.
+
+**Trade-offs**: The public repo ships with tenant isolation absent by design — must be called out
+explicitly in the README so it reads as a deliberate v1 boundary, not an oversight. Inviting any
+real second user later requires the full Road-B block before launch.
+
+**Owner**: reesepludwick@gmail.com (approved 2026-07-02)
+
+---
+
 ## 2026-05-27 — Issue 16: Secrets & deploy operations hardening
 
 **Context**: Owner pain points — too many keys with unclear purpose, no way to troubleshoot a credential without seeing its value, scattered SSH keys, and deploys that failed/timed out. On checking out `main`, much of the ops scaffolding already existed (GHCR pipeline, `ENV_CHECKLIST.md`, `check_env.py`, `audit_secrets.py`); both CI and Deploy were red.

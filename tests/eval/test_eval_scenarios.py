@@ -8,7 +8,6 @@ mock the Anthropic client.
 Run with: pytest tests/eval/
 """
 from __future__ import annotations
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
