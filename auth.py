@@ -65,6 +65,11 @@ def _hash_password(password: str) -> str:
     return bcrypt.hashpw(pw, bcrypt.gensalt()).decode("utf-8")
 
 
+# Fixed hash to verify against when the user doesn't exist, so an absent user
+# and a wrong password take the same time (no username-enumeration timing oracle).
+_DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"timing-attack-mitigation", bcrypt.gensalt()).decode("utf-8")
+
+
 def _verify_password(password: str, password_hash: str) -> bool:
     pw = password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
     return bcrypt.checkpw(pw, password_hash.encode("utf-8"))
@@ -113,9 +118,11 @@ async def login(
     user = (
         await session.execute(select(User).where(User.username == form.username))
     ).scalar_one_or_none()
-    valid = user is not None and await run_in_threadpool(
-        _verify_password, form.password, user.password_hash
-    )
+    # Always run bcrypt (against a dummy hash if the user is absent) so login
+    # timing does not reveal whether the username exists.
+    password_hash = user.password_hash if user is not None else _DUMMY_PASSWORD_HASH
+    password_ok = await run_in_threadpool(_verify_password, form.password, password_hash)
+    valid = user is not None and password_ok
     if not valid:
         logger.warning("failed login attempt for username=%r", form.username)
         raise HTTPException(

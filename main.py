@@ -56,11 +56,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("shutdown complete")
 
 
+_prod = get_settings().env == "production"
 app = FastAPI(
     title="Personal CFO",
     description=get_disclaimer(),
     version="0.1.0",
     lifespan=lifespan,
+    # Don't expose interactive API docs / schema in production.
+    docs_url=None if _prod else "/docs",
+    redoc_url=None if _prod else "/redoc",
+    openapi_url=None if _prod else "/openapi.json",
 )
 
 settings = get_settings()
