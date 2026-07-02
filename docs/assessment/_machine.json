@@ -1,0 +1,73 @@
+{
+  "generated": "2026-07-02T19:13:57.599318+00:00",
+  "repo_root": "/home/reese/workspace/CFO-analyzer",
+  "sources": [
+    "agent",
+    "routers",
+    "vault",
+    "memory",
+    "scenarios",
+    "worker",
+    "integrations",
+    "auth.py",
+    "clients.py",
+    "config.py",
+    "crypto.py",
+    "db.py",
+    "digest.py",
+    "disclaimer.py",
+    "main.py",
+    "rate_limit.py"
+  ],
+  "baselines": {
+    "ruff_issues": 0,
+    "mypy_errors": 1000000,
+    "coverage_line_rate": 0.0,
+    "bandit_high": 1000000,
+    "bandit_medium": 1000000,
+    "pip_audit_vulns": 1000000
+  },
+  "gates": {
+    "ruff": {
+      "status": "ok",
+      "value": 32,
+      "metric": "ruff_issues",
+      "compare": "max",
+      "gate_status": "fail"
+    },
+    "mypy": {
+      "status": "ok",
+      "value": 154,
+      "metric": "mypy_errors",
+      "compare": "max",
+      "gate_status": "ok"
+    },
+    "coverage": {
+      "status": "skipped",
+      "detail": "no coverage.xml; tail: ",
+      "gate_status": "skipped"
+    },
+    "bandit": {
+      "status": "ok",
+      "value": {
+        "high": 0,
+        "medium": 0
+      },
+      "metric": "bandit",
+      "compare": "split",
+      "gate_status": "ok"
+    },
+    "pip_audit": {
+      "status": "ok",
+      "value": 72,
+      "metric": "pip_audit_vulns",
+      "compare": "max",
+      "gate_status": "ok"
+    },
+    "freshness": {
+      "status": "skipped",
+      "detail": "no .claude/skills/ in this repo",
+      "gate_status": "skipped"
+    }
+  }
+}
