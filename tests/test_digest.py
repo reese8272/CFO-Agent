@@ -157,8 +157,15 @@ def test_scheduler_has_weekly_digest_job():
         stop_scheduler()
 
 
-def test_start_stop_scheduler():
-    """Scheduler starts and stops without error."""
+@pytest.mark.asyncio
+async def test_start_stop_scheduler():
+    """Scheduler starts and stops without error.
+
+    Runs inside a running event loop to mirror how the app actually starts the
+    scheduler (from the async lifespan in main.py). AsyncIOScheduler.start()
+    binds to the current loop; on Python 3.12+ calling it with no running loop
+    raises, which is a test-harness artifact, not a production path.
+    """
     from worker.cron import start_scheduler, stop_scheduler
 
     start_scheduler()
