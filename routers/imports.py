@@ -1,4 +1,6 @@
 from __future__ import annotations
+import asyncio
+import logging
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,9 +12,12 @@ from vault.models import Transaction, ImportBatch, CategoryMapping
 from vault.schemas import ImportBatchRead, CategoryMappingCreate, CategoryMappingRead
 from integrations.csv_import import parse_csv, parse_ofx, compute_hash, _apply_mappings_raw
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/import", tags=["import"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[str, Depends(get_current_user)]
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 @router.post("/transactions", response_model=ImportBatchRead, status_code=status.HTTP_201_CREATED)
@@ -23,15 +28,26 @@ async def import_transactions(
     session: Session,
     _user: CurrentUser,
 ):
+    if (file.size or 0) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "file too large (max 10 MB)")
     content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "file too large (max 10 MB)")
     fname = file.filename or "upload"
     ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else "csv"
-    if ext in ("ofx", "qfx"):
-        rows = parse_ofx(content)
-        file_format = "ofx"
-    else:
-        rows = parse_csv(content)
-        file_format = "csv"
+    # Parse untrusted upload off the event loop; any parse failure is a 422, not a 500.
+    try:
+        if ext in ("ofx", "qfx"):
+            rows = await asyncio.to_thread(parse_ofx, content)
+            file_format = "ofx"
+        else:
+            rows = await asyncio.to_thread(parse_csv, content)
+            file_format = "csv"
+    except Exception as exc:
+        logger.warning("import parse failed (%s): %s", fname, exc)
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "could not parse the uploaded file"
+        ) from exc
 
     result = await session.execute(select(CategoryMapping))
     mappings = result.scalars().all()

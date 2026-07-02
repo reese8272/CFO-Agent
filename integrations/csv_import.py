@@ -10,6 +10,9 @@ from decimal import Decimal, InvalidOperation
 logger = logging.getLogger(__name__)
 
 _DATE_FORMATS = ["%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%Y/%m/%d"]
+# Bound in-memory accumulation on a crafted/oversized upload. A statement with
+# more rows than this is rejected rather than parsed into an unbounded list.
+MAX_ROWS = 50_000
 
 
 @dataclass
@@ -92,6 +95,8 @@ def parse_csv(content: bytes) -> list[ParsedRow]:
         amount = _parse_amount(row)
         if amount is None:
             continue
+        if len(rows) >= MAX_ROWS:
+            raise ValueError(f"file exceeds the {MAX_ROWS}-row import limit")
         rows.append(
             ParsedRow(
                 occurred_at=dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt,
@@ -128,6 +133,8 @@ def parse_ofx(content: bytes) -> list[ParsedRow]:
         if tl is None:
             continue
         for txn in tl:
+            if len(rows) >= MAX_ROWS:
+                raise ValueError(f"file exceeds the {MAX_ROWS}-row import limit")
             dt = txn.dtposted
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)

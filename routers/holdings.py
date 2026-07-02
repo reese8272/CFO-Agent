@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user
 from db import get_session
-from integrations.market_data import fetch_price
+from integrations.market_data import fetch_price_async
 from vault import crud
 from vault.models import Holdings
 from vault.schemas import (
@@ -89,7 +89,7 @@ async def refresh_all_prices(session: Session, user: CurrentUser) -> dict:
     now = datetime.now(timezone.utc)
 
     for holding_id, ticker in rows:
-        price = fetch_price(ticker)
+        price = await fetch_price_async(ticker)
         if price is None:
             logger.warning("price refresh: no price returned for ticker %s", ticker)
             failed.append(ticker)
@@ -112,7 +112,7 @@ async def refresh_single_price(holding_id: int, session: Session, user: CurrentU
     if obj is None:
         raise HTTPException(404, "holding not found")
 
-    price = fetch_price(obj.ticker)
+    price = await fetch_price_async(obj.ticker)
     if price is None:
         raise HTTPException(502, f"could not fetch price for ticker {obj.ticker!r}")
 
