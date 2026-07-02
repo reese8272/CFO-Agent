@@ -20,9 +20,11 @@ if TYPE_CHECKING:
     from vault.models import FinancialSnapshot
 
 from agent.principles import (
-    ROTH_IRA_LIMIT_2026, HSA_LIMIT_SINGLE_2026, HIGH_INTEREST_APR_THRESHOLD, TAX_YEAR,
+    ROTH_IRA_LIMIT_2026, HSA_LIMIT_SINGLE_2026, HSA_LIMIT_FAMILY_2026,
+    HIGH_INTEREST_APR_THRESHOLD, TAX_YEAR,
     MILEAGE_RATE_2026,
 )
+from vault._money import to_monthly as _to_monthly
 from vault.wealth_position import compute_wealth_position
 from vault.income_position import compute_income_position
 
@@ -132,7 +134,11 @@ async def _compute_snapshot_data(session: AsyncSession, user_id: str) -> dict:
 
     profile_row = (await session.execute(select(UserProfile))).scalar_one_or_none()
     has_hsa = profile_row.has_hsa_eligible_plan if profile_row else False
-    hsa_limit = Decimal(str(HSA_LIMIT_SINGLE_2026))
+    # Use the family HSA limit for multi-person households (no dedicated
+    # single/family coverage field exists; household_size is the best proxy),
+    # otherwise a family-plan user's HSA utilization is overstated ~1.9x.
+    _household = (getattr(profile_row, "household_size", 1) or 1) if profile_row else 1
+    hsa_limit = Decimal(str(HSA_LIMIT_FAMILY_2026 if _household > 1 else HSA_LIMIT_SINGLE_2026))
 
     roth_utilization_pct = _pct(roth_contrib, Decimal(str(ROTH_IRA_LIMIT_2026)))
     hsa_utilization_pct = _pct(hsa_contrib, hsa_limit) if has_hsa else None
@@ -325,13 +331,3 @@ def _round2(val: Decimal) -> Decimal:
     return val.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def _to_monthly(amount: Decimal, cadence: str) -> Decimal:
-    mapping = {
-        "weekly": Decimal("4.333"),
-        "biweekly": Decimal("2.167"),
-        "monthly": Decimal("1"),
-        "quarterly": Decimal("0.333"),
-        "annual": Decimal("0.0833"),
-        "irregular": Decimal("1"),
-    }
-    return amount * mapping.get(cadence, Decimal("1"))

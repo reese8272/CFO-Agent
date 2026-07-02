@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import TypedDict
 
+from vault._money import to_monthly as _to_monthly
+
 
 class AllocationGap(TypedDict):
     step: int
@@ -216,22 +218,6 @@ async def _estimate_monthly_expenses(session: AsyncSession) -> Decimal:
             monthly += _to_monthly(Decimal(str(amt)), cadence)
 
     return monthly if monthly > Decimal("0") else Decimal("3000")
-
-
-def _to_monthly(amount: Decimal, cadence: str) -> Decimal:
-    """Convert an amount + cadence to a monthly equivalent."""
-    mapping = {
-        "weekly": Decimal("4.33"),
-        "biweekly": Decimal("2.17"),
-        "semimonthly": Decimal("2"),
-        "monthly": Decimal("1"),
-        "quarterly": Decimal("0.333"),
-        "annual": Decimal("0.0833"),
-        "annually": Decimal("0.0833"),
-        "yearly": Decimal("0.0833"),
-        "irregular": Decimal("1"),
-    }
-    return amount * mapping.get(cadence.lower(), Decimal("1"))
 
 
 async def _sum_cash(session: AsyncSession) -> Decimal:

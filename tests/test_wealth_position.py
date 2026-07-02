@@ -8,7 +8,8 @@ from vault.income_position import _to_monthly
 
 def test_to_monthly_weekly():
     result = _to_monthly(Decimal("500"), "weekly")
-    assert result == Decimal("500") * Decimal("4.33")
+    # Unified canonical factor (52/12 ≈ 4.333); see vault/_money.py.
+    assert result == Decimal("500") * Decimal("4.333")
 
 
 def test_to_monthly_annual():
