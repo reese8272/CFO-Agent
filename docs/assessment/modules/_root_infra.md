@@ -1,3 +1,40 @@
+# _root_infra — re-assessed 2026-07-02 (post-remediation)
+
+Branch: `hardening/phase-7-finish-line`. Re-verified each original finding
+against current code with file:line evidence.
+
+| # | Sev | Finding | Status | Evidence |
+|---|-----|---------|--------|----------|
+| 1 | SEV1 | No `.dockerignore` → `.env`/`.git` bakeable into image | **FIXED** | `.dockerignore:4` `.env`, `:5` `.env.*`, `:6` `!.env.example`, `:7` `.git`, `:8` `.gitignore`, `:9` `.github`, `:19` `tests`, `:20` `docs`, `:21` `*.md`. Header comment (`:1-3`) cites the `COPY . .` risk it closes. |
+| 2 | SEV1 | `clients.py` AsyncAnthropic no timeout (600s default) | **FIXED** | `clients.py:60-64` `AsyncAnthropic(..., timeout=settings.llm_timeout_seconds, max_retries=settings.llm_max_retries)`; defaults `config.py:38` `=120`, `:39` `=2`. |
+| 3 | SEV1 | `crypto.py` single Fernet, no rotation | **FIXED** | `crypto.py:27-38` `_fernet()` returns `MultiFernet`; `:36` reads `vault_encryption_keys or vault_encryption_key`, `:37` splits comma-list, first encrypts / any decrypts (docstring `:30-33`). Import `:13`. |
+| 4 | SEV2 | `rate_limit.py` in-memory store (fails open per-replica) | **FIXED** | `rate_limit.py:16-20` `Limiter(..., storage_uri=get_settings().redis_url if _enabled else None)`; disabled under `TESTING` (`:14`). |
+| 5 | SEV2 | `auth.py` login timing oracle (bcrypt skipped when user absent) | **FIXED** | `auth.py:70` module-level `_DUMMY_PASSWORD_HASH`; `:123` uses it when `user is None`; `:124` always runs bcrypt in threadpool; validity computed after (`:125`). |
+| 6 | SEV2 | `/docs`,`/redoc`,`/openapi` exposed in prod | **FIXED** | `main.py:59` `_prod = ... == "production"`; `:66-68` all three URLs `None` when `_prod`. |
+| 7 | SEV2 | uvicorn no `--timeout-graceful-shutdown` | **FIXED** | `Dockerfile:37` CMD `... "--timeout-graceful-shutdown", "30"`. |
+| 8 | SEV2 | `db.py` no `pool_recycle` | **FIXED** | `db.py:35` `pool_recycle=1800` (+ `pool_pre_ping=True` `:32`). |
+| 9 | cleanup | `config.py` `vault_encryption_key` min_length=1 | **FIXED** | `config.py:26` `Field(..., min_length=44)`, comment `:25`. |
+| 10 | deps | 7 CVE'd pins (fastapi, starlette, cryptography, pyjwt, …) | **FIXED** | `requirements.txt:1` `fastapi==0.139.0`, `:2` `starlette==1.3.1`, `:12` `cryptography==48.0.1`, `:13` `PyJWT==2.13.0`. All still `==`-pinned. |
+
+**Supplementary items from brief:**
+- deploy `command_timeout` → 20m: **FIXED** — `.github/workflows/deploy.yml:113` `command_timeout: 20m` (cites ISSUE-2026-07-02-01).
+- migration `SET LOCAL lock_timeout`: **FIXED** — `migrations/env.py:56` `SET LOCAL lock_timeout = '30s'` inside `do_run_migrations`, txn-scoped.
+
+**Original cleanups outside the 10-item brief (unchanged, low priority, DEFERRED):**
+- disclaimer.py DRY (`disclaimer.py:18` still reads `os.environ` directly, not `get_settings()`).
+- CORS wildcard method/header combo (`main.py:76-77` `allow_methods/headers=["*"]`).
+- No security-response-headers middleware in `main.py`.
+- (digest.py untyped `settings` param — out of read-set this pass.)
+
+## Module verdict (post-remediation)
+
+**PASS.** All 10 brief findings (3 SEV1, 5 SEV2, 1 cleanup, dependency bumps) and
+both supplementary items are FIXED with concrete file:line evidence. Zero
+STILL-OPEN among the tracked findings; the only remainders are three pre-existing
+low-priority cleanups explicitly outside this remediation's scope (DEFERRED).
+
+---
+
 # _root_infra — assessed 2026-07-02
 
 Slice: main.py, auth.py, clients.py, config.py, crypto.py, db.py, disclaimer.py,

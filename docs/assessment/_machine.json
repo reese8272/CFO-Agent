@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-02T19:13:57.599318+00:00",
+  "generated": "2026-07-03T00:24:49.187043+00:00",
   "repo_root": "/home/reese/workspace/CFO-analyzer",
   "sources": [
     "agent",
@@ -21,23 +21,23 @@
   ],
   "baselines": {
     "ruff_issues": 0,
-    "mypy_errors": 1000000,
+    "mypy_errors": 152,
     "coverage_line_rate": 0.0,
-    "bandit_high": 1000000,
-    "bandit_medium": 1000000,
-    "pip_audit_vulns": 1000000
+    "bandit_high": 0,
+    "bandit_medium": 0,
+    "pip_audit_vulns": 72
   },
   "gates": {
     "ruff": {
       "status": "ok",
-      "value": 32,
+      "value": 0,
       "metric": "ruff_issues",
       "compare": "max",
-      "gate_status": "fail"
+      "gate_status": "ok"
     },
     "mypy": {
       "status": "ok",
-      "value": 154,
+      "value": 152,
       "metric": "mypy_errors",
       "compare": "max",
       "gate_status": "ok"
