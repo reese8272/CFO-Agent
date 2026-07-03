@@ -143,7 +143,14 @@ Step logic is the 6-step allocation sequence and 5-step income sequence in
 
 **Endpoints** (`routers/wealth.py`, all behind `get_current_user`):
 
-| Method + path | Response shape |
+> **Superseded by shipped code (see `docs/DECISIONS.md` 2026-07-02 Phase 5b).** The table below is
+> the Issue-5 draft; the endpoints that actually shipped diverge (e.g. `GET /wealth/position` →
+> `{"wealth", "income"}`, hyphenated paths, `WealthLadder`/`IncomeLadder` field sets). The
+> **Pydantic `response_model`s in `routers/wealth.py`** (`CombinedPositionResponse`,
+> `WealthPositionResponse`, `IncomePositionResponse`, `NetWorthTrajectoryResponse`) are now the
+> enforced source of truth for these shapes.
+
+| Method + path (draft) | Response shape (draft) |
 |---|---|
 | `GET /wealth/position` | `{"allocation": WealthPosition, "income": IncomePosition}` |
 | `GET /wealth/trajectory` | `{"goals": [{id, title, current, target, deadline, pct, on_pace}], ...}` |

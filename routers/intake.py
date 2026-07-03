@@ -162,10 +162,29 @@ class IntakeSubmitPayload(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Response models
+# ---------------------------------------------------------------------------
+
+class IntakeStatusResponse(BaseModel):
+    intake_completed: bool
+    completed_at: Optional[str] = None
+    snapshot_id: Optional[int] = None
+    net_worth: Optional[str] = None
+    allocation_step: Optional[int] = None
+    income_step: Optional[int] = None
+
+
+class IntakeArchiveEntry(BaseModel):
+    id: int
+    submitted_at: str
+    snapshot_id: Optional[int] = None
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
-@router.get("/status")
+@router.get("/status", response_model=IntakeStatusResponse)
 async def intake_status(
     session: Session,
     current_user: CurrentUser,
@@ -438,7 +457,7 @@ async def refresh_snapshot(
     return snap
 
 
-@router.get("/archive")
+@router.get("/archive", response_model=list[IntakeArchiveEntry])
 async def get_intake_archive(
     session: Session,
     current_user: CurrentUser,

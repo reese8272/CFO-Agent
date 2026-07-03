@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user
@@ -29,6 +30,12 @@ router = APIRouter(prefix="/holdings", tags=["holdings"])
 
 Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[str, Depends(get_current_user)]
+
+
+class PriceRefreshSummary(BaseModel):
+    updated: list[str]
+    failed: list[str]
+    total: int
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +83,7 @@ async def delete_holding(holding_id: int, session: Session, user: CurrentUser):
 # Price refresh
 # ---------------------------------------------------------------------------
 
-@router.post("/refresh-prices", status_code=200)
+@router.post("/refresh-prices", status_code=200, response_model=PriceRefreshSummary)
 async def refresh_all_prices(session: Session, user: CurrentUser) -> dict:
     """Pull latest price for every distinct ticker in holdings.
 

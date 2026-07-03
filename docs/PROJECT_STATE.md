@@ -2,13 +2,31 @@
 
 Live snapshot of where the build stands. Update at every issue close.
 
-**Last updated**: 2026-05-27
+**Last updated**: 2026-07-02
 
 ---
 
 ## Status
 
-**Phase**: v1 feature-complete + CI wired. Issues 1–14 shipped (Issue 13 Plaid deferred indefinitely). Full pytest suite: 135 passed, 2 skipped against live Postgres + Redis. GitHub Actions workflows created (CI, Docker build, deploy skeleton). Remaining manual gates: vault.html browser walkthrough and production deploy.
+**Phase**: **PRODUCTION-READY: YES (Road A)** — single-user/portfolio. Live at
+`https://cfo.agenticlips.com`. A full `/assess` took the app from VERDICT: NO (1 BLOCKER + ~20 SEV1)
+through an 8-phase hardening roadmap (`docs/PRODUCTION_ROADMAP.md`); Phases 0–6 are merged + deployed,
+Phase 7 re-assessment returned YES (`docs/assessment/REPORT.md`). Test suite: **177 passed, 4 skipped**
+against live Postgres + Redis (py3.13). Layer-0 clean: ruff 0, bandit 0/0, pip-audit clean.
+
+**Hardening arc (Road A, 2026-07-02)** — see `docs/PRODUCTION_ROADMAP.md` for per-phase detail:
+- Phases 0–6 (PRs #30–#35): assessment + BLOCKER fix; LLM safety (rate limits/timeout/caching);
+  async hygiene; data-layer migration + money fixes; prod hardening (MultiFernet key rotation, /docs
+  gate, graceful shutdown, timing-safe login); agent correctness (multi-specialist routing + no-dup
+  reducer).
+- **Phase 5b (this session)**: `response_model` on the bare-dict endpoints (wealth/intake/holdings);
+  security-headers middleware; `migrations/env.py` imports models only for `--autogenerate` (faster
+  deploy-time `upgrade`).
+- **Deferred (do not gate YES)**: 4b (`limit` cap on vault list endpoints; encrypt
+  `Account.plaid_account_id`); Road B multi-tenant (tenant isolation — full CLAUDE.md Pre-GA block).
+
+**Original v1**: Issues 1–19 shipped (Issue 13 Plaid deferred indefinitely). GitHub Actions CI +
+Docker build + deploy pipeline live.
 
 **Key decisions**: Pivot 2026-05-24 — Personal CFO + Career Strategist. Free-first ingestion (yfinance + RentCast + CSV/OFX). Encryption at ORM layer via TypeDecorators. All documented in `docs/DECISIONS.md`.
 

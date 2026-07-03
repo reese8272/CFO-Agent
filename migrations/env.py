@@ -1,16 +1,21 @@
 """Alembic environment.
 
 Reads DATABASE_URL from the project's config.py (not alembic.ini) so the
-migration runner uses the same connection string the app uses. Imports
-the vault and memory model modules so Base.metadata is populated for
-autogenerate.
+migration runner uses the same connection string the app uses.
+
+The model modules (vault, memory, auth) are imported ONLY for
+``alembic revision --autogenerate``, which needs a populated ``Base.metadata``
+to diff against. ``alembic upgrade`` (the deploy path) just replays migration
+scripts and never consults the metadata, so we skip those imports there —
+importing ``auth`` alone drags in the FastAPI/jwt/bcrypt graph and is the bulk
+of the multi-minute alembic startup on the deploy host.
 """
 import asyncio
 import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import pool
+from sqlalchemy import MetaData, pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -20,9 +25,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import get_settings  # noqa: E402
 from db import Base  # noqa: E402
-import vault.models  # noqa: E402, F401 — register models with Base.metadata
-import memory.models  # noqa: E402, F401 — register models with Base.metadata
-import auth  # noqa: E402, F401 — register the User model with Base.metadata
 
 alembic_config = context.config
 
@@ -31,7 +33,21 @@ if alembic_config.config_file_name is not None:
 
 alembic_config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
-target_metadata = Base.metadata
+
+def _load_model_metadata() -> MetaData:
+    """Populate Base.metadata by importing every model module (autogenerate only)."""
+    import vault.models  # noqa: F401 — register models with Base.metadata
+    import memory.models  # noqa: F401 — register models with Base.metadata
+    import auth  # noqa: F401 — register the User model with Base.metadata
+    return Base.metadata
+
+
+# Only autogenerate needs the models loaded; upgrade/downgrade do not.
+_cmd_opts = getattr(alembic_config, "cmd_opts", None)
+if getattr(_cmd_opts, "autogenerate", False):
+    target_metadata = _load_model_metadata()
+else:
+    target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
