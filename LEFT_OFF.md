@@ -1,64 +1,56 @@
 # LEFT_OFF — Session Handoff Contract
 
-> **Read this first.** This is the living "where we are right now" file. It is NOT a source-of-truth
-> doc — those live in `docs/`. Update this whenever the active goal changes, and run `/close-out`
-> at the end of every session.
+> **Read this first.** Living "where we are right now" file — NOT a source of truth (those live in
+> `docs/`). Update whenever the active goal changes; run `/close-out` at the end of every session.
 
-**Last updated:** 2026-05-27
-**Branch:** `main`
-**Working tree:** modified (Issue 17 complete — needs commit + push to trigger CI/deploy)
-**CI/Deploy:** green on prior `main`; current changes not yet pushed
+**Last updated:** 2026-07-02
+**Branch:** `hardening/phase-7-finish-line` — HEAD `780efb7` ("docs(assess): Phase 7 finish-line re-assessment — VERDICT = YES (Road A)")
+**Working tree:** clean · 1 ahead of `origin/main` (the Phase 7 doc commit = PR #37)
+**CI/Deploy:** live site ✅ healthy; last prod deploy (Phase 6) green after one re-run (see gotchas)
 
 ---
 
 ## 1. CURRENT FOCUS
 
-**Issue 17 is built and ready to ship.** Commit + push to `main` to trigger CI and deploy.
+**The Road-A production-hardening roadmap is COMPLETE.** A full `/assess` (Phases 0–6) took the app
+from **VERDICT: NO** (1 BLOCKER + ~20 SEV1) to **PRODUCTION-READY: YES (Road A)** — see
+`docs/assessment/REPORT.md`. Phases 0–6 are all merged to `main` and **live in production**. Only
+housekeeping + optional polish remains.
 
 ### → NEXT ACTION
 
-1. `git add` the changed files and commit Issue 17
-2. Push to `main` — CI will run full pytest suite + deploy to production
-3. Verify deploy green at `https://cfo.agenticlips.com`
-4. Browser-verify: navigate between all sections; confirm intake can be re-run via Settings; confirm disclaimer still visible on agent responses
-
-### Changes in this session
-
-- **`static/settings.html`** — new settings page with intake status, net worth snapshot, Re-run intake wizard button
-- **`static/chat.html`** — added Settings nav link
-- **`static/vault.html`** — added cross-page nav links (Chat/Vault/Scenarios/Digest/Settings) to top of sidebar
-- **`static/scenarios.html`** — added sidebar nav (converted from plain centered layout)
-- **`static/digest.html`** — added sidebar nav (converted from plain centered layout)
-- **`static/intake.html`** — fixed token scoping bug (was `const` inside IIFE → promoted to outer `let`; this was causing "Network error" on every chat/interview call in the intake wizard); added header nav links
-- **`routers/intake.py`** — added `POST /intake/reset` endpoint
-- **`tests/test_intake.py`** — added `test_reset_clears_intake_completed` + `test_reset_without_profile_is_safe`
-- **`docs/issues.md`** — added Issue 17 entry
-- **`docs/PROJECT_STATE.md`** — updated Issue 17 status
-- **`docs/SOT.md`** — updated static file tree
+1. **Merge the two open doc-only PRs** (no deploy — both are docs):
+   - `gh pr merge 37 --squash --delete-branch` (Phase 7 finish-line assessment)
+   - `gh pr merge 36 --squash --delete-branch` (ARM-VM swap runbook)
+2. **Apply the VM swap** (the one action that prevents the deploy-OOM 502 — see gotchas). SSH to the
+   Oracle VM (`ubuntu@129.80.102.20`) and run the `fallocate`/`swapon` block in `docs/DEPLOYMENT.md §7.1`.
+3. **(Optional) Phase 4b/5b polish** — all SEV2/cleanup, none gate the YES verdict:
+   - 4b: `limit` cap on the ~17 vault GET list endpoints; encrypt `Account.plaid_account_id`.
+   - 5b: `response_model` on the bare-dict endpoints (`wealth.py`, `intake.py:167/440`); security-headers middleware; slim `migrations/env.py` imports (speeds the ~5-min alembic startup).
+4. **(Future) Road B** — real second users needs the full CLAUDE.md Pre-GA block; **tenant isolation**
+   (`user_id` on every table + owner filter, ideally Postgres RLS) is the headline. Deferred by the
+   `docs/DECISIONS.md` 2026-07-02 Road-A scope decision.
 
 ---
 
 ## 2. WHAT WORKS NOW (do not re-investigate)
 
-- ✅ **`https://cfo.agenticlips.com` is live** — `/health` returns `{"status":"ok","postgres":"ok","redis":"ok"}`
-- ✅ **Gate 2 complete** — HTML renders correctly; login, vault, chat, scenarios all reachable
-- ✅ **Cloudflare tunnel** — CFO-Agent tunnel healthy; CNAME → `daba5893-bdc4-4104-bb9c-90668bbd85a6.cfargotunnel.com`; token rotated
-- ✅ **CI green** — full pytest suite on `main`
-- ✅ **Deploy pipeline green** — validate-secrets → GHCR build → SSH deploy → `/health` gate → Alembic migrations
-- ✅ **`cloudflared` always restarts on deploy** — `docker compose restart cloudflared` in step 4; stale token can never persist
-- ✅ **Issue 16 closed** — secrets hardening, container auto-recovery, `check_env.py --live`, `docs/DEPLOYMENT.md`
-- ✅ **Issue 17 built** — global nav, settings page, intake reset endpoint, token bug fixed
+- ✅ **`https://cfo.agenticlips.com` is live** — `/health` `{"status":"ok","postgres":"ok","redis":"ok"}`; `/docs` correctly **404 in prod** (gated).
+- ✅ **Phases 0–6 merged + deployed** (PRs #30–#35): assessment+BLOCKER fix, LLM safety (rate limits/timeout/caching), async hygiene, data-layer migration, prod hardening (MultiFernet rotation, /docs gate, graceful shutdown, timing-safe login), agent correctness (multi-specialist routing + no-dup reducer).
+- ✅ **Layer 0 clean:** ruff 0 (was 32), bandit 0/0, `requirements.txt` pip-audit clean (7 CVE'd deps bumped: fastapi 0.139, starlette 1.3.1, cryptography 48.0.1, pyjwt 2.13.0, …). mypy 152 (permissive ceiling).
+- ✅ **Tests:** 172 passed / 4 skipped in CI and locally (py3.13).
+- ✅ **Playwright installed** for point-and-click testing — persistent venv at `~/playwright-venv` (headless Chromium, no sudo needed); verified against live URLs.
+- ✅ **Local test harness works** despite the documented starlette pin issue — build a py3.13 venv + a throwaway Postgres on port 5433 (see gotchas). This is how the suite + migrations were run all session.
 
 ---
 
 ## 3. THE ARC THAT LED HERE
 
-1. Issue 16 — secrets & deploy hardening; fixed failing CI + deploy; merged PR #24.
-2. App went live on Oracle VM; `https://cfo.agenticlips.com` returned Cloudflare 1033.
-3. Root cause: DNS CNAME pointed to an old tunnel UUID. Old tunnel was accidentally deleted; new
-   tunnel created (`daba5893...`); CNAME updated manually; token rotated.
-4. Site came up. Gate 2 walkthrough completed — HTML good, app functional, two UX gaps noted.
-5. Issue 17 — global nav + settings + intake reset + token bug fix. Ready to push.
+1. Issues 1–19 — full stack built + first production deploy (pre-this-session; see `docs/PROJECT_STATE.md`).
+2. This session: ran `/assess` → **VERDICT: NO** (1 BLOCKER: disclaimer drop; ~20 SEV1). Scoped to **Road A** (portfolio/single-user) via `docs/DECISIONS.md`.
+3. Built `docs/PRODUCTION_ROADMAP.md` (8 phases) and executed Phases 0–6, each: code → local test → smoke → CI → merge → deploy → verify live.
+4. Phase 6 deploy briefly 502'd (ARM-VM OOM, not code) — recovered via re-run; logged ISSUE-2026-07-02-02 + swap runbook.
+5. Phase 7 re-assessment → **VERDICT: YES (Road A)**. That's where we are.
 
 ---
 
@@ -67,25 +59,27 @@
 | Thing | Value |
 |---|---|
 | **Public URL** | `https://cfo.agenticlips.com` ✅ LIVE |
-| **Cloudflare Tunnel ID** | `daba5893-bdc4-4104-bb9c-90668bbd85a6` |
-| **DNS CNAME target** | `daba5893-bdc4-4104-bb9c-90668bbd85a6.cfargotunnel.com` |
 | **GitHub repo** | `github.com/reese8272/CFO-Agent` |
+| **Open PRs (to merge)** | #37 (Phase 7 assessment), #36 (ops swap runbook) — both doc-only |
+| **Stale PR (not mine)** | #29 — a parallel-session assessment from 2026-06-28; triage separately |
 | **GHCR image** | `ghcr.io/reese8272/cfo-agent:latest` |
-| **Oracle VM** | `ubuntu@129.80.102.20` (SSH key is GitHub-secret-only — not in `~/.ssh/` locally) |
-| **GitHub secrets (repo-level)** | `VAULT_ENCRYPTION_KEY`, `GH_PAT` |
-| **GitHub secrets (Production env)** | `ANTHROPIC_API_KEY`, `CLOUDFLARE_TUNNEL_TOKEN`, `SSH_PRIVATE_KEY`, `SSH_PUBLIC_KEY`, `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH` |
-| **Not yet set** | `SMTP_*` (digest emails off), `HEALTHCHECK_PING_URL` (no external watchdog) |
-| **Key backup file** | `~/cfo-vault-key-BACKUP.txt` on Oracle VM — copy to Bitwarden + paper, then `shred -u` |
+| **Oracle VM** | `ubuntu@129.80.102.20` (SSH key is GitHub-secret-only — not in local `~/.ssh/`) |
+| **Cloudflare Tunnel ID** | `daba5893-bdc4-4104-bb9c-90668bbd85a6` |
+| **Assessment output** | `docs/assessment/REPORT.md` + `modules/*.md` + `history/2026-07-02-REPORT-post-remediation.md` |
+| **Secrets (names only)** | repo: `VAULT_ENCRYPTION_KEY`, `GH_PAT`; Prod env: `ANTHROPIC_API_KEY`, `CLOUDFLARE_TUNNEL_TOKEN`, `SSH_PRIVATE_KEY`, `DEPLOY_*`, `SMTP_*`. New (optional): `VAULT_ENCRYPTION_KEYS` (comma-sep, for rotation) |
+| **Local test venv** | `/tmp/cfo_venv` (py3.13; cleared on reboot — rebuild from `requirements.txt`). Playwright: `~/playwright-venv` (persistent) |
 
 ---
 
 ## 5. CONSTRAINTS & GOTCHAS
 
-- **Verify `origin/main` first** — run `git fetch origin && git rev-list --left-right --count origin/main...HEAD` before planning anything
-- **Pushing to `main` triggers Deploy** — EXCEPT doc-only pushes (`**.md`, `docs/**` are `paths-ignore`d in `deploy.yml`)
-- **SSH key for Oracle VM is GitHub-secret-only** — cannot SSH directly from local; use `gh workflow run` to run remote commands
-- **If tunnel is ever deleted/recreated:** update `CLOUDFLARE_TUNNEL_TOKEN` secret, re-add public hostname in dashboard (`cfo → agenticlips.com → HTTP → app:8000`), manually update DNS CNAME to new tunnel UUID — Cloudflare does NOT auto-update the CNAME
-- **Gate 3 (vault population) is still pending** — create goal/career rows in DB before first real session; see `docs/PROJECT_STATE.md`
+- **Verify `origin/main` first** — parallel Claude branches merge to main; run `git fetch origin && git rev-list --left-right --count origin/main...HEAD` before planning.
+- **Pushing to `main` triggers Deploy** — EXCEPT doc-only pushes (`**.md`, `docs/**` are `paths-ignore`d). PRs #36/#37 are doc-only → safe to merge with no deploy.
+- **Deploy can transiently 502 (ARM-VM OOM)** — ISSUE-2026-07-02-02: a rollout OOM-kills the app (`status 137` + "name resolution" in the deploy log) → 502. **Recover: `gh run rerun <run-id> --failed`. Prevent: add VM swap (`docs/DEPLOYMENT.md §7.1`) — still pending.** Distinguish from ISSUE-2026-07-02-01 (command_timeout; app stays up).
+- **Local pytest needs a real DB** — no local Postgres role exists. Spin a throwaway: `initdb -D /tmp/cfo_pg -U cfo --auth=trust`; `pg_ctl -D /tmp/cfo_pg -o "-p 5433 -k /tmp" start`; `createdb -h localhost -p 5433 -U cfo personal_cfo`; then `DATABASE_URL=postgresql+psycopg://cfo:cfo@localhost:5433/personal_cfo REDIS_URL=redis://localhost:6379/15 TESTING=true` + the conftest env defaults, `alembic upgrade head`, `pytest`. Build the venv with `python3.13` (system python is 3.14 → no psycopg wheel).
+- **SSH to the VM is GitHub-secret-only** — can't SSH from local; the swap must be applied by the owner (or via a `gh workflow run` path).
+- **Single-user auth** — registration closes after the first user (409). The prod login credential exists (set at Gate 2) but is **unrecoverable** (bcrypt-hashed); no password-reset endpoint. Local point-and-click uses a fresh throwaway user.
+- **Alembic startup is slow (~5min on the VM)** — heavy `env.py` import; `command_timeout` is now 20m and `lock_timeout` bounds locks. A bigger migration should still budget for it.
 
 ---
 
@@ -93,10 +87,11 @@
 
 | Doc | Purpose |
 |---|---|
-| `docs/PROJECT_STATE.md` | Issue table + Gates 2/3/4 status |
-| `docs/DEPLOYMENT.md` | Full ops runbook: secrets map, SSH, deploy pipeline, Cloudflare troubleshooting |
-| `docs/ENV_CHECKLIST.md` | Every env var: what it is, where to get it, format |
-| `docs/DECISIONS.md` | All architecture decisions |
-| `docs/SOT.md` | Architecture, stack, file tree, Known Production Gaps |
-| `docs/WEALTH_PRINCIPLES.md` | Named principles the Coach cites |
-| `~/.claude/projects/-home-reese-workspace-CFO-analyzer/memory/MEMORY.md` | User profile + session preferences |
+| `docs/assessment/REPORT.md` | Latest verdict (YES Road A) + module register + scale checklist |
+| `docs/PRODUCTION_ROADMAP.md` | The 8-phase plan; Phases 0–6 done, 4b/5b deferred |
+| `docs/DECISIONS.md` | Road-A scope decision + per-phase deviations (index scope, reducer amendment, etc.) |
+| `docs/CONTRACTS.md` | Frozen agent-state contract (§1 amended 2026-07-02 for the proposals reducer) |
+| `docs/DEPLOYMENT.md` | Ops runbook — §7.1 deploy-OOM/swap, §8 MultiFernet key-rotation |
+| `docs/PROJECT_STATE.md` · `docs/SOT.md` | Issue table + architecture/stack |
+| `~/.claude/ISSUES_LOG.md` | Cross-project issue log — ISSUE-2026-07-02-01/-02 are this project's deploy gotchas |
+| `~/.claude/projects/-home-reese-workspace-CFO-analyzer/memory/MEMORY.md` | User profile + session prefs |
