@@ -24,11 +24,11 @@ housekeeping + optional polish remains.
    Phase 5b (#38)** — response_model on bare-dict endpoints, security-headers middleware, slim
    `migrations/env.py`. Suite 177 passed / 4 skipped. **Confirmed live in prod.** Then recovered a
    full outage that hit mid-deploy (§5).
-2. **⚠️ OPEN — apply swap to the Oracle VM `129.80.102.20`** (NOT the DigitalOcean `creatorclip-vm`;
-   see §5 for that mixup). This is the real fix for the OOM-thrash that caused today's outage. Run the
-   `fallocate`/`swapon` block from `docs/DEPLOYMENT.md §7.1` **on `ubuntu@129.80.102.20`**. Blocker:
-   the deploy SSH key (GitHub `SSH_PRIVATE_KEY` secret) is **not** in the local `~/.oci`/`~/.ssh`
-   keyring — so this is owner-only via SSH, or bake a one-shot swap step into `deploy.yml`.
+2. ✅ **DONE — swap now auto-ensured by the deploy.** `deploy.yml` gained an idempotent, non-fatal
+   `[0/6] Ensuring swap` step that creates + persists a 2G `/swapfile` before the container rollover.
+   Verified live on `129.80.102.20`: deploy log showed `no swap present — creating 2G /swapfile` →
+   `/swapfile file 2G` active, and the rollover reached HTTP 200 with no OOM. Self-heals every deploy.
+   (Direct SSH + OCI Run Command were both unavailable to local ops — the pipeline was the way in.)
 3. **(Optional) Phase 4b polish** — SEV2, none gate the YES verdict: `limit` cap on the ~17 vault GET
    list endpoints; encrypt `Account.plaid_account_id`. (5b is done — #38.)
 4. **Doc reconcile (small):** the prod-host docs are actually *correct* (Oracle `129.80.102.20`); the
@@ -87,7 +87,7 @@ housekeeping + optional polish remains.
 - **Verify `origin/main` first** — parallel Claude branches merge to main; run `git fetch origin && git rev-list --left-right --count origin/main...HEAD` before planning.
 - **Pushing to `main` triggers Deploy** — EXCEPT doc-only pushes (`**.md`, `docs/**` are `paths-ignore`d). PRs #36/#37 are doc-only → safe to merge with no deploy.
 - **Deploy can transiently 502 (ARM-VM OOM)** — ISSUE-2026-07-02-02: a rollout OOM-kills the app (`status 137` + "name resolution" in the deploy log) → 502. **Recover: `gh run rerun <run-id> --failed`. Prevent: add VM swap (`docs/DEPLOYMENT.md §7.1`) — still pending.** Distinguish from ISSUE-2026-07-02-01 (command_timeout; app stays up).
-- **Full outage = Oracle VM OOM-thrash (ISSUE-2026-07-03-01)** — if the site flaps `530`/`1033`/"unregistered from Argo Tunnel" ↔ `502` ↔ `000` AND `ssh ubuntu@129.80.102.20` banner-times-out, the VM is thrashing (not a network/code fault). **Recover out-of-band via `oci` (SSH is unusable): `oci compute instance action --instance-id <ocid> --action SOFTRESET`** (find OCID via `oci compute instance list -c <tenancy> --all`). SOFTRESET may hang in STOPPING ~5min (OS wedged) — OCII force-completes it to RUNNING; containers auto-start, tunnel re-registers, `/health` green ~2min. Then re-run the deploy. **This recurs until swap lands on the Oracle VM.**
+- **Full outage = Oracle VM OOM-thrash (ISSUE-2026-07-03-01)** — if the site flaps `530`/`1033`/"unregistered from Argo Tunnel" ↔ `502` ↔ `000` AND `ssh ubuntu@129.80.102.20` banner-times-out, the VM is thrashing (not a network/code fault). **Recover out-of-band via `oci` (SSH is unusable): `oci compute instance action --instance-id <ocid> --action SOFTRESET`** (find OCID via `oci compute instance list -c <tenancy> --all`). SOFTRESET may hang in STOPPING ~5min (OS wedged) — OCII force-completes it to RUNNING; containers auto-start, tunnel re-registers, `/health` green ~2min. Then re-run the deploy. **Mitigated 2026-07-03:** `deploy.yml`'s `[0/6] Ensuring swap` now guarantees 2G swap on the host, so the rollover has headroom (recurrence risk much lower).
 - **TWO boxes exist — don't confuse them.** Prod CFO = Oracle `129.80.102.20`. `ssh creatorclip-vm` = a *different* DigitalOcean box (AutoClip/CreatorClip). Verify a host runs CFO (checkout dir + `*cfo*` container + tunnel `daba5893-…`) before touching it.
 - **Local pytest needs a real DB** — no local Postgres role exists. Spin a throwaway: `initdb -D /tmp/cfo_pg -U cfo --auth=trust`; `pg_ctl -D /tmp/cfo_pg -o "-p 5433 -k /tmp" start`; `createdb -h localhost -p 5433 -U cfo personal_cfo`; then `DATABASE_URL=postgresql+psycopg://cfo:cfo@localhost:5433/personal_cfo REDIS_URL=redis://localhost:6379/15 TESTING=true` + the conftest env defaults, `alembic upgrade head`, `pytest`. Build the venv with `python3.13` (system python is 3.14 → no psycopg wheel).
 - **SSH to the Oracle VM is GitHub-secret-only** — local `~/.oci/vm-key*` are not authorized (`ubuntu@` → permission denied), so the swap must be applied by the owner or baked into `deploy.yml`. BUT VM power management works via the `oci` CLI locally (reboot without SSH — see the outage gotcha above).
