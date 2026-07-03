@@ -19,8 +19,29 @@ from config import get_settings
 logger = logging.getLogger(__name__)
 
 _ALPHA_VANTAGE_URL = "https://www.alphavantage.co/query"
-# Reuse one pooled session for Alpha Vantage instead of a fresh connection per call.
+
+
+class _TimeoutSession(requests.Session):
+    """A pooled Session that enforces a default per-request timeout.
+
+    yfinance sets no HTTP timeout of its own, so without this a hung Yahoo
+    endpoint would block the `to_thread` worker forever (the `wait_for` deadline
+    cancels the awaiting coroutine but can't cancel the running thread), slowly
+    leaking threads from the shared default executor (assessment 2026-07-03).
+    """
+
+    def __init__(self, timeout: float = 8.0) -> None:
+        super().__init__()
+        self._timeout = timeout
+
+    def request(self, *args, **kwargs):  # type: ignore[override]
+        kwargs.setdefault("timeout", self._timeout)
+        return super().request(*args, **kwargs)
+
+
+# Reuse one pooled session for Alpha Vantage; a timeout-enforcing one for yfinance.
 _session = requests.Session()
+_yf_session = _TimeoutSession(timeout=8.0)
 
 
 async def fetch_price_async(ticker: str, timeout: float = 15.0) -> Decimal | None:
@@ -57,7 +78,7 @@ def fetch_price(ticker: str) -> Decimal | None:
 
 def _fetch_yfinance(ticker: str) -> Decimal | None:
     try:
-        info = yf.Ticker(ticker).fast_info
+        info = yf.Ticker(ticker, session=_yf_session).fast_info
         raw = info.last_price
         if raw is None:
             return None

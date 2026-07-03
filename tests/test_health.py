@@ -29,8 +29,15 @@ def test_disclaimer_loadable() -> None:
     assert get_disclaimer() == DISCLAIMER
 
 
-def test_disclaimer_respects_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_disclaimer_respects_settings_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    from config import get_settings
     from disclaimer import get_disclaimer
 
+    # The override now flows through typed Settings (loaded from env/.env), not a
+    # raw os.environ read — so clear the settings cache to pick up the new value.
     monkeypatch.setenv("WEALTH_DISCLAIMER_TEXT", "Custom disclaimer for tests.")
-    assert get_disclaimer() == "Custom disclaimer for tests."
+    get_settings.cache_clear()
+    try:
+        assert get_disclaimer() == "Custom disclaimer for tests."
+    finally:
+        get_settings.cache_clear()

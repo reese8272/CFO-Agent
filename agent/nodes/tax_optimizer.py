@@ -5,16 +5,14 @@ Disclaimer mandatory on all output (requires_disclaimer=True always).
 """
 from __future__ import annotations
 from config import get_settings
-import logging
 from decimal import Decimal
-from clients import get_anthropic
-from agent.state import AgentState, NodeProposal
+
+from agent.state import AgentState
+from agent.nodes._llm import run_proposal_node
 from agent.principles import (
     MILEAGE_RATE_2026, SE_TAX_RATE, TAX_YEAR,
     SOLO_401K_TOTAL_LIMIT_2026, ASSUMED_FED_MARGINAL_BRACKET_2026,
 )
-
-logger = logging.getLogger(__name__)
 
 MODEL = get_settings().anthropic_model_smart
 MAX_TOKENS = 512
@@ -58,7 +56,6 @@ _TOOL = {
 
 
 async def tax_optimizer_node(state: AgentState) -> dict:
-    client = get_anthropic()
     snapshot = state.get("vault_snapshot", {})
     deductions = snapshot.get("tax_deductions", [])
     income_1099_ytd = Decimal(str(snapshot.get("income_1099_ytd", 0)))
@@ -81,24 +78,12 @@ async def tax_optimizer_node(state: AgentState) -> dict:
         f"SE tax rate: {SE_TAX_RATE*100:.1f}%"
     )
 
-    response = await client.messages.create(
+    return await run_proposal_node(
+        node="tax_optimizer",
         model=MODEL,
         max_tokens=MAX_TOKENS,
-        system=[{"type": "text", "text": _SYSTEM, "cache_control": {"type": "ephemeral"}}],
-        messages=[{"role": "user", "content": context}],
-        tools=[_TOOL],
-        tool_choice={"type": "tool", "name": "propose_tax_move"},
+        system=_SYSTEM,
+        tool=_TOOL,
+        context=context,
+        force_disclaimer=True,  # tax output always carries the disclaimer
     )
-    tool_block = next(b for b in response.content if b.type == "tool_use")
-    r = tool_block.input
-
-    proposal = NodeProposal(
-        node="tax_optimizer",
-        move=r["move"],
-        principle=r["principle"],
-        leverage_score=max(0.0, min(1.0, float(r["leverage_score"]))),
-        rationale=r["rationale"],
-        requires_disclaimer=True,  # always True for tax output
-    )
-    logger.info("tax_optimizer: principle=%s score=%.2f", r["principle"], r["leverage_score"])
-    return {"proposals": [proposal]}

@@ -4,12 +4,9 @@ Fires when Analyzer detects a career-related turn.
 """
 from __future__ import annotations
 from config import get_settings
-import logging
-import time
-from clients import get_anthropic
-from agent.state import AgentState, NodeProposal
 
-logger = logging.getLogger(__name__)
+from agent.state import AgentState
+from agent.nodes._llm import run_proposal_node
 
 MODEL = get_settings().anthropic_model_smart
 MAX_TOKENS = 512
@@ -49,7 +46,6 @@ _TOOL = {
 
 
 async def career_node(state: AgentState) -> dict:
-    client = get_anthropic()
     ip = state.get("income_position", {})
     snapshot = state.get("vault_snapshot", {})
 
@@ -59,31 +55,11 @@ async def career_node(state: AgentState) -> dict:
         f"Career data from vault: {snapshot.get('career', {})}\n"
         f"User question: {state['user_message']}"
     )
-
-    t0 = time.monotonic()
-    response = await client.messages.create(
+    return await run_proposal_node(
+        node="career",
         model=MODEL,
         max_tokens=MAX_TOKENS,
-        system=[{"type": "text", "text": _SYSTEM, "cache_control": {"type": "ephemeral"}}],
-        messages=[{"role": "user", "content": context}],
-        tools=[_TOOL],
-        tool_choice={"type": "tool", "name": "propose_career_move"},
+        system=_SYSTEM,
+        tool=_TOOL,
+        context=context,
     )
-    latency_ms = int((time.monotonic() - t0) * 1000)
-    tool_block = next(b for b in response.content if b.type == "tool_use")
-    r = tool_block.input
-
-    proposal = NodeProposal(
-        node="career",
-        move=r["move"],
-        principle=r["principle"],
-        leverage_score=max(0.0, min(1.0, float(r["leverage_score"]))),
-        rationale=r["rationale"],
-        requires_disclaimer=bool(r["requires_disclaimer"]),
-    )
-    logger.info(
-        "career: principle=%s score=%.2f tokens_in=%d tokens_out=%d latency_ms=%d",
-        r["principle"], r["leverage_score"],
-        response.usage.input_tokens, response.usage.output_tokens, latency_ms,
-    )
-    return {"proposals": [proposal]}

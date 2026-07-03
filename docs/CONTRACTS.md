@@ -22,6 +22,10 @@ The single LangGraph state object. Every node reads and writes **only** the keys
 it in §2. `proposals` uses a **replace-by-`node` reducer** (`merge_proposals`) so parallel
 specialists accumulate one entry per node while the Coach replaces (rather than duplicates)
 by node. *(Amended 2026-07-02, Phase 6 — was `operator.add`; see `docs/DECISIONS.md`.)*
+`tokens_in`/`tokens_out` use an **additive reducer** (`operator.add`) so every LLM node's
+usage (Analyzer + fanned-out specialists + Coach + Synthesizer) sums into the total that
+`persist_node` records — parallel specialists can't collide on a plain int.
+*(Amended 2026-07-03, showcase pass — were plain `int`, only the Synthesizer wrote them; see `docs/DECISIONS.md`.)*
 
 ```python
 import operator
@@ -90,8 +94,9 @@ class AgentState(TypedDict):
     vision_stamp: str                # one clause: how this advances the 10-yr net-worth vision
 
     # --- token accounting (logged after every Anthropic call per CLAUDE.md) ---
-    tokens_in: int
-    tokens_out: int
+    # additive reducers: every LLM node contributes; persist_node records the sum
+    tokens_in: Annotated[int, operator.add]
+    tokens_out: Annotated[int, operator.add]
 ```
 
 **Graph topology** (matches `docs/SOT.md` Agent Architecture):

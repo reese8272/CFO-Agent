@@ -17,7 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import TypedDict
 
-from vault._money import to_monthly as _to_monthly
+from agent.principles import (
+    ROTH_IRA_LIMIT_2026,
+    HSA_LIMIT_SINGLE_2026,
+    K401_EMPLOYEE_LIMIT_2026,
+    HIGH_INTEREST_APR_THRESHOLD,
+)
+from vault._money import sum_monthly_expenses
 
 
 class AllocationGap(TypedDict):
@@ -38,12 +44,13 @@ class WealthLadder(TypedDict):
     timestamp: str
 
 
-# 2026 IRS limits
-_IRA_ANNUAL = Decimal("7000")
-_HSA_ANNUAL_SINGLE = Decimal("4300")
-_401K_ANNUAL = Decimal("23500")
-_MONTHS_EMERGENCY = Decimal("3")   # conservative floor
-_HIGH_INTEREST_THRESHOLD = Decimal("7")  # APR %
+# Year-versioned tax constants come from agent/principles.py (single source of
+# truth, stamped with the tax year); wrapped as Decimal for money math here.
+_IRA_ANNUAL = Decimal(str(ROTH_IRA_LIMIT_2026))
+_HSA_ANNUAL_SINGLE = Decimal(str(HSA_LIMIT_SINGLE_2026))
+_401K_ANNUAL = Decimal(str(K401_EMPLOYEE_LIMIT_2026))
+_HIGH_INTEREST_THRESHOLD = Decimal(str(HIGH_INTEREST_APR_THRESHOLD))
+_MONTHS_EMERGENCY = Decimal("3")   # conservative policy floor (not a tax constant)
 
 
 async def compute_wealth_position(session: AsyncSession, user_id: str) -> WealthLadder:
@@ -202,22 +209,8 @@ async def _build_allocation_ladder(
 
 
 async def _estimate_monthly_expenses(session: AsyncSession) -> Decimal:
-    """Estimate total monthly expenses from the Expense table."""
-    from vault.models import Expense
-
-    result = await session.execute(select(Expense))
-    rows = result.scalars().all()
-    if not rows:
-        return Decimal("3000")  # fallback
-
-    monthly = Decimal("0")
-    for row in rows:
-        amt = getattr(row, "typical_amount", None)
-        cadence = getattr(row, "cadence", "monthly") or "monthly"
-        if amt is not None:
-            monthly += _to_monthly(Decimal(str(amt)), cadence)
-
-    return monthly if monthly > Decimal("0") else Decimal("3000")
+    """Estimate total monthly expenses (delegates to the shared canonical helper)."""
+    return await sum_monthly_expenses(session)
 
 
 async def _sum_cash(session: AsyncSession) -> Decimal:

@@ -60,30 +60,52 @@ async def import_transactions(
     )
     session.add(batch)
     await session.flush()
-    await write_audit_log(session, _user.username, "create", "import_batch", batch.id, None, {"filename": fname, "format": file_format})
 
-    inserted = 0
+    # Pre-load existing hashes for this account in ONE query, then filter in
+    # memory. The previous per-row (SELECT dup + flush + audit INSERT) loop was
+    # thousands of DB round-trips for a large statement — a self-inflicted DoS on
+    # the DB (assessment 2026-07-03).
+    existing_hashes = set(
+        (
+            await session.execute(
+                select(Transaction.import_hash).where(Transaction.account_id == account_id)
+            )
+        ).scalars().all()
+    )
+
+    new_txns: list[Transaction] = []
+    seen_hashes: set[str] = set()
     for row in rows:
         h = compute_hash(account_id, row.occurred_at, row.amount, row.description)
-        dup = await session.execute(select(Transaction).where(Transaction.import_hash == h))
-        if dup.scalar_one_or_none():
-            continue
-        cat = _apply_mappings_raw(row.description, mappings)
-        txn = Transaction(
-            account_id=account_id,
-            occurred_at=row.occurred_at,
-            amount=row.amount,
-            description=row.description,
-            category=cat,
-            import_hash=h,
-            import_batch_id=batch.id,
+        if h in existing_hashes or h in seen_hashes:
+            continue  # already imported, or duplicated within this same file
+        seen_hashes.add(h)
+        new_txns.append(
+            Transaction(
+                account_id=account_id,
+                occurred_at=row.occurred_at,
+                amount=row.amount,
+                description=row.description,
+                category=_apply_mappings_raw(row.description, mappings),
+                import_hash=h,
+                import_batch_id=batch.id,
+            )
         )
-        session.add(txn)
-        await session.flush()
-        await write_audit_log(session, _user.username, "create", "transaction", txn.id, None, {"import_batch_id": batch.id})
-        inserted += 1
 
+    session.add_all(new_txns)
+    inserted = len(new_txns)
     batch.row_count = inserted
+
+    # One summary audit row for the whole batch (was one INSERT per transaction).
+    await write_audit_log(
+        session,
+        _user.username,
+        "create",
+        "import_batch",
+        batch.id,
+        None,
+        {"filename": fname, "format": file_format, "rows_parsed": len(rows), "rows_inserted": inserted},
+    )
     await session.commit()
     await session.refresh(batch)
     return batch

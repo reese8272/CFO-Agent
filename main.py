@@ -20,6 +20,7 @@ import clients
 import db
 from config import get_settings
 from disclaimer import get_disclaimer
+from observability import RequestIdLogFilter, new_request_id, request_id_var
 from rate_limit import limiter
 from routers import vault as vault_router
 from routers.holdings import router as holdings_router, side_event_router
@@ -36,10 +37,15 @@ logger = logging.getLogger(__name__)
 
 
 def _configure_logging() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    """Structured logging with a per-request correlation id on every line."""
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s [%(request_id)s] %(name)s %(message)s")
     )
+    handler.addFilter(RequestIdLogFilter())
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.handlers = [handler]
 
 
 @asynccontextmanager
@@ -78,6 +84,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.state.limiter = limiter
+
+
+@app.middleware("http")
+async def request_id(request: Request, call_next: RequestResponseEndpoint) -> Response:
+    """Assign/propagate a correlation id per request; echo it in X-Request-ID.
+
+    Accepts an inbound X-Request-ID (e.g. from an upstream proxy) or mints one,
+    binds it to the logging ContextVar for the duration, and returns it so a
+    client/operator can correlate a response with its server-side log lines.
+    """
+    rid = request.headers.get("x-request-id") or new_request_id()
+    token = request_id_var.set(rid)
+    try:
+        response = await call_next(request)
+    finally:
+        request_id_var.reset(token)
+    response.headers["X-Request-ID"] = rid
+    return response
 
 
 @app.middleware("http")

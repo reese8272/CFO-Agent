@@ -3,6 +3,7 @@
 Do not edit without amending CONTRACTS.md and docs/DECISIONS.md first.
 """
 from __future__ import annotations
+import operator
 from typing import Annotated, Literal, NotRequired, TypedDict
 
 AllocationStep = Literal[1, 2, 3, 4, 5, 6]
@@ -87,6 +88,8 @@ class AgentState(TypedDict):
     is_decision: bool
     decision_summary: str | None
 
-    # token accounting
-    tokens_in: int
-    tokens_out: int
+    # token accounting — summed across every LLM node in the turn (Analyzer +
+    # fanned-out specialists + Coach + Synthesizer), via an additive reducer so
+    # parallel specialists don't collide and persist_node records the true total.
+    tokens_in: Annotated[int, operator.add]
+    tokens_out: Annotated[int, operator.add]

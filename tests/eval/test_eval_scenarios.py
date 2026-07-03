@@ -106,7 +106,7 @@ async def test_tax_optimizer_always_sets_requires_disclaimer(monkeypatch):
     fake_client.messages = MagicMock()
     fake_client.messages.create = AsyncMock(return_value=fake_response)
 
-    monkeypatch.setattr("agent.nodes.tax_optimizer.get_anthropic", lambda: fake_client)
+    monkeypatch.setattr("agent.nodes._llm.get_anthropic", lambda: fake_client)
 
     state = _base_state(
         vault_snapshot={"income_streams": []},

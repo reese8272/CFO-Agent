@@ -24,6 +24,7 @@ from agent.principles import (
     HIGH_INTEREST_APR_THRESHOLD, TAX_YEAR,
     MILEAGE_RATE_2026,
 )
+from vault._money import sum_monthly_expenses
 from vault._money import to_monthly as _to_monthly
 from vault.wealth_position import compute_wealth_position
 from vault.income_position import compute_income_position
@@ -66,7 +67,7 @@ async def compute_and_store_snapshot(session: AsyncSession, user_id: str) -> Fin
 
 async def _compute_snapshot_data(session: AsyncSession, user_id: str) -> dict:
     from vault.models import (
-        Account, Debt, Expense, IncomeStream, RetirementAccount,
+        Account, Debt, IncomeStream, RetirementAccount,
         SideIncomeEconomics, TaxDeduction1099, CareerPosition, CompBenchmark,
         Goal, UserProfile,
     )
@@ -85,13 +86,9 @@ async def _compute_snapshot_data(session: AsyncSession, user_id: str) -> dict:
     allocation_step = open_wealth[0]["step"] if open_wealth else 6
     income_step = open_income[0]["step"] if open_income else 5
 
-    # --- monthly expenses ---
-    exp_rows = (await session.execute(select(Expense))).scalars().all()
-    total_monthly_expenses = _ZERO
-    for e in exp_rows:
-        amt = _d(getattr(e, "typical_amount", None))
-        if amt:
-            total_monthly_expenses += _to_monthly(amt, getattr(e, "cadence", "monthly"))
+    # --- monthly expenses (shared canonical helper: same floor the ladders use,
+    # so the snapshot can't report savings_rate=100% while the ladder shows a gap) ---
+    total_monthly_expenses = await sum_monthly_expenses(session)
 
     # --- savings rate ---
     savings_rate_pct: Decimal | None = None
@@ -164,7 +161,7 @@ async def _compute_snapshot_data(session: AsyncSession, user_id: str) -> dict:
             "source": s.source,
             "source_type": s.source_type,
             "cadence": s.cadence,
-            "monthly_gross": float(_round2(monthly)),
+            "monthly_gross": _round2(monthly),
         })
 
     # --- side income net hourly ---
@@ -173,16 +170,16 @@ async def _compute_snapshot_data(session: AsyncSession, user_id: str) -> dict:
     for sie in sie_rows:
         nh = _d(getattr(sie, "net_hourly", None))
         if nh:
-            net_hourlies.append(float(_round2(nh)))
+            net_hourlies.append(_round2(nh))
 
     # --- debt detail ---
     debt_detail = []
     for d in debt_rows:
         debt_detail.append({
             "name": d.name,
-            "balance": float(_round2(_d(getattr(d, "balance", None)))),
-            "apr": float(_round2(_d(getattr(d, "apr", None)))),
-            "minimum_payment": float(_round2(_d(getattr(d, "minimum_payment", None)))),
+            "balance": _round2(_d(getattr(d, "balance", None))),
+            "apr": _round2(_d(getattr(d, "apr", None))),
+            "minimum_payment": _round2(_d(getattr(d, "minimum_payment", None))),
             "strategy": getattr(d, "strategy", "avalanche"),
         })
     # Sort by APR descending (avalanche order)
@@ -193,7 +190,7 @@ async def _compute_snapshot_data(session: AsyncSession, user_id: str) -> dict:
     tax_rows = (await session.execute(
         select(TaxDeduction1099).where(TaxDeduction1099.tax_year == current_year)
     )).scalars().all()
-    deduction_categories = {r.category: float(_round2(_d(getattr(r, "amount", None)))) for r in tax_rows}
+    deduction_categories = {r.category: _round2(_d(getattr(r, "amount", None))) for r in tax_rows}
 
     # --- goals progress ---
     goal_rows = (await session.execute(select(Goal).where(Goal.status == "active"))).scalars().all()
@@ -201,13 +198,13 @@ async def _compute_snapshot_data(session: AsyncSession, user_id: str) -> dict:
     for g in goal_rows:
         target = _d(getattr(g, "target_amount", None))
         current_g = _d(getattr(g, "current_amount", None)) or _ZERO
-        pct_done = float(_pct(current_g, target)) if target and target > _ZERO else 0.0
+        pct_done = _pct(current_g, target) if target and target > _ZERO else _ZERO
         goals_progress.append({
             "title": g.title,
             "kind": g.kind,
-            "target": float(_round2(target)) if target else None,
-            "current": float(_round2(current_g)),
-            "pct": round(pct_done, 1),
+            "target": _round2(target) if target else None,
+            "current": _round2(current_g),
+            "pct": _round1(pct_done),
             "deadline": g.deadline.isoformat() if g.deadline else None,
         })
 
@@ -329,5 +326,9 @@ def _pct(numerator: Decimal, denominator: Decimal) -> Decimal:
 
 def _round2(val: Decimal) -> Decimal:
     return val.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _round1(val: Decimal) -> Decimal:
+    return val.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
 
 
