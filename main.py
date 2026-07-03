@@ -20,7 +20,12 @@ import clients
 import db
 from config import get_settings
 from disclaimer import get_disclaimer
-from observability import RequestIdLogFilter, new_request_id, request_id_var
+from observability import (
+    RequestIdLogFilter,
+    init_error_tracking,
+    new_request_id,
+    request_id_var,
+)
 from rate_limit import limiter
 from routers import vault as vault_router
 from routers.holdings import router as holdings_router, side_event_router
@@ -51,6 +56,7 @@ def _configure_logging() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _configure_logging()
+    init_error_tracking()
     settings = get_settings()
     logger.info("starting personal-cfo (env=%s)", settings.env)
     db.get_engine()
