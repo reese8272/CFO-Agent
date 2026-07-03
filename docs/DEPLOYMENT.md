@@ -253,13 +253,18 @@ still fails and the site can 502 for a minute.
 
 - **Immediate recovery:** re-run the failed deploy — `gh run rerun <run-id> --failed` (lighter
   recreate, no second rollover). `/health` returns to ok.
-- **Prevention (do once, on the VM):** add swap so the OOM has headroom —
+- **Prevention — now AUTOMATED in the deploy.** `deploy.yml` runs an idempotent **`[0/6] Ensuring
+  swap`** step before the container rollover: if `/swapfile` isn't active it creates a 2G swapfile and
+  persists it in `/etc/fstab` (non-fatal if it can't). So every deploy self-heals swap on the host —
+  no manual step. To apply it out-of-band you can still run the block by hand on the VM:
   ```bash
   sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
   sudo mkswap /swapfile && sudo swapon /swapfile
   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # persist across reboot
   free -h                                                       # confirm Swap: 2.0Gi
   ```
+  Note: the swap must be on the **Oracle VM `129.80.102.20`** (the CFO host), NOT the unrelated
+  `creatorclip-vm` DigitalOcean box — see ISSUE-2026-07-03-01.
 - **Done (Phase 5b, PR #38):** `migrations/env.py` imports the model modules only for
   `--autogenerate`, so the deploy-time `alembic upgrade` no longer pulls the FastAPI/agent import
   graph via `import auth`. Reduces (does not eliminate) the rollover RAM spike — apply the swap above

@@ -121,6 +121,26 @@ jobs:
               DOCKER="sudo docker"
             fi
 
+            # [0/6] Ensure swap BEFORE the container rollover. The small VM OOM-thrashes
+            # when old+new app containers (heavy import graph) briefly coexist, which has
+            # unregistered the Cloudflare tunnel and taken the site down (ISSUE-2026-07-03-01)
+            # and 502'd deploys (ISSUE-2026-07-02-02). Idempotent + non-fatal so it self-heals
+            # on every deploy / host rebuild without ever blocking a rollout.
+            echo "=== [0/6] Ensuring swap ==="
+            (
+              set +e
+              if ! sudo swapon --show=NAME --noheadings 2>/dev/null | grep -q '/swapfile'; then
+                echo "  no swap present — creating 2G /swapfile"
+                sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile \
+                  && sudo mkswap /swapfile >/dev/null && sudo swapon /swapfile
+                grep -q '^/swapfile' /etc/fstab 2>/dev/null \
+                  || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+              else
+                echo "  swap already present"
+              fi
+              sudo swapon --show
+            ) || echo "  [0/6] swap setup skipped/failed (non-fatal) — continuing deploy"
+
             echo "=== [1/6] Syncing repo ==="
             REPO_URL="https://x-access-token:${SECRET_GH_PAT}@github.com/reese8272/CFO-Agent.git"
             # Ensure DEPLOY_PATH exists and is writable by us; escalate with sudo
