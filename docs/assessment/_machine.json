@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-03T00:24:49.187043+00:00",
+  "generated": "2026-07-03T15:23:50.265972+00:00",
   "repo_root": "/home/reese/workspace/CFO-analyzer",
   "sources": [
     "agent",
@@ -37,15 +37,17 @@
     },
     "mypy": {
       "status": "ok",
-      "value": 152,
+      "value": 155,
       "metric": "mypy_errors",
       "compare": "max",
-      "gate_status": "ok"
+      "gate_status": "fail"
     },
     "coverage": {
-      "status": "skipped",
-      "detail": "no coverage.xml; tail: ",
-      "gate_status": "skipped"
+      "status": "ok",
+      "value": 67.65,
+      "metric": "coverage_line_rate",
+      "compare": "min",
+      "gate_status": "ok"
     },
     "bandit": {
       "status": "ok",

@@ -1,64 +1,101 @@
-# worker + scenarios + memory — re-assessed 2026-07-02 (post-remediation)
+# worker_scenarios_memory — assessed 2026-07-03
 
-Re-verification of the original 2026-07-02 findings against current code on branch
-`hardening/phase-7-finish-line`. Each finding is marked **FIXED / OPEN / DEFERRED** with
-file:line evidence.
+## Findings
 
-Legend: DEFERRED = intentionally out of scope for Road A (single-container / single-user),
-documented in the Road-B backlog — not a live bug.
+- [SEV2] worker/cron.py:41-43 & digest.py:137 — the weekly-digest job is **not
+  idempotent**: nothing records "digest already sent for ISO-week N". A single
+  in-process `AsyncIOScheduler` fires the cron once (memory jobstore, no
+  at-least-once redelivery), and `coalesce=True` + `misfire_grace_time=3600`
+  correctly collapse a restart-near-07:00 backlog into one run — so the
+  in-process risk is genuinely low. But `POST /digest/run-now` (routers/digest.py)
+  shares the same `generate_and_send_digest()` with **no guard**, so a manual
+  run plus the cron (or a second app replica running its own scheduler) sends two
+  emails. Blast radius is a duplicate email only — no data mutation, no
+  corruption. | fix: gate `generate_and_send_digest()` on a small sent-log row
+  keyed on `year-week` (INSERT … ON CONFLICT DO NOTHING; skip send if the row
+  already exists), or accept it explicitly with a DECISIONS.md note that the
+  single-container Road-A deployment makes dedup unnecessary.
 
----
+- [SEV2] worker/cron.py:41-47, 87-92 — the module-level `_http` httpx.AsyncClient
+  created lazily in `_ping_healthcheck` is **never closed**. `stop_scheduler()`
+  shuts the scheduler and nulls `_scheduler` but leaves `_http` open, leaking the
+  client's connection pool on every app shutdown / test lifespan cycle. | fix: in
+  `stop_scheduler()` add `global _http; if _http: await _http.aclose(); _http =
+  None` (make `stop_scheduler` async, or schedule the close on the loop),
+  mirroring the singleton cleanup done for the engine elsewhere.
 
-## worker (`worker/cron.py`)
+- [cleanup] worker/cron.py:90 — `_scheduler.shutdown(wait=False)` does not wait
+  for an in-flight digest job, so a deploy at ~07:00 could interrupt a running
+  email send mid-flight. Likely intentional (a 300 s digest shouldn't hang
+  shutdown), but the trade-off is undocumented. | fix: keep `wait=False` and add
+  a one-line comment stating the deliberate choice, or pass a short bounded wait.
 
-| # | Sev | Finding | Status | Evidence |
-|---|-----|---------|--------|----------|
-| 1 | SEV1 | Weekly digest has no idempotency guard / leader election → double-send under multi-replica | **DEFERRED (documented)** | Single in-process `AsyncIOScheduler` with one job, no distributed lock: `cron.py:53-66`. Road A is explicitly single-container/single-replica; deferral documented at `docs/PRODUCTION_ROADMAP.md:160`, `docs/DECISIONS.md:85`, `docs/assessment/modules/worker.md:11-12`, `docs/assessment/REPORT.md:63,92`. Confirmed a deliberate Road-B deferral, not a live bug on the documented deploy. |
-| — | SEV2 | `misfire_grace_time` + `coalesce` added to digest job | **FIXED** | `misfire_grace_time=3600` at `cron.py:64`; `coalesce=True` at `cron.py:65`. Matches expected. |
-| — | SEV2 | Digest wrapped in `asyncio.wait_for` timeout | **FIXED** | `_DIGEST_TIMEOUT_SECONDS = 300` at `cron.py:20`; `await asyncio.wait_for(generate_and_send_digest(), timeout=_DIGEST_TIMEOUT_SECONDS)` at `cron.py:27`, with `TimeoutError` logged at `cron.py:28-29`. Matches expected (300s). |
-| — | cleanup | `httpx` client hoisted to module singleton | **FIXED** | Module-level `_http: httpx.AsyncClient | None = None` at `cron.py:18`; lazily created once and reused across pings at `cron.py:41-45`. Matches expected. |
+- [cleanup] memory/retrieval.py:37-42 — `_WealthPositionContract` and
+  `_IncomePositionContract` are empty placeholder classes that are never
+  referenced; dead code that reads as unfinished scaffolding. | fix: delete both,
+  or replace with real `TypedDict`s if the structural contract is wanted.
 
-**worker verdict:** All remediation items FIXED. The one remaining SEV1 (idempotency/leader
-election) is a correctly-documented Road-B/multi-replica deferral — production-ready for the
-single-container Road-A deploy.
+- [cleanup] memory/retrieval.py:53,59 — `full_wealth`/`full_income` are annotated
+  `VaultWealthPosition`/`VaultIncomePosition` but the `except` branches assign
+  plain dicts (`_EMPTY_WEALTH`/`_EMPTY_INCOME`), a silent annotation mismatch a
+  type checker on the vault TypedDicts would flag. | fix: type the empties as the
+  same TypedDict (or annotate the vars `dict`) so the fallback path type-checks.
 
----
+- [cleanup] memory/retrieval.py:137 — `"memory_summary": None, # populated by
+  Issue 9` is an inline forward-reference/TODO for an unshipped feature. | fix:
+  fine to keep as a documented placeholder, but drop the issue-number comment
+  (stale once Issue 9 lands) or track it in issues.md instead of source.
 
-## scenarios (`scenarios/models.py`, `scenarios/engine.py`)
+- [cleanup] db/indexes — the retrieval "active decisions" query
+  (memory/retrieval.py:71-76) filters `status == 'active'` ordered by
+  `decided_at DESC LIMIT 10` but there is **no index** on `decisions(status,
+  decided_at)` (patterns.detected_at and messages.conversation_id are both
+  indexed). Negligible at single-user Road-A volume, but a composite index is the
+  senior-polish move for the showcase. | fix: add
+  `ix_decisions_status_decided_at` on `("status", "decided_at")` in a migration.
 
-| # | Sev | Finding | Status | Evidence |
-|---|-----|---------|--------|----------|
-| 2 | SEV2 | Money fields accept negatives (no validation) | **FIXED** | `@field_validator("current_amount", "monthly_contribution", "current_monthly_income")` rejects `v < 0` with `ValueError("must be non-negative")` at `models.py:34-42`; `@field_validator("target_amount")` rejects `v <= 0` at `models.py:44-49`. `delta_monthly` intentionally excluded (a cut is a valid negative — comment at `models.py:39`). `annual_return_pct` bounded 0–50 at `models.py:27-32`. Engine also defends target at `engine.py:30-31`. Matches expected exactly. |
+- [cleanup] scenarios/engine.py:24-87 — `_time_to_target` (~64 lines) mixes the
+  computation, three branches of user-facing message formatting, and the
+  reasoning-trace string build in one function. Readable but does more than one
+  thing. | fix: extract the message/reasoning formatting into a small
+  `_format_time_to_target_result()` helper; keep `_time_to_target` to
+  dispatch + assemble the ScenarioOutput.
 
-**scenarios verdict:** FIXED — negative/invalid money inputs now fail at the Pydantic boundary
-(422) rather than producing nonsensical projections. Production-ready.
+## Positives (portfolio polish — no action)
+- scenarios/models.py:34-49 — `field_validator` correctly rejects negative money
+  (`current_amount`, `monthly_contribution`, `current_monthly_income`) → 422, and
+  deliberately allows negative `delta_monthly` (an income cut), with a comment
+  explaining why. Matches the roadmap requirement exactly.
+- scenarios/engine.py — projection loop is hard-bounded by `_MAX_MONTHS = 600`
+  (section 2 bounded-work: clean). Decimal money math is correct end-to-end:
+  `annual_pct / 100 / 12` and `balance * (1 + r) + contribution` stay Decimal
+  (int divisors/operands don't coerce to float); floats appear only in cosmetic
+  reasoning strings.
+- memory/models.py — every sensitive column is encrypted
+  (`summary_encrypted`, `content_encrypted`, `EncryptedJSON` vault-refs);
+  plaintext columns (`role`, `kind`, `severity`, `cited_principle`) carry no PII.
+- memory/retrieval.py — fixed set of bounded queries (each `.limit()`ed), no N+1;
+  loggers emit only exception messages, never account figures; dollar aggregates
+  rounded to nearest $100 (ROUND_CEILING) before entering the LLM prompt.
+- digest.py:140,145 — DB session via `async with` context manager (guaranteed
+  close); blocking `smtplib` send correctly offloaded via `asyncio.to_thread`,
+  and the whole job is wrapped in `asyncio.wait_for(...300s)` so a hung SMTP/LLM
+  call can't wedge the scheduler.
 
----
+## Rubric coverage
+| Category | Status |
+|---|---|
+| 1 Resource lifecycle | 1 finding (_http never closed); DB sessions & digest timeout clean |
+| 2 Concurrency & scale | ok — bounded loops, indexed access paths, no N+1, blocking SMTP offloaded |
+| 3 Security & compliance | ok — sensitive memory columns encrypted, no PII/token in logs; single-user Road A |
+| 4 Domain correctness | ok — negative-money 422 validator + Decimal money math correct; disclaimer flagged when return>0 |
+| 5 LLM SDK | n/a (retrieval builds the prompt block but issues no LLM call in this slice) |
+| 6 Cleanliness & typing | 4 cleanups (dead classes, annotation mismatch, stale TODO, long fn) |
+| 7 Error handling / API | n/a (router surface owned by another module) |
+| 8 Config & paths | ok — healthcheck_ping_url & digest_recipient documented in .env.example, typed settings |
 
-## memory (`memory/models.py`, `memory/retrieval.py`)
-
-| # | Sev | Finding | Status | Evidence |
-|---|-----|---------|--------|----------|
-| 3 | SEV2 | `Message.conversation_id` unindexed | **FIXED** | `op.create_index("ix_messages_conversation_id", "messages", ["conversation_id"])` at `migrations/versions/d4e7f2a1b9c3_...py:60` (down-rev drop at :92). Column defined `memory/models.py:32`. |
-| 3 | SEV2 | `Pattern.detected_at` unindexed | **FIXED** | `("ix_patterns_detected_at", "patterns", ["detected_at"])` at `migrations/versions/a7e3f9c21b84_add_missing_fk_sort_indexes.py:26`. Sort query at `retrieval.py:91-96`. |
-| 3 | SEV2 | `FinancialSnapshot.computed_at` unindexed | **FIXED** | `("ix_financial_snapshots_computed_at", "financial_snapshots", ["computed_at"])` at `migrations/versions/a7e3f9c21b84_...py:27`. Sort query at `retrieval.py:109-112`. |
-| 4 | SEV1 | No `user_id` on memory tables (cross-tenant leak at 2nd user) | **DEFERRED (documented)** | `memory/models.py` has no `user_id` column on any of `Conversation`/`Message`/`Decision`/`Pattern`; `build_retrieval_context(session, user_id)` accepts but does not filter by `user_id` (`retrieval.py:45`, queries at `:71-76,:91-96,:109-112` unscoped). Documented single-user deferral: `docs/assessment/REPORT.md:64`, `docs/assessment/modules/memory.md:8`, `docs/assessment/modules/routers.md:19`, `docs/DECISIONS.md:85,97`. Confirmed deferral, not a live bug for single-user v1. |
-| 5 | cleanup | Unused `import math` in retrieval.py | **FIXED** | No `import math` remains; imports are `json`, `datetime…`, `Decimal, ROUND_CEILING`, `select`, `AsyncSession`, `logging` (`retrieval.py:8-15`). `ruff check` passes clean on all four files. |
-| 5 | cleanup | Dead empty classes in retrieval.py | **OPEN (minor)** | `_WealthPositionContract` (`retrieval.py:37-38`) and `_IncomePositionContract` (`retrieval.py:41-42`) are still present — docstring-only classes with no attributes, referenced nowhere (grep: definitions only). Ruff does not flag them (they carry docstrings), so ruff=0 does not cover this. Cosmetic; the bridge logic uses plain dicts (`retrieval.py:185-237`), so the "contract" classes serve only as documentation stubs. |
-
-**memory verdict:** All three index findings FIXED; `user_id` is a correctly-documented Road-B
-deferral. One residual cosmetic OPEN item (two dead docstring-only classes). Production-ready
-for single-user scope.
-
----
-
-## Combined module verdict
-
-**READY (Road A, single-container / single-user).** Every actionable SEV2 remediation across
-worker, scenarios, and memory is FIXED with matching evidence, and both SEV1 items
-(digest idempotency/leader-election, memory `user_id`) are confirmed deliberate,
-documented Road-B deferrals rather than live bugs. The only residual is one cosmetic OPEN
-cleanup item (two dead docstring-only classes in `retrieval.py:37,41`) that does not affect
-correctness, security, or behavior.
-
-**Counts (9 tracked items):** FIXED 6 · OPEN 1 · DEFERRED 2.
+## Module verdict
+NEEDS-WORK — no blockers; two SEV2s worth closing (digest dedup guard + closing
+the leaked httpx client on shutdown) plus small cleanups, on an otherwise
+senior-quality slice (bounded math, correct Decimal handling, encrypted memory,
+good index coverage).

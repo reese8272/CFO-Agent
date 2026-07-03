@@ -1,33 +1,64 @@
-# routers — re-assessed 2026-07-02 (post-remediation)
+# routers — assessed 2026-07-03
 
-Branch: `hardening/phase-7-finish-line`. Each original 2026-07-02 finding re-verified against
-current source. Evidence is `file:line`. See git history for the pre-remediation version of
-this file.
+Slice: `routers/{vault,holdings,imports,chat,wealth,memory,scenarios,digest,intake}.py` (+ `__init__.py`).
+Single-user "Road A"; multi-tenant explicitly deferred (CLAUDE.md), so absence of `WHERE user_id=` on list/CRUD queries is a *recorded design assumption*, not a leak — noted, not flagged as BLOCKER.
 
-## Verified findings
+## Findings
 
-| # | Sev | Finding | Status | Evidence |
-|---|-----|---------|--------|----------|
-| 1 | SEV1 | `/chat`, `/intake/interview`, `/intake/extract`, `/digest/run-now` had NO `@limiter.limit` | **FIXED** | `chat.py:33` `@limiter.limit("10/minute")` + `chat.py:34` `request: Request`; `intake.py:677` `@limiter.limit("20/minute")` + `intake.py:679` `request: Request`; `intake.py:721` `@limiter.limit("6/minute")` + `intake.py:723` `request: Request`; `digest.py:23` `@limiter.limit("3/hour")` + `digest.py:24` `request: Request` |
-| 2 | SEV1 | `holdings.py` refresh called blocking `fetch_price` on the event loop | **FIXED** | Imports `fetch_price_async` (`asyncio.to_thread` wrapper) at `holdings.py:18`; awaited in batch loop `holdings.py:92` and single refresh `holdings.py:115`. No blocking `fetch_price` remains |
-| 3 | SEV1 | `intake.py` direct Anthropic calls: no token logging, no prompt caching | **FIXED** | interview: `cache_control ephemeral` on system `intake.py:701`, usage logged (in/out/cache_read) `intake.py:711-716`; extract: `cache_control` on system `intake.py:741` and tool `intake.py:744`, usage logged `intake.py:747-752` |
-| 4 | SEV2 | `intake.py` hardcoded model id | **FIXED** | `intake.py:696` and `intake.py:736` both use `get_settings().anthropic_model_smart`; no literal model string present |
-| 5 | SEV2 | `imports.py` unbounded upload parse, unhandled 500 | **FIXED** | `MAX_UPLOAD_BYTES` `imports.py:20`; 413 on `file.size` pre-check and post-read `len(content)` `imports.py:31-35`; parse via `asyncio.to_thread` `imports.py:41,44`; parse failure → 422 `imports.py:46-50` |
-| 6 | SEV2 | `digest.py` leaked raw exception in 502 detail | **FIXED** | Generic `detail="Digest send failed"` `digest.py:33`; raw `exc` only logged server-side `digest.py:32` |
-| 7 | SEV2 | 17 vault `GET` list endpoints unbounded (no limit cap) — deferred to Phase 4b | **DEFERRED (still open)** | All list handlers call `crud.list_*(session)` with no limit/offset: `vault.py:110,169,226,283,338,394,450,553,610,667,724,781,838,896,953,1009,1066`. Also `holdings.py:47,141`, `intake.py:447` (`/archive`), `wealth.py:52`. Pagination not yet added — matches Phase 4b deferral |
-| 8 | SEV2 | `wealth.py`/`intake` bare-dict responses (no `response_model`) — deferred to Phase 5b | **DEFERRED (still open)** | `wealth.py:27,35,41,47` all `-> dict`, no `response_model`; `intake.py:168` (`/status`) and `intake.py:720` (`/extract` uses loose `response_model=dict`). Unchanged — matches Phase 5b deferral |
-| 9 | SEV1 | per-tenant scoping — documented single-user deferral (Road B) | **DEFERRED (documented)** | Queries unscoped by user, e.g. `intake.py:173,202,421` (`select(UserProfile)` / `select(FinancialSnapshot)` with no user predicate), `vault.py` `crud.list_*` calls, `memory.py:61,68,78,98`. Correct for documented single-user v1; pre-GA blocker per Road B |
+- [SEV2] routers/imports.py:66-84 — per-row N+1 in the import loop: one `SELECT ... WHERE import_hash = h`
+  plus a `flush()` and a `write_audit_log` INSERT for **every** row. A 10 MB statement is thousands of
+  round-trips inside one request → slow, lock-heavy, and effectively a self-inflicted DoS on the DB even
+  single-user | fix: pre-load existing hashes for the account in one query
+  (`SELECT import_hash FROM transactions WHERE account_id = :id`) into a set, filter in memory,
+  `session.add_all(new_txns)`, and write a single summary audit row per batch instead of one per txn.
+
+- [SEV2] routers/imports.py:23-30 — `account_id` arrives as an unvalidated query param; a non-existent id is
+  never checked, so `ImportBatch(account_id=...)` fails only at COMMIT with a DB `IntegrityError` → unhandled
+  500 (generic, but a 500 for a client-input error is wrong) | fix:
+  `if not await crud.get_account(session, account_id): raise HTTPException(404, "account not found")`
+  before parsing, returning 404/422 for bad input.
+
+- [SEV2] routers/holdings.py:93-112 (+ vault/crud.py:873) — `list_distinct_tickers` is misnamed: it returns
+  **every** holdings row, so batch refresh fetches the same ticker's price N times (redundant external
+  yfinance calls) and reports duplicate tickers in the `updated` list; `total` counts rows, not tickers |
+  fix: `select(distinct(Holdings.ticker))`, fetch each price once, then update all rows for that ticker;
+  rename accordingly.
+
+- [SEV2] routers/vault.py:486 (`refresh-values`) & routers/holdings.py:86 (`refresh-prices`) — the two
+  endpoints that fan out to paid/external APIs (RentCast, yfinance) carry **no** `@limiter.limit`, while the
+  cheaper LLM endpoints (chat 10/min, extract 6/min) do. A tight client loop burns RentCast quota / rate-caps
+  yfinance | fix: add `@limiter.limit("6/hour")` (add `request: Request` param) to both refresh endpoints.
+
+- [cleanup] routers/vault.py:48, holdings.py:32, wealth.py:26, chat.py:15, digest.py:14, memory.py:17,
+  scenarios.py:12, imports.py:18 — `CurrentUser = Annotated[str, Depends(get_current_user)]` but
+  `get_current_user` returns `User` (auth.py:140), and vault/holdings do `user.username` on it. The type says
+  `str.username`, which a checker should reject; intake.py:39 already gets this right | fix: `from auth import User`
+  and use `Annotated[User, Depends(get_current_user)]` everywhere.
+
+- [cleanup] routers/vault.py:55-1097 — every one of the ~18 entities duplicates its HTMX field-tuple list
+  verbatim between its `create_*` (row render) and `list_*` (`_htmx_list`) handlers (DRY). A senior reviewer
+  reads this file and sees copy-paste | fix: define one `_FIELDS: dict[str, list[tuple[str,str]]]` (or a small
+  per-entity spec) and reference it in both handlers.
+
+- [cleanup] routers/imports.py:13 — router imports the private `_apply_mappings_raw` across a module boundary
+  (integrations.csv_import) — leaky layering | fix: expose a public `apply_mappings(description, mappings)` in
+  csv_import and import that.
+
+- [cleanup] routers/chat.py:60-66 — `ChatResponse(recommendation=result["recommendation"], …)` runs *outside*
+  the try/except, so a graph state missing a key throws `KeyError` → raw 500 (the try only wraps `ainvoke`) |
+  fix: build the response inside the guarded block, or validate the terminal state keys before indexing.
+
+## Rubric coverage
+| Category | Status |
+|---|---|
+| 1 Resource lifecycle | ok — sessions via `get_session` dep (context-managed), commits on every mutation path, `get_anthropic`/`limiter` are module singletons |
+| 2 Concurrency & scale | 2 findings (imports N+1; holdings redundant per-row fetch). Blocking calls (yfinance/RentCast) correctly offloaded via `asyncio.to_thread` + `wait_for` timeout |
+| 3 Security & compliance | ok for Road A — parameterized ORM only; HTML escaped in `_entity_row_html` (XSS-safe); no balance/token/PII in log lines (verified). Absence of per-user WHERE is the recorded single-user assumption, not a defect |
+| 4 Domain correctness | ok — refresh-values embeds mandatory appraisal disclaimer; mileage constant sourced from `agent.principles.MILEAGE_RATE_2026`; chat passes through `disclaimer`/`principle`/`vision_stamp` |
+| 5 LLM SDK | ok — intake interview/extract use ephemeral prompt caching, log input/output/cache-read tokens, model from `get_settings()`, forced `tool_choice`, explicit `max_tokens`. Minor: `content[0].text` assumes first block is text |
+| 6 Cleanliness & typing | 4 cleanups — wrong `str` CurrentUser annotation, HTMX field-list duplication, private cross-module import, chat KeyError-outside-try |
+| 7 Error handling / API | 1 finding (imports unvalidated account_id → 500). Otherwise strong: response_model on every JSON endpoint, correct 201/204/404/422/502/503, error messages generic (digest 502, graph 500 hide internals) |
+| 8 Config & paths | ok — RentCast key gated with 503 when absent; all config via `get_settings()`; no hardcoded paths |
 
 ## Module verdict
-
-**PASS (post-remediation).** All six actionable SEV1/SEV2 findings (1–6) are FIXED with concrete
-evidence in current source, and none regressed to OPEN. The three remaining items (7 Phase-4b
-pagination, 8 Phase-5b response models, 9 Road-B per-tenant scoping) are the previously-agreed
-deferrals and remain correctly open/deferred — none is a new or reopened defect.
-
-- FIXED: 6 (findings 1–6)
-- OPEN: 0
-- DEFERRED: 3 (findings 7, 8, 9)
-
-Top remaining item: **#7 — 17 unbounded vault `GET` list endpoints (no limit/offset cap)**; close
-in Phase 4b by threading a bounded `limit`/`offset` through the `crud.list_*` layer.
+NEEDS-WORK — no blockers; the API surface, status codes, and error hygiene are solid, but the imports N+1 (+ unvalidated account_id), the mislabeled ticker refresh, unthrottled external-API refresh endpoints, and the `str`-typed CurrentUser + HTMX duplication are the fixes a senior reviewer would expect before calling it portfolio-clean.

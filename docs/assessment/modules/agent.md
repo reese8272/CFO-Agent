@@ -1,64 +1,84 @@
-# agent — re-assessed 2026-07-02 (post-remediation)
+# agent — assessed 2026-07-03
 
-Branch `hardening/phase-7-finish-line` @ `9ef25a5`. Re-verification of the seven
-findings raised in the original 2026-07-02 assessment (`docs/assessment/REPORT.md`),
-by reading the current code. Evidence is `file:line`.
+Scope: `agent/graph.py`, `agent/state.py`, `agent/principles.py`, `agent/prompts.py`,
+`agent/principles_{investing,real_estate,saas}.py`, `agent/nodes/*.py`
+(analyzer, strategist, career, income_optimizer, tax_optimizer, coach, tracker, alert,
+synthesizer). Fresh Layer-1 pass; supersedes the 2026-07-02 remediation-verification note.
 
 ## Findings
 
-1. **[BLOCKER] Synthesizer dropped disclaimer when final LLM returned
-   `requires_disclaimer=false` — FIXED.**
-   `agent/nodes/synthesizer.py:86-89` now OR-folds the final flag with the
-   proposals' flags:
-   `needs_disclaimer = bool(result.get("requires_disclaimer")) or any(p.get("requires_disclaimer") for p in state.get("proposals", []))`,
-   then `disclaimer = get_disclaimer() if needs_disclaimer else None`. Matches the
-   expected fix exactly.
+- [SEV2] nodes/tax_optimizer.py:103 — token usage is **not** logged after this LLM call
+  (its `logger.info` records only `principle` + `score`; every other LLM node logs
+  `tokens_in`/`tokens_out`). Violates rubric §5 and CLAUDE.md "token usage logged after
+  every call." | fix: add `response.usage.input_tokens` / `.output_tokens` to the log line,
+  matching strategist.py:96.
 
-2. **[SEV1] `_route_from_analyzer` returned a single node (only one specialist
-   fired) — FIXED.**
-   `agent/graph.py:93-104` now returns `list[str]` — de-duped
-   `[_ROUTE_TO_NODE[r] for r in routes ...]`, falling back to `["coach"]` when no
-   specialist matches. Conditional edge map (`graph.py:127-137`) wires all four
-   specialists + coach for true parallel fan-out. Signature is `-> list[str]`.
+- [SEV2] nodes/{analyzer,coach,strategist,career,tax_optimizer}.py — only the Synthesizer
+  returns `tokens_in`/`tokens_out` into `AgentState` (synthesizer.py:99-100); the other 1–5
+  Anthropic calls per turn are logged but never accumulated into state, so `persist_node`
+  (graph.py:63-67) writes **only the Synthesizer's tokens** to the `Message` row. Per-turn
+  cost/usage is undercounted by up to ~5 calls (Analyzer + fanned-out specialists + Coach).
+  | fix: have each LLM node return `{"tokens_in": ..., "tokens_out": ...}` and add an
+  `Annotated[int, operator.add]` reducer for those keys in state.py so they sum across nodes;
+  persist the total.
 
-3. **[SEV1] `proposals` used `operator.add`, so Coach duplicated proposals —
-   FIXED.**
-   `agent/state.py:70` declares
-   `proposals: Annotated[list[NodeProposal], merge_proposals]`; the reducer
-   `merge_proposals` (`state.py:37-49`) keeps one entry per `node` (replace-by-node),
-   so parallel specialists accumulate but Coach's re-emitted nodes replace rather
-   than append. Coach returns replacement proposals at `coach.py:144`.
+- [SEV2] nodes/analyzer.py:75, strategist.py:84, career.py:73, tax_optimizer.py:92,
+  synthesizer.py:69 — bare `next(b for b in response.content if b.type == "tool_use")` raises
+  `StopIteration` (→ uncaught 500) if the model truncates at `max_tokens` before completing a
+  `tool_use` block. Coach already guards exactly this (coach.py:116, `next(..., None)` +
+  fallback) and documents the risk — these five nodes don't. Synthesizer at `max_tokens=1024`
+  with a 7-field structured tool is the most exposed. | fix: use
+  `next((b for b in response.content if b.type == "tool_use"), None)` and handle
+  `None`/`stop_reason == "max_tokens"` with a safe fallback (as coach does) or a handled 502.
 
-4. **[SEV2] Coach fragile `next(... tool_use)` under MAX_TOKENS=512 could 500 —
-   FIXED.**
-   `agent/nodes/coach.py:116` uses guarded `next((b for b in ... ), None)`;
-   `coach.py:117-123` falls back to passing the raw proposals through (with a
-   warning log of `stop_reason`) instead of raising. `MAX_TOKENS` raised to 2048
-   (`coach.py:18`, comment notes 512 truncated multi-specialist turns).
+- [SEV2] nodes/coach.py:44 — the Coach tool's `principle` field is an unconstrained
+  `{"type": "string"}` (no `enum`), unlike Strategist/Career/Tax which pin it to registry
+  keys. Coach is "the authority on final cite" and *replaces* proposals (coach.py:143), so it
+  can emit a `principle` outside the frozen §4 registry — violating CONTRACTS §2 hard rule
+  "every proposal's `principle` is a key from §4." Compounded: the arena keys the Coach is
+  told to cite (`house_hacking`, `mrr_arr`, `three_fund`, … in
+  principles_{real_estate,saas,investing}.py) are **not** in `PRINCIPLES` / §4, so
+  `get_principle()` would `KeyError` on them. | fix: add `"enum": get_all_keys()` to the Coach
+  tool's `principle`, and register arena keys in §4 / principles.py before allowing the Coach
+  to cite them.
 
-5. **[SEV2] tax_optimizer hardcoded 22% bracket — FIXED.**
-   `agent/principles.py:21` defines year-stamped
-   `ASSUMED_FED_MARGINAL_BRACKET_2026: float = 0.22`;
-   `agent/nodes/tax_optimizer.py:14` imports it and `tax_optimizer.py:69-71` uses
-   it in the quarterly-estimate calc. No literal `0.22` remains in the node.
+- [cleanup] nodes/analyzer.py:69, strategist.py:78, career.py:67, tax_optimizer.py:87,
+  coach.py:108 — `cache_control: ephemeral` is set on system prompts far below the minimum
+  cacheable prefix (~1024 tokens Sonnet / ~2048 Haiku). These ~100–300-token blocks will never
+  cache — cargo-cult caching. Only the Synthesizer's `CFO_SYSTEM_PROMPT` + profile block
+  (synthesizer.py:50-61) is large enough to benefit. | fix: drop `cache_control` from the small
+  system prompts, or comment that it's a deliberate no-op.
 
-6. **[cleanup] leverage_score unclamped; legacy anthropic-beta prompt-caching
-   header — FIXED (one stale docstring remains).**
-   leverage_score is clamped to 0–1 in every emitter:
-   `strategist.py:91`, `career.py:80`, `tax_optimizer.py:99`, `coach.py:130`
-   (`max(0.0, min(1.0, float(...)))`); `income_optimizer.py` bounds via
-   `min(gap_pct, Decimal("1.0"))` and fixed 0.3/0.4 fallbacks. No functional
-   `anthropic-beta` / `extra_headers` / `default_headers` remains in `clients.py`
-   or any node — caching is via native `cache_control` blocks. NOTE: a stale
-   descriptive docstring still reads `anthropic-beta prompt-caching-2024-07-31` at
-   `agent/prompts.py:1`; cosmetic only, not load-bearing.
+- [cleanup] nodes/strategist.py, career.py, tax_optimizer.py — near-identical
+  "single-proposal LLM node" boilerplate (build context → `messages.create` with forced tool →
+  extract tool_use → clamp `leverage_score` 0–1 → build `NodeProposal` → log). DRY. | fix:
+  extract a `run_proposal_node(system, tool, context, node_name)` helper in
+  `agent/nodes/_llm.py`; this also fixes the StopIteration and token-accounting findings in one
+  place.
 
-7. **[SEV1, DEFERRED] Per-tenant scoping (no `user_id` filter) — STILL DEFERRED
-   (not a regression).**
-   `agent/graph.py:33` retrieval is still hardcoded `user_id="owner"` and
-   `persist_node` (`graph.py:37-82`) writes Conversation/Message/Decision rows with
-   no tenant column. This is the documented Road-A single-user deferral, unchanged
-   from the original assessment — deferred, not regressed.
+- [cleanup] agent/state.py:77 — `financial_snapshot: dict | None` is declared in AgentState but
+  no node reads or writes it (Retrieval writes `vault_snapshot`); appears dead and diverges
+  from the frozen CONTRACTS §1 shape. | fix: remove it or wire it.
+
+- [cleanup] agent/prompts.py:1 — module docstring still references the legacy
+  `anthropic-beta prompt-caching-2024-07-31` header; caching is now native `cache_control`.
+  Cosmetic/stale. | fix: update the docstring.
+
+## Rubric coverage
+| Category | Status |
+|---|---|
+| 1 Resource lifecycle | ok — every DB touch (retrieval/tracker/alert/persist) uses `async with get_sessionmaker()()`; Anthropic + Redis are module-level singletons with bounded timeout/retries (clients.py) |
+| 2 Concurrency & scale | ok — all LLM/DB work is `await`ed, no blocking calls in async; income_optimizer is a pure sync node; alert runs 4 sequential bounded queries — no N+1 loop |
+| 3 Security & compliance | ok — nodes log only principle/score/tokens/latency, no balances or account numbers; `vault_snapshot` is redacted aggregates per CONTRACTS §3; disclaimer OR-folded from ALL proposals in synthesizer.py:86-89 (never trusts the final LLM flag alone) |
+| 4 Domain correctness | 1 finding — Coach `principle` unconstrained + arena keys unregistered (§4 violation). Otherwise strong: year-stamped constants in principles.py, tax node forces `requires_disclaimer=True`, leverage_score clamped 0–1 everywhere, list-fanout + `merge_proposals` replace-by-node work as specified |
+| 5 LLM SDK | 2 findings — tax_optimizer missing token log; token accounting to state/DB captures only the Synthesizer. Positives: forced `tool_choice` structured output, explicit `max_tokens` per node (Coach bumped to 2048 with a documented truncation guard), model ids from typed settings (config.anthropic_model_smart/fast), Synthesizer caching splits static system + profile |
+| 6 Cleanliness & typing | 3 cleanups — no-op caching, DRY boilerplate, dead `financial_snapshot` key + stale docstring; signatures otherwise typed |
+| 7 Error handling / API | 1 finding — bare `next()` tool_use extraction (StopIteration → 500) in 5 nodes; these are graph nodes, so HTTP status mapping lives in the router |
+| 8 Config & paths | ok — model ids, timeout, retries from typed `Settings`; no hardcoded model strings in nodes; no filesystem paths in this module |
 
 ## Module verdict
-All six in-scope findings FIXED (one cosmetic stale docstring at prompts.py:1); the single SEV1 per-tenant scoping item remains a documented Road-B deferral — agent module is production-ready for single-user scope.
+NEEDS-WORK — no blockers; architecture (frozen state contract, list-fanout routing,
+replace-by-node reducer, disclaimer aggregation) is clean and portfolio-grade, but LLM-hygiene
+gaps (incomplete token accounting, one node not logging tokens, unguarded tool_use extraction in
+5 nodes, and an unconstrained Coach `principle` that can escape the frozen registry) should be
+fixed before it headlines the showcase.

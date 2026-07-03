@@ -1,143 +1,97 @@
-# _root_infra — re-assessed 2026-07-02 (post-remediation)
+# _root_infra — assessed 2026-07-03
 
-Branch: `hardening/phase-7-finish-line`. Re-verified each original finding
-against current code with file:line evidence.
-
-| # | Sev | Finding | Status | Evidence |
-|---|-----|---------|--------|----------|
-| 1 | SEV1 | No `.dockerignore` → `.env`/`.git` bakeable into image | **FIXED** | `.dockerignore:4` `.env`, `:5` `.env.*`, `:6` `!.env.example`, `:7` `.git`, `:8` `.gitignore`, `:9` `.github`, `:19` `tests`, `:20` `docs`, `:21` `*.md`. Header comment (`:1-3`) cites the `COPY . .` risk it closes. |
-| 2 | SEV1 | `clients.py` AsyncAnthropic no timeout (600s default) | **FIXED** | `clients.py:60-64` `AsyncAnthropic(..., timeout=settings.llm_timeout_seconds, max_retries=settings.llm_max_retries)`; defaults `config.py:38` `=120`, `:39` `=2`. |
-| 3 | SEV1 | `crypto.py` single Fernet, no rotation | **FIXED** | `crypto.py:27-38` `_fernet()` returns `MultiFernet`; `:36` reads `vault_encryption_keys or vault_encryption_key`, `:37` splits comma-list, first encrypts / any decrypts (docstring `:30-33`). Import `:13`. |
-| 4 | SEV2 | `rate_limit.py` in-memory store (fails open per-replica) | **FIXED** | `rate_limit.py:16-20` `Limiter(..., storage_uri=get_settings().redis_url if _enabled else None)`; disabled under `TESTING` (`:14`). |
-| 5 | SEV2 | `auth.py` login timing oracle (bcrypt skipped when user absent) | **FIXED** | `auth.py:70` module-level `_DUMMY_PASSWORD_HASH`; `:123` uses it when `user is None`; `:124` always runs bcrypt in threadpool; validity computed after (`:125`). |
-| 6 | SEV2 | `/docs`,`/redoc`,`/openapi` exposed in prod | **FIXED** | `main.py:59` `_prod = ... == "production"`; `:66-68` all three URLs `None` when `_prod`. |
-| 7 | SEV2 | uvicorn no `--timeout-graceful-shutdown` | **FIXED** | `Dockerfile:37` CMD `... "--timeout-graceful-shutdown", "30"`. |
-| 8 | SEV2 | `db.py` no `pool_recycle` | **FIXED** | `db.py:35` `pool_recycle=1800` (+ `pool_pre_ping=True` `:32`). |
-| 9 | cleanup | `config.py` `vault_encryption_key` min_length=1 | **FIXED** | `config.py:26` `Field(..., min_length=44)`, comment `:25`. |
-| 10 | deps | 7 CVE'd pins (fastapi, starlette, cryptography, pyjwt, …) | **FIXED** | `requirements.txt:1` `fastapi==0.139.0`, `:2` `starlette==1.3.1`, `:12` `cryptography==48.0.1`, `:13` `PyJWT==2.13.0`. All still `==`-pinned. |
-
-**Supplementary items from brief:**
-- deploy `command_timeout` → 20m: **FIXED** — `.github/workflows/deploy.yml:113` `command_timeout: 20m` (cites ISSUE-2026-07-02-01).
-- migration `SET LOCAL lock_timeout`: **FIXED** — `migrations/env.py:56` `SET LOCAL lock_timeout = '30s'` inside `do_run_migrations`, txn-scoped.
-
-**Original cleanups outside the 10-item brief (unchanged, low priority, DEFERRED):**
-- disclaimer.py DRY (`disclaimer.py:18` still reads `os.environ` directly, not `get_settings()`).
-- CORS wildcard method/header combo (`main.py:76-77` `allow_methods/headers=["*"]`).
-- No security-response-headers middleware in `main.py`.
-- (digest.py untyped `settings` param — out of read-set this pass.)
-
-## Module verdict (post-remediation)
-
-**PASS.** All 10 brief findings (3 SEV1, 5 SEV2, 1 cleanup, dependency bumps) and
-both supplementary items are FIXED with concrete file:line evidence. Zero
-STILL-OPEN among the tracked findings; the only remainders are three pre-existing
-low-priority cleanups explicitly outside this remediation's scope (DEFERRED).
-
----
-
-# _root_infra — assessed 2026-07-02
-
-Slice: main.py, auth.py, clients.py, config.py, crypto.py, db.py, disclaimer.py,
-rate_limit.py, digest.py, Dockerfile, docker-compose.yml.
+Slice: `auth.py`, `clients.py`, `config.py`, `crypto.py`, `db.py`, `digest.py`,
+`disclaimer.py`, `main.py`, `rate_limit.py`. This is the infra spine; recent
+hardening work (MultiFernet rotation, `/docs` prod gate, graceful shutdown,
+timing-safe login, security-headers middleware, `pool_recycle`) is present and
+verified below — none of it re-flagged as missing.
 
 ## Findings
 
-- [SEV1] Dockerfile:34 — no `.dockerignore` exists and `COPY --chown=app:app . .`
-  copies the entire build context into the image. If a `.env` is present at build
-  time (developer machine, CI checkout) it is baked into an image layer that is
-  pushed to `ghcr.io/reese8272/cfo-agent:latest` — Anthropic key, JWT secret,
-  Fernet key, Postgres password leak in the registry (scale axis I: "no secret in
-  image layers"). Also ships `.git/`, `tests/`, docs into the runtime image | fix:
-  add a `.dockerignore` at repo root containing at minimum `.env`, `.env.*`,
-  `!.env.example`, `.git`, `__pycache__`, `tests`, `*.pyc`, `docs`. Rebuild and
-  confirm `docker history` shows no env layer.
+- [SEV2] disclaimer.py:18 — `get_disclaimer()` reads the override via
+  `os.environ.get("WEALTH_DISCLAIMER_TEXT")`, but `config.Settings` already
+  declares `wealth_disclaimer_text` (config.py:49) and `.env.example:55`
+  documents it as a settable key. pydantic-settings loads `.env` into the
+  `Settings` object **without** exporting to `os.environ`, so an operator who
+  sets `WEALTH_DISCLAIMER_TEXT` in `.env` (the documented mechanism) gets it
+  loaded into `Settings` but `os.environ.get` returns `None` — the override
+  silently no-ops. Two sources of truth for one value. | fix: make
+  `get_disclaimer()` return `get_settings().wealth_disclaimer_text or DISCLAIMER`
+  and drop the `os` import; single source of truth, works from `.env`.
 
-- [SEV1] clients.py:56 — `AsyncAnthropic(api_key=...)` is constructed with **no
-  `timeout`**, so it inherits the SDK default (600 s). `config.llm_timeout_seconds`
-  (120) exists and is documented in `.env.example` but is never wired in. A slow /
-  hung Anthropic response stalls agent requests for up to 10 minutes with no
-  backpressure (scale axis E: "timeouts on every external call") | fix:
-  `AsyncAnthropic(api_key=..., timeout=get_settings().llm_timeout_seconds,
-  max_retries=2)`.
+- [SEV2] digest.py:131 — `smtplib.SMTP(settings.smtp_host, settings.smtp_port)`
+  is opened with no `timeout`. On a wedged/blackholed SMTP host the call blocks
+  forever; it runs via `asyncio.to_thread`, so it won't stall the event loop,
+  but the worker thread hangs indefinitely (and the `/digest/run-now` request
+  awaiting it never returns). | fix: pass an explicit timeout,
+  `smtplib.SMTP(host, port, timeout=30)`; the `with` block already guarantees
+  close.
 
-- [SEV1] crypto.py:26-30 — single-key `Fernet(...)`; no `MultiFernet` support, so
-  the code cannot decrypt-with-old / encrypt-with-new. THREAT_MODEL §2 and
-  `.env.example` both promise a key-rotation runbook, but rotation is
-  operationally impossible without re-encrypting the whole vault offline (scale
-  axis I: "code can decrypt with the old key while encrypting with the new") | fix:
-  accept a comma-separated `VAULT_ENCRYPTION_KEYS`, build
-  `MultiFernet([Fernet(k) for k in keys])` — first key encrypts, all keys decrypt;
-  rotate by prepending the new key.
+- [cleanup] digest.py:122 — `_send_email_sync(subject, body, settings)`: the
+  `settings` parameter is untyped (rubric 6). | fix: annotate `settings: Settings`
+  (import from `config`); return type `-> None` is already present.
 
-- [SEV2] rate_limit.py:8 — `Limiter(key_func=get_remote_address)` uses slowapi's
-  default **in-memory** store: it is per-process (does not share across replicas)
-  and fails open on restart, so the `10/minute` login and `3/hour` register limits
-  reset on every deploy and are not enforced fleet-wide (scale axis F) | fix: pass
-  `storage_uri=get_settings().redis_url` (Redis is already a dependency). Keyed by
-  IP is acceptable for the pre-auth login/register routes.
+- [cleanup] main.py:60,72 — `get_settings()` is called twice at module import
+  (once for `_prod`, once for `settings`). Harmless (lru_cached) but reads as an
+  oversight. | fix: bind `settings = get_settings()` once above line 60 and
+  derive `_prod = settings.env == "production"` from it.
 
-- [SEV2] auth.py:113-118 — login is a username-enumeration timing oracle: when the
-  user is absent, bcrypt is skipped (fast path); when present, `_verify_password`
-  runs bcrypt (~100 ms). Response-time delta reveals whether a username exists |
-  fix: always run a bcrypt verify against a fixed dummy hash when `user is None`,
-  so both paths take equal time.
+- [cleanup] auth.py:127 — failed-login logs the attempted username
+  (`logger.warning("failed login attempt for username=%r", form.username)`).
+  Standard-ish for audit, but it records arbitrary attacker-supplied input at
+  WARNING; for a single-user app the only valid username is the owner's, so the
+  value carries little signal. | fix: log the event without echoing the raw
+  username (or truncate). Low priority.
 
-- [SEV2] main.py:59-64 — FastAPI is created without `docs_url`/`redoc_url`/
-  `openapi_url` gating on env, so `/docs`, `/redoc`, `/openapi.json` are exposed in
-  production (scale axis I: "/docs disabled in prod") | fix:
-  `_prod = get_settings().env == "production"` then pass
-  `docs_url=None if _prod else "/docs"`, same for `redoc_url` and `openapi_url`.
+## Verified-good (hardening landed, not defects)
 
-- [SEV2] Dockerfile:35 & docker-compose (app CMD) — `uvicorn main:app` runs with no
-  `--timeout-graceful-shutdown`; on `docker compose up -d` redeploy, in-flight
-  requests (including long agent/LLM calls) are killed abruptly | fix: append
-  `--timeout-graceful-shutdown 30` to the uvicorn CMD.
-
-- [SEV2] db.py:30-35 — pool math is not documented against replicas. `pool_size=5,
-  max_overflow=5` = 10 connections/process; fine for single-replica v1, but there
-  is no `pool_recycle` and no PgBouncer, so scaling past ~9 API replicas would
-  approach Postgres `max_connections=100`. `pool_pre_ping=True` is set (good) |
-  fix: add `pool_recycle=1800`; document the pool×replicas ≤ max_connections math
-  in deployment docs before adding replicas (needs-load-confirmation).
-
-- [SEV2] main.py:67-73 — CORS uses `allow_methods=["*"]`, `allow_headers=["*"]`
-  with `allow_credentials=True`. Safe only while `allowed_origins` is an explicit
-  list (default `["http://localhost:8000"]`), but the wildcard method/header combo
-  is broad for a finance app | fix: narrow to the methods/headers actually used, or
-  leave with a note; ensure the prod origin is set via `ALLOWED_ORIGINS`, never
-  `*`.
-
-- [cleanup] main.py — no security-response-headers middleware (HSTS,
-  X-Content-Type-Options, X-Frame-Options). Behind Cloudflare Tunnel this is
-  partially covered, but defense-in-depth is cheap | fix: add a small middleware
-  or `secure` headers; low priority.
-
-- [cleanup] disclaimer.py:18 — `get_disclaimer()` reads `os.environ` directly,
-  duplicating `config.wealth_disclaimer_text` and bypassing the typed settings
-  loader (DRY) | fix: read `get_settings().wealth_disclaimer_text or DISCLAIMER`.
-
-- [cleanup] digest.py:124 — `_send_email_sync(subject, body, settings)` — the
-  `settings` parameter is untyped | fix: annotate `settings: Settings`.
-
-- [cleanup] config.py:25 — `vault_encryption_key: str = Field(..., min_length=1)`;
-  a real Fernet key is a 44-char base64 string, so `min_length=1` will not fail
-  fast on a truncated/garbage key (it only fails later at `Fernet(...)`) | fix:
-  tighten to `min_length=44`.
+- crypto.py:27 — `MultiFernet` rotation is correct: first key encrypts, any key
+  decrypts; `InvalidToken` wrapped in `FernetDecryptionError` with no ciphertext
+  or key material in the message. `@lru_cache(maxsize=1)` is safe (keys are
+  process-static).
+- auth.py:70,123 — timing-safe login confirmed: a fixed `_DUMMY_PASSWORD_HASH`
+  is verified when the user is absent, and bcrypt runs on every path via
+  `run_in_threadpool`, so absent-user and wrong-password take the same time.
+  Register-once (auth.py:96) returns 409 after the first user. JWT carries
+  `iat`/`exp`; decode catches `PyJWTError`/`ValueError` → 401.
+- db.py:30 — engine singleton with `pool_pre_ping`, `pool_size=5`,
+  `max_overflow=5`, `pool_recycle=1800`; `get_session` is a context-managed
+  dependency that rolls back on exception and always closes; `dispose_engine`
+  tears down on shutdown.
+- clients.py — Redis and Anthropic are module-level lazy singletons; Anthropic
+  client sets explicit `timeout` + `max_retries` from typed settings (avoids the
+  600s SDK default); `ping_redis` swallows and logs failures.
+- config.py — required secrets use `Field(..., min_length=…)` (fail-fast);
+  `vault_encryption_key` min_length 44 catches a truncated Fernet key;
+  `jwt_secret_key` min_length 32. Model ids sourced from settings
+  (`claude-sonnet-4-6`, `claude-haiku-4-5-20251001` — both current/valid), not
+  hardcoded in nodes. `get_settings() -> Settings` typed and `@lru_cache`d.
+- main.py — lifespan brings up engine/redis/scheduler and tears them down in
+  reverse on shutdown; `security_headers` sets `X-Content-Type-Options`,
+  `X-Frame-Options: DENY`, `Referrer-Policy`, and prod-only HSTS; `/docs`,
+  `/redoc`, `/openapi.json` are `None` in production; `/health` returns 503 +
+  `status:"degraded"` when postgres or redis is down, 200 otherwise; static dir
+  resolved absolutely via `Path(__file__).parent`.
+- rate_limit.py — Redis-backed slowapi limiter (survives restarts), disabled
+  under `TESTING`; storage URI from settings.
+- Config/paths (rubric 8): every new key is present in `.env.example` with a
+  description (`WEALTH_DISCLAIMER_TEXT` at line 55, SMTP block, `RENTCAST_API_KEY`,
+  etc.); all filesystem paths are absolute.
 
 ## Rubric coverage
 | Category | Status |
 |---|---|
-| 1 Resource lifecycle | ok — sessions via `async with`, engine/redis/anthropic singletons, SMTP via `asyncio.to_thread`, guaranteed close on shutdown |
-| 2 Concurrency & scale | 3 findings — Anthropic no timeout, in-memory limiter, pool_recycle/replica math undocumented; bcrypt correctly off-loop via `run_in_threadpool`, SMTP off-loop |
-| 3 Security & compliance | 4 findings — .env bakeable into image (SEV1), no key rotation (SEV1), /docs exposed, login timing oracle; no secrets in logs (verified), Fernet-at-rest good |
-| 4 Domain correctness | n/a (infra slice; disclaimer helper present and applied in digest.py) |
-| 5 LLM SDK | partial — client is a singleton but missing timeout; token logging / caching live in agent/ (out of slice) |
-| 6 Cleanliness & typing | 3 cleanups — disclaimer DRY, untyped `settings` param, weak Fernet-key min_length |
-| 7 Error handling / API | ok — /health degraded=503, rate-limit handler returns 429, auth returns 401/409, error messages safe |
-| 8 Config & paths | ok — pydantic BaseSettings fail-fast, all keys in `.env.example`, static dir absolute via `Path(__file__)`; `llm_timeout_seconds` present but unused (see clients finding) |
+| 1 Resource lifecycle | ok — engine/redis/anthropic singletons, guaranteed session close, clean shutdown |
+| 2 Concurrency & scale | 1 finding (SMTP no timeout); blocking SMTP correctly offloaded via to_thread |
+| 3 Security & compliance | ok — rotation, timing-safe login, no secret in logs; 1 low-pri username-log cleanup; multi-tenant isolation correctly deferred (Road A) |
+| 4 Domain correctness | 1 finding (disclaimer override no-op); digest embeds the mandatory disclaimer |
+| 5 LLM SDK | ok — model id from settings, timeout+retries set (caching/token-logging live in agent nodes, out of slice) |
+| 6 Cleanliness & typing | 2 cleanups (untyped `settings` param, double `get_settings()`) |
+| 7 Error handling / API | ok — health 200/503, auth 401/409, rate-limit 429, safe messages |
+| 8 Config & paths | ok — fail-fast typed settings, full `.env.example` coverage, absolute paths |
 
 ## Module verdict
-NEEDS-WORK — no cross-tenant/data-loss BLOCKER (single-user v1), but two SEV1
-secret/compliance gaps (missing `.dockerignore` bakes secrets into a public
-registry image; no Fernet key-rotation despite a promised runbook) and a missing
-LLM timeout must be fixed before this goes public/portfolio.
+NEEDS-WORK — no blockers or sev1; two SEV2s (disclaimer `.env` override silently
+no-ops; SMTP call has no timeout) plus minor cleanups. The hardening spine
+(rotation, timing-safe auth, graceful shutdown, security headers, prod `/docs`
+gate) is solid and senior-grade.

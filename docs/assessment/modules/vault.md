@@ -1,116 +1,84 @@
-# vault — re-assessed 2026-07-02 (post-remediation)
+# vault — assessed 2026-07-03
 
-Branch: `hardening/phase-7-finish-line`. Each original 2026-07-02 finding re-verified
-against current code with file:line evidence. Supersedes the pre-remediation
-assessment of the same date.
+Slice: `vault/{models,crud,schemas,wealth_position,income_position,financial_snapshot,_money}.py`
+(+ `crypto.py` read only to verify the encryption boundary; it is another module's slice).
 
----
+## Findings
 
-## 1. [SEV1] "10 unindexed FK columns" — **FIXED**
+- [SEV2] vault/wealth_position.py:42-46 — hardcodes year-versioned tax constants
+  (`_IRA_ANNUAL=7000`, `_HSA_ANNUAL_SINGLE=4300`, `_401K_ANNUAL=23500`,
+  `_HIGH_INTEREST_THRESHOLD=7`) that `financial_snapshot.py:22-26` already imports from
+  `agent/principles.py`. CLAUDE rule: year-versioned tax constants live in `agent/principles.py`.
+  Two sources → silent drift when principles roll to 2027 (ladder stays on 2026). | fix: delete the
+  local constants and `from agent.principles import ROTH_IRA_LIMIT_2026, HSA_LIMIT_SINGLE_2026, ...,
+  HIGH_INTEREST_APR_THRESHOLD`; reference those.
+- [SEV2] vault/financial_snapshot.py:89-94 vs vault/wealth_position.py:204-220 vs
+  vault/income_position.py:53-62 — the "sum Expense rows → monthly" loop is duplicated in three
+  modules and has already DIVERGED: `wealth_position` and `income_position` floor the result at a
+  `Decimal("3000")` fallback, but `financial_snapshot` does NOT. When the Expense table is empty,
+  the snapshot reports `total_monthly_expenses=0` (→ `savings_rate=100%`, `emergency_months=None`)
+  while the wealth ladder simultaneously shows a ~$9k emergency-fund gap off the 3000 floor —
+  inconsistent user-facing numbers from one vault. | fix: extract
+  `async def sum_monthly_expenses(session) -> Decimal` into a shared helper, decide the fallback
+  once, and call it from all three.
+- [SEV2] vault/financial_snapshot.py:167,176,183-185,196,204,209 — nested money in
+  `analysis_jsonb` is cast to `float(...)` (monthly_gross, balances, apr, minimum_payment,
+  net_hourly, goal target/current) before storage, contrary to the project's no-float-money rule.
+  DECISIONS.md notes the Decimal→str concern was "resolved," but that resolution covers only the
+  top-level `FinancialSnapshot` Decimal columns; these nested detail lists still serialize float.
+  This payload is what the agent/LLM and UI reason over. | fix: keep `Decimal` (EncryptedJSON's
+  `_json_default` already serializes Decimal→str) instead of `float(...)`; drop the float casts.
+- [cleanup] vault/_money.py:13-23 — cadence factors are truncated decimals (`weekly 4.333`,
+  `quarterly 0.333`, `annual 0.0833`) that systematically understate by ~0.04-0.1% (annual $120k →
+  ~$119,952/yr reconstructed). Math is directionally correct and semimonthly=2 / biweekly=2.167 are
+  right; only precision is lost. | fix: use exact ratios `Decimal(52)/Decimal(12)`,
+  `Decimal(26)/Decimal(12)`, `Decimal(4)/Decimal(12)`, `Decimal(1)/Decimal(12)`.
+- [cleanup] vault/models.py:396-398 — `Holdings.last_known_price` uses `EncryptedNumeric` (correctly
+  encrypted) but the DB column is named `"last_known_price"`, violating the module's own documented
+  "columns named `*_encrypted` store ciphertext" convention that every other encrypted column
+  follows. Confusing for migrations/schema readers. | fix: rename the column to
+  `"last_known_price_encrypted"` via an Alembic migration.
+- [cleanup] vault/crud.py:61 — `M = TypeVar("M")` declared and never used; vault/crud.py:59 and
+  vault/financial_snapshot.py:31 declare `logger` that is never called. | fix: delete the dead
+  TypeVar and unused loggers.
+- [cleanup] vault/wealth_position.py:67-101,223-237,288-301 — the `Account` table is fully scanned
+  three separate times inside one `compute_wealth_position` call (assets, cash, brokerage), and
+  `Expense` is re-scanned across all three position modules; the snapshot pipeline issues ~15
+  SELECTs, several re-reading the same table. Harmless at single-user Road A row counts but
+  redundant. | fix (portfolio polish): load each table once and partition in Python.
+- [cleanup] vault/models.py:436-443 — `AuditLog` immutability is enforced only via ORM
+  `before_update`/`before_delete` mapper events; a Core/bulk `update()`/`delete()` or raw SQL would
+  bypass them. Fine for the current all-ORM CRUD path. | fix (defense-in-depth): add a Postgres
+  `REVOKE UPDATE, DELETE` / trigger on `audit_log` in a migration.
 
-Re-scoped and confirmed complete:
+## Acknowledged / documented — NOT flagged
+- `Account.plaid_account_id` plaintext (models.py:34) — DECISIONS.md 2026-07-02: encryption deferred
+  to Phase 5; Plaid deferred indefinitely so the column is always empty. Verified: every other
+  sensitive *value* column (balances, APR, comp, contributions, cost basis, AGI, audit before/after
+  JSON, breakdown JSON) IS encrypted via the crypto.py TypeDecorators.
+- `Transaction.description`/`notes`/`category` plaintext (models.py:487-493) — DECISIONS.md
+  b5e2a9c3f107: transactions deemed non-private at the value level, hash is the sensitivity
+  boundary; `amount` is in fact encrypted (stricter than the decision text).
+- `k401_match_capture_pct` always `None` (financial_snapshot.py:145,286) — documented NULL
+  placeholder in DECISIONS.md; the "computed below" comment is stale but the behavior is intended.
+- Unbounded `list_*` (no LIMIT) in crud.py — DECISIONS.md defers pagination caps to Phase 4b/5;
+  bounded by single-user data.
 
-- New migration exists: `migrations/versions/a7e3f9c21b84_add_missing_fk_sort_indexes.py:22-28`
-  adds the remaining 5 — `ix_expenses_card_id` (expenses.card_id),
-  `ix_side_income_economics_income_stream_id` (side_income_economics.income_stream_id),
-  `ix_intake_submissions_snapshot_id` (intake_submissions.snapshot_id),
-  `ix_patterns_detected_at` (patterns.detected_at),
-  `ix_financial_snapshots_computed_at` (financial_snapshots.computed_at).
-  `down_revision = "d4e7f2a1b9c3"` chains correctly (line 18).
-- Prior migration `d4e7f2a1b9c3` already indexed 7 FK columns
-  (transactions.account_id, transactions.import_batch_id, cards.account_id,
-  expenses.account_id, import_batches.account_id, holdings.account_id,
-  messages.conversation_id) — `d4e7f2a1b9c3_*.py` upgrade() §3.
-- `side_income_events.income_stream_id` is covered by the composite
-  `ix_side_income_events_stream_occurred` on `["income_stream_id", "occurred_at"]`
-  — `migrations/versions/a3f1c8d2e749_add_holdings_and_side_income_events.py:58-62`.
-  A leading-column composite index serves single-column FK lookups, so no
-  standalone index is needed.
-- Index targets confirmed to exist: `patterns.detected_at` (`memory/models.py:62`),
-  `financial_snapshots.computed_at` (`vault/models.py:519`).
-
-## 2. [SEV1] `_to_monthly` defined 3× with divergent constants — **FIXED**
-
-Single source of truth: `vault/_money.py:26` `to_monthly` (mapping `_MONTHLY_FACTORS`
-at line 13, case-folded, full cadence vocabulary incl. semimonthly/annually/yearly).
-Repo-wide grep for `def _to_monthly|def to_monthly` returns only this one definition.
-All three consumers import it, no local defs:
-
-- `vault/financial_snapshot.py:27` — `from vault._money import to_monthly as _to_monthly`
-- `vault/income_position.py:19` — same import
-- `vault/wealth_position.py:20` — same import
-
-## 3. [SEV2] financial_snapshot HSA always uses SINGLE limit — **FIXED**
-
-`vault/financial_snapshot.py:140-141`:
-`_household = ... profile_row.household_size ...` then
-`hsa_limit = Decimal(str(HSA_LIMIT_FAMILY_2026 if _household > 1 else HSA_LIMIT_SINGLE_2026))`.
-Both constants imported at line 23; `agent/principles.py:13-14` defines
-`HSA_LIMIT_SINGLE_2026 = 4_300` and `HSA_LIMIT_FAMILY_2026 = 8_550`.
-`hsa_utilization_pct` (line 144) uses the household-appropriate denominator.
-
-Residual (minor, not a regression of finding 3): the allocation-ladder step-3
-*target* string in `vault/wealth_position.py:43` still hardcodes
-`_HSA_ANNUAL_SINGLE = Decimal("4300")` and does not vary by household. Separate code
-path from the corrected utilization math; display-only.
-
-## 4. [SEV2] analysis_jsonb raw Decimal → possible TypeError — **FIXED (non-issue confirmed)**
-
-`analysis_jsonb` is an `EncryptedJSON()` column (`vault/models.py:560`).
-`EncryptedJSON.process_bind_param` serializes with
-`json.dumps(..., default=_json_default)` (`crypto.py:101`), and `_json_default`
-(`crypto.py:86-91`) maps `Decimal → str`. The dict assigned at
-`vault/financial_snapshot.py:59` (with raw top-level `Decimal` values) therefore
-serializes cleanly at flush — no TypeError. The separate `_hash_snapshot_data` path
-has its own Decimal-safe `default` (`financial_snapshot.py:303-311`).
-
-## 5. [SEV2, DEFERRED] Account.plaid_account_id stored plaintext — **DEFERRED (still open)**
-
-Unchanged: `vault/models.py:34` — `plaid_account_id: Mapped[str | None] =
-mapped_column(String(128), nullable=True)`, plaintext (not `EncryptedString`). Plaid
-remains unused — only schema pass-through (`vault/schemas.py:34,43`) and the initial
-migration column (`ed987c277fa9_initial_schema.py:32`); no ingest code writes it.
-Correctly deferred to Phase 5b.
-
-## 6. [SEV2, DEFERRED 4b] crud `list_*` unbounded — **DEFERRED (still open)**
-
-Unchanged: every `list_*` in `vault/crud.py` issues `select(...).order_by(...)` with
-no `.limit()`/pagination (e.g. `list_accounts` :108-110, `list_side_income_events`
-:893-898, `list_holdings` :839-844). Acceptable at single-user scale; deferred per 4b.
-
-## 7. [SEV1, DEFERRED Road B] no user_id/tenant column — **DEFERRED (still open)**
-
-Unchanged: no `user_id`/tenant column on any model in `vault/models.py`. The
-position/snapshot functions accept `user_id: str` but never filter on it
-(`financial_snapshot.py:37`, `wealth_position.py:49`, `income_position.py:37`) — the
-accepted-but-ignored param remains. Documented single-user deferral to Road B
-multi-tenant work.
-
----
-
-## Residual items observed (adjacent to original findings, still OPEN)
-
-Not in the seven-item re-scope, but confirmed unchanged and worth carrying forward:
-
-- [SEV2] `k401_match_capture_pct` is initialized to `None` with comment "computed
-  below if benchmark data available" and is still **never computed**
-  (`financial_snapshot.py:145,286`); persists as NULL.
-- [SEV2] `compute_and_store_snapshot` performs a vault mutation (`session.add` +
-  `flush`, `financial_snapshot.py:62-63`) but writes **no audit-log row**. May be a
-  deliberate derived-data exemption — if so, record in `docs/DECISIONS.md`.
-
----
+## Rubric coverage
+| Category | Status |
+|---|---|
+| 1 Resource lifecycle | ok — session passed in by caller (unit-of-work), commit documented as caller's job; no client construction; no leak paths |
+| 2 Concurrency & scale | ok for Road A — no blocking calls in async paths; redundant table scans + unbounded lists noted as cleanup, pagination deferral documented |
+| 3 Security & compliance | ok — all sensitive value columns encrypted at the TypeDecorator boundary; audit before/after stored via EncryptedJSON; no sensitive data in any log (loggers unused); plaintext fields all documented decisions on empty/non-private columns |
+| 4 Domain correctness (money) | 3 findings — DRY tax-constant drift, diverged expense fallback, float money in payload; Decimal used for all stored columns; cadence math correct if imprecise |
+| 5 LLM SDK | n/a (no LLM in vault — pure deterministic data logic) |
+| 6 Cleanliness & typing | cleanups — dead TypeVar/loggers, duplicated expense loop, column-naming convention break; signatures otherwise well typed |
+| 7 Error handling / API | n/a (not a router; no request/response surface) |
+| 8 Config & paths | n/a (no paths/config in slice; encryption key handled in crypto.py/config.py) |
 
 ## Module verdict
-
-**PASS (post-remediation) for personal-only v1.** All three actionable findings
-(1 FK indexes, 2 `_to_monthly` unification, 3 HSA family limit) are FIXED with code
-evidence; finding 4 is confirmed a non-issue. The three remaining listed items
-(5 plaid plaintext, 6 unbounded lists, 7 no tenant column) are all pre-agreed
-single-user DEFERRALs, none blocking at current scope. Two adjacent SEV2 residuals
-(k401 null, snapshot not audited) remain OPEN but are non-blocking.
-
-Counts: 3 FIXED + 1 FIXED(non-issue) / 3 DEFERRED / 0 newly regressed
-(2 non-scoped residuals still OPEN).
-Top remaining item: verify a tenant `user_id` column + query filters before any
-second user (finding 7, the latent cross-tenant BLOCKER).
+NEEDS-WORK — no BLOCKER or SEV1; encryption and lifecycle posture is solid and the flagged plaintext
+fields are all documented decisions on empty/non-private columns, but three SEV2 money/DRY defects
+(duplicated tax constants with drift risk, diverged expense-fallback producing inconsistent snapshot
+vs ladder numbers, float money in the analysis payload) should be fixed before it reads as
+senior-polished.
