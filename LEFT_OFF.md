@@ -3,10 +3,11 @@
 > **Read this first.** Living "where we are right now" file — NOT a source of truth (those live in
 > `docs/`). Update whenever the active goal changes; run `/close-out` at the end of every session.
 
-**Last updated:** 2026-07-02
-**Branch:** `hardening/phase-7-finish-line` — HEAD `780efb7` ("docs(assess): Phase 7 finish-line re-assessment — VERDICT = YES (Road A)")
-**Working tree:** clean · 1 ahead of `origin/main` (the Phase 7 doc commit = PR #37)
-**CI/Deploy:** live site ✅ healthy; last prod deploy (Phase 6) green after one re-run (see gotchas)
+**Last updated:** 2026-07-02 (session 2 — Phase 5b)
+**Branch:** `hardening/phase-5b-polish` → PR #38 (open, CI green pending). `main` HEAD `d715e67`.
+**Working tree:** clean · PRs #36 + #37 merged to `main` this session (docs-only, no deploy).
+**CI/Deploy:** live site ✅ healthy. **#38 is a CODE change → merging it triggers a Deploy** (unlike
+#36/#37). VM swap still pending → watch the rollout for the OOM 502 (gotchas).
 
 ---
 
@@ -19,15 +20,18 @@ housekeeping + optional polish remains.
 
 ### → NEXT ACTION
 
-1. **Merge the two open doc-only PRs** (no deploy — both are docs):
-   - `gh pr merge 37 --squash --delete-branch` (Phase 7 finish-line assessment)
-   - `gh pr merge 36 --squash --delete-branch` (ARM-VM swap runbook)
-2. **Apply the VM swap** (the one action that prevents the deploy-OOM 502 — see gotchas). SSH to the
+1. ✅ **DONE this session** — merged PR #37 (Phase 7 assessment) + #36 (swap runbook) to `main`;
+   closed stale PR #29 (superseded by #37). Built + shipped **Phase 5b → PR #38** (response_model on
+   bare-dict endpoints, security-headers middleware, slim `migrations/env.py`). Suite 177 passed / 4
+   skipped, ruff clean, alembic upgrade verified.
+2. **Merge PR #38** once CI is green — ⚠️ this is a CODE change, so it **triggers a Deploy**. VM swap
+   is still pending, so watch the rollout; if it 502s, `gh run rerun <run-id> --failed`
+   (ISSUE-2026-07-02-02).
+3. **Apply the VM swap** (the one action that prevents the deploy-OOM 502 — see gotchas). SSH to the
    Oracle VM (`ubuntu@129.80.102.20`) and run the `fallocate`/`swapon` block in `docs/DEPLOYMENT.md §7.1`.
-3. **(Optional) Phase 4b/5b polish** — all SEV2/cleanup, none gate the YES verdict:
-   - 4b: `limit` cap on the ~17 vault GET list endpoints; encrypt `Account.plaid_account_id`.
-   - 5b: `response_model` on the bare-dict endpoints (`wealth.py`, `intake.py:167/440`); security-headers middleware; slim `migrations/env.py` imports (speeds the ~5-min alembic startup).
-4. **(Future) Road B** — real second users needs the full CLAUDE.md Pre-GA block; **tenant isolation**
+4. **(Optional) Phase 4b polish** — SEV2, none gate the YES verdict: `limit` cap on the ~17 vault GET
+   list endpoints; encrypt `Account.plaid_account_id`. (5b is now done — see PR #38.)
+5. **(Future) Road B** — real second users needs the full CLAUDE.md Pre-GA block; **tenant isolation**
    (`user_id` on every table + owner filter, ideally Postgres RLS) is the headline. Deferred by the
    `docs/DECISIONS.md` 2026-07-02 Road-A scope decision.
 

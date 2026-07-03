@@ -116,10 +116,10 @@ row is the only ⚠️ remaining, explicitly logged.
 - [ ] `auth.py` — fix the login timing oracle (always bcrypt a dummy hash when `user is None`).
 - [ ] `rate_limit`/`db` — `pool_recycle=1800`; document the pool×replicas ≤ `max_connections`
       math in `docs/DEPLOYMENT.md` (single replica for Road A, but state it).
-- [ ] `routers/wealth.py`, `intake.py:167/440`, `holdings.py:82` — declare `response_model` with
-      the CONTRACTS.md §3 shapes (no bare dicts).
-- [ ] `routers/digest.py:30` — stop leaking the raw SMTP exception; return a fixed detail, log
-      server-side. Add security-response-headers middleware.
+- [x] `routers/wealth.py`, `intake.py:167/440`, `holdings.py:82` — declare `response_model` (Phase 5b,
+      2026-07-02). Models pin the *shipped* wire shape, not the stale §3 draft — see DECISIONS.md.
+- [x] `routers/digest.py:30` — SMTP-exception leak was **already fixed** (logs server-side, fixed
+      detail). Security-response-headers middleware added in `main.py` (Phase 5b, 2026-07-02).
 - **Accept:** `/docs` 404s in prod; redeploy drains in-flight requests; a key-rotation dry-run
       decrypts old + new; all endpoints return validated models.
 

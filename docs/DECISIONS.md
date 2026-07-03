@@ -14,6 +14,54 @@ Format:
 
 ---
 
+## 2026-07-02 — Phase 5b: response_model enforces the *actual* wire shape, not the frozen CONTRACTS §3 draft
+
+**Context**: Phase 5b declared `response_model` on the bare-dict endpoints (`routers/wealth.py` ×4,
+`intake.py` /status + /archive, `holdings.py` /refresh-prices). The `wealth` endpoints' live output
+already diverged from the CONTRACTS.md §3 *draft* shapes frozen for Issue 5: the code ships
+`GET /wealth/position` → `{"wealth", "income"}` (§3 draft said `{"allocation", "income"}`), hyphenated
+paths (`/allocation-position`, `/net-worth-trajectory`), and `WealthLadder`/`IncomeLadder` TypedDicts
+whose fields (`net_worth`, `allocation_ladder`, `open_gaps`, …) the §3 table never enumerated.
+
+**Decision**: Model the **current wire shape** the frontend already consumes — not the stale §3 draft —
+so adding validation is a no-op for clients. New Pydantic models live in each router
+(`WealthPositionResponse`, `IncomePositionResponse`, `CombinedPositionResponse`,
+`NetWorthTrajectoryResponse`, `IntakeStatusResponse`, `IntakeArchiveEntry`, `PriceRefreshSummary`).
+CONTRACTS.md §3 gets a pointer note that the response models are now the enforced source of truth for
+these shapes. The `digest.py` SMTP-leak item in the Phase 5 roadmap was **already fixed** (logs
+server-side, returns a fixed `"Digest send failed"` detail) and was dropped from 5b.
+
+**Reasoning**: Reshaping the endpoints to match a never-shipped draft would break the live HTMX
+frontend for zero benefit. The frozen contract's *purpose* — a stable, validated boundary — is better
+served by pinning the shape that's actually in production. Money fields stay `Decimal`; the
+`net-worth-trajectory` endpoint keeps its deliberate stringified decimals.
+
+**Trade-offs**: CONTRACTS §3's original path/shape table is now descriptive history rather than the
+literal contract; the response models are authoritative. No behavior change on the wire.
+
+**Owner**: reese (approved 2026-07-02, "good to go")
+
+## 2026-07-02 — Phase 5b: alembic env.py imports models only for --autogenerate
+
+**Context**: `alembic upgrade` on the ARM deploy host was slow partly because `migrations/env.py`
+imported `vault.models` + `memory.models` + `auth` at module load to populate `Base.metadata` — and
+`import auth` drags in the FastAPI/jwt/bcrypt graph. `upgrade`/`downgrade` never consult
+`target_metadata` (only autogenerate diffs against it).
+
+**Decision**: Defer the model imports into `_load_model_metadata()`, called only when
+`config.cmd_opts.autogenerate` is truthy. `upgrade` runs with an empty `Base.metadata` (harmless —
+it replays revision scripts), skipping the heavy import chain. Verified: `alembic upgrade head`
+applies all 7 migrations in ~2s locally with models un-imported.
+
+**Reasoning**: Fixes the cause (needless imports on the hot deploy path) rather than the symptom
+(raising `command_timeout` further, previously considered and ruled out).
+
+**Trade-offs**: `alembic revision --autogenerate` now depends on argparse setting `cmd_opts` — true
+for CLI use; a purely programmatic autogenerate would need `_load_model_metadata()` called explicitly.
+Not a path this project uses.
+
+**Owner**: reese (approved 2026-07-02, "good to go")
+
 ## 2026-07-02 — Phase 6 agent correctness: proposals reducer + multi-specialist routing (CONTRACTS §1 amendment)
 
 **Context**: The assessment found the agent graph doesn't do what its design says — routing fired

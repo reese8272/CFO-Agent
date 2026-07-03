@@ -7,10 +7,11 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import RequestResponseEndpoint
 from pathlib import Path
 from slowapi.errors import RateLimitExceeded
 
@@ -77,6 +78,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.state.limiter = limiter
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next: RequestResponseEndpoint) -> Response:
+    """Defense-in-depth response headers on every response.
+
+    HSTS is only sent in production, where the public origin is HTTPS (TLS
+    terminates at Cloudflare); sending it over plain-HTTP local dev would wrongly
+    pin the browser. No CSP yet — the HTMX pages use inline handlers, so a strict
+    policy is a separate effort (tracked in docs/PRODUCTION_ROADMAP.md).
+    """
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    if _prod:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 
 @app.exception_handler(RateLimitExceeded)
