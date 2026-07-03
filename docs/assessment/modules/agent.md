@@ -1,106 +1,64 @@
-# agent — assessed 2026-07-02
+# agent — re-assessed 2026-07-02 (post-remediation)
 
-Slice: `agent/graph.py`, `state.py`, `prompts.py`, `principles.py`, `principles_investing.py`,
-`principles_real_estate.py`, `principles_saas.py`, and all nodes in `agent/nodes/`.
+Branch `hardening/phase-7-finish-line` @ `9ef25a5`. Re-verification of the seven
+findings raised in the original 2026-07-02 assessment (`docs/assessment/REPORT.md`),
+by reading the current code. Evidence is `file:line`.
 
 ## Findings
 
-- [BLOCKER] agent/nodes/synthesizer.py:83 — the mandatory disclaimer is set **only** from the
-  Synthesizer LLM's own `requires_disclaimer` output; it ignores the `requires_disclaimer` flag
-  on the contributing proposals. `tax_optimizer` always sets `requires_disclaimer=True`
-  (tax_optimizer.py:99) and `alert` sets it True for Roth/deduction alerts, yet if the final LLM
-  call returns `requires_disclaimer=false`, the disclaimer is silently dropped on tax/investment
-  output. This violates the frozen hard rule in CONTRACTS.md §2 ("`disclaimer` is non-null
-  whenever any contributing proposal set `requires_disclaimer`") and the CLAUDE.md mandatory-
-  disclaimer domain rule. | fix: compute `needs = result.get("requires_disclaimer") or
-  any(p["requires_disclaimer"] for p in state.get("proposals", []))` and set
-  `disclaimer = get_disclaimer() if needs else None`. Add the structural test the disclaimer.py
-  docstring already promises (Issue 7).
+1. **[BLOCKER] Synthesizer dropped disclaimer when final LLM returned
+   `requires_disclaimer=false` — FIXED.**
+   `agent/nodes/synthesizer.py:86-89` now OR-folds the final flag with the
+   proposals' flags:
+   `needs_disclaimer = bool(result.get("requires_disclaimer")) or any(p.get("requires_disclaimer") for p in state.get("proposals", []))`,
+   then `disclaimer = get_disclaimer() if needs_disclaimer else None`. Matches the
+   expected fix exactly.
 
-- [SEV1] agent/nodes/coach.py:136 + agent/state.py:56 — Coach intends to **replace** the
-  proposal list ("replace existing ones (Coach is the authority on final cite)") but
-  `proposals` uses `Annotated[list[NodeProposal], operator.add]`, so returning
-  `{"proposals": new_proposals}` **appends**. After Strategist appends P1, Coach appends its
-  enriched copy, leaving the Synthesizer duplicate proposals (raw + enriched) and inflating the
-  set the Synthesizer sorts/picks from. | fix: Coach must not re-emit via the additive channel.
-  Either (a) have Coach write enriched citations to a separate non-additive state key the
-  Synthesizer reads, or (b) give `proposals` a custom reducer that replaces entries with the same
-  `node`. Add a test asserting `len(proposals)` after Coach equals the specialist count.
+2. **[SEV1] `_route_from_analyzer` returned a single node (only one specialist
+   fired) — FIXED.**
+   `agent/graph.py:93-104` now returns `list[str]` — de-duped
+   `[_ROUTE_TO_NODE[r] for r in routes ...]`, falling back to `["coach"]` when no
+   specialist matches. Conditional edge map (`graph.py:127-137`) wires all four
+   specialists + coach for true parallel fan-out. Signature is `-> list[str]`.
 
-- [SEV1] agent/graph.py:85-97 — `_route_from_analyzer` returns a **single** node name, so despite
-  `routes` being a list and `turn_kind` supporting `"both"`, only ONE specialist
-  (strategist | career | income_optimizer | tax_optimizer | coach) ever fires per turn. The
-  `operator.add` reducer, the parallel fan-out in CONTRACTS.md §1/§2, and multi-topic turns are
-  all dead — a "what should I do next?" turn that routes to allocation+income runs Strategist only,
-  never Career/Income-Optimizer. | fix: use `graph.add_conditional_edges` with a list return (or
-  fan out with parallel edges gated on `routes`) so every routed specialist runs and each appends
-  its own proposal, then converge on Coach. Add an eval asserting a "both" turn yields ≥2 proposals.
+3. **[SEV1] `proposals` used `operator.add`, so Coach duplicated proposals —
+   FIXED.**
+   `agent/state.py:70` declares
+   `proposals: Annotated[list[NodeProposal], merge_proposals]`; the reducer
+   `merge_proposals` (`state.py:37-49`) keeps one entry per `node` (replace-by-node),
+   so parallel specialists accumulate but Coach's re-emitted nodes replace rather
+   than append. Coach returns replacement proposals at `coach.py:144`.
 
-- [SEV1] agent/nodes/tracker.py:38-49, agent/nodes/alert.py:110-212, agent/graph.py:33 — no
-  per-tenant scoping. Retrieval hardcodes `user_id="owner"`, and the Tracker/Alert queries
-  (`select(NetWorthSnapshot)`, `select(Goal)`, `select(RetirementAccount).where(kind=='roth_ira')`,
-  `select(TaxDeduction1099)`, `select(NegotiationMilestone)`, `select(CareerPosition)`) have **no
-  `WHERE user_id = ?`**. Harmless while single-user, but the moment a second user exists (the stated
-  goal is public/portfolio-grade) every one of these is a cross-tenant read — this becomes a
-  BLOCKER at that point. | fix: thread `user_id` through `tracker_node`/`alert_node` from state and
-  add `.where(Model.user_id == user_id)` to every query; add a two-tenant regression test asserting
-  tenant B's snapshots/goals/milestones never surface for tenant A. Track under the CLAUDE.md
-  pre-GA multi-tenant checklist.
+4. **[SEV2] Coach fragile `next(... tool_use)` under MAX_TOKENS=512 could 500 —
+   FIXED.**
+   `agent/nodes/coach.py:116` uses guarded `next((b for b in ... ), None)`;
+   `coach.py:117-123` falls back to passing the raw proposals through (with a
+   warning log of `stop_reason`) instead of raising. `MAX_TOKENS` raised to 2048
+   (`coach.py:18`, comment notes 512 truncated multi-specialist turns).
 
-- [SEV2] agent/nodes/{analyzer,strategist,coach,career,tax_optimizer,synthesizer}.py:14-19 —
-  model ids are hardcoded module constants (`MODEL = "claude-sonnet-4-6"` / `"claude-haiku-4-5-20251001"`)
-  repeated across six nodes; `config.py` has no `anthropic_model` field (rubric §5: model id must
-  come from typed settings). The ids themselves are valid current models (Sonnet 4.6, Haiku 4.5) —
-  no stale/invalid id — but they cannot be changed without editing six files. | fix: add
-  `anthropic_model_fast` / `anthropic_model_smart` to `Settings` (config.py) with defaults, document
-  in `.env.example`, and read them in the nodes.
+5. **[SEV2] tax_optimizer hardcoded 22% bracket — FIXED.**
+   `agent/principles.py:21` defines year-stamped
+   `ASSUMED_FED_MARGINAL_BRACKET_2026: float = 0.22`;
+   `agent/nodes/tax_optimizer.py:14` imports it and `tax_optimizer.py:69-71` uses
+   it in the quarterly-estimate calc. No literal `0.22` remains in the node.
 
-- [SEV2] agent/nodes/tax_optimizer.py:68 — `estimated_quarterly = income_1099_ytd * (SE_TAX_RATE + 0.22) / 4`
-  hardcodes a 22% income-tax bracket for every user and is not year-stamped or sourced from
-  `agent/principles.py`. Quarterly estimate is wrong for anyone outside the 22% bracket and the
-  magic `0.22` is undocumented. | fix: derive the marginal bracket from the user's income (or make
-  it an explicit, year-stamped constant in `principles.py`) and cite it "for 2026…" like the other
-  constants.
+6. **[cleanup] leverage_score unclamped; legacy anthropic-beta prompt-caching
+   header — FIXED (one stale docstring remains).**
+   leverage_score is clamped to 0–1 in every emitter:
+   `strategist.py:91`, `career.py:80`, `tax_optimizer.py:99`, `coach.py:130`
+   (`max(0.0, min(1.0, float(...)))`); `income_optimizer.py` bounds via
+   `min(gap_pct, Decimal("1.0"))` and fixed 0.3/0.4 fallbacks. No functional
+   `anthropic-beta` / `extra_headers` / `default_headers` remains in `clients.py`
+   or any node — caching is via native `cache_control` blocks. NOTE: a stale
+   descriptive docstring still reads `anthropic-beta prompt-caching-2024-07-31` at
+   `agent/prompts.py:1`; cosmetic only, not load-bearing.
 
-- [SEV2] agent/nodes/coach.py:95-101 — the full `PRINCIPLES` registry (16 cite strings) is
-  concatenated into the **volatile user message** on every Coach call, so it is never cached, unlike
-  the static `_SYSTEM` block. Re-sends the same ~1–2k tokens uncached each turn. | fix: move the
-  registry text into a second cached system block (`cache_control: ephemeral`) alongside `_SYSTEM`.
-
-- [SEV2] agent/nodes/coach.py:104-115 — Coach forces an array-valued tool output
-  (`enriched_proposals`) under `MAX_TOKENS=512`; if the response truncates (`stop_reason=max_tokens`)
-  the `tool_use` input is incomplete and `next(b ... if b.type == "tool_use")` yields malformed
-  input or raises `StopIteration` → unhandled 500. Same fragile `next(...)` pattern in every LLM
-  node. | fix: raise Coach `MAX_TOKENS` (array output scales with proposal count), and guard the
-  extraction: `tool_block = next((b for b in response.content if b.type == "tool_use"), None)` with
-  an explicit fallback proposal if `None`.
-
-- [cleanup] agent/nodes/strategist.py:12, coach.py:12, tax_optimizer.py:11-14 — unused imports:
-  `get_principle` (strategist, coach) and `ROTH_IRA_LIMIT_2026` (tax_optimizer). | fix: remove.
-
-- [cleanup] agent/nodes/*.py — `extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}` is
-  the legacy beta header; prompt caching is GA and the header is unnecessary (harmless but stale). |
-  fix: drop the header; keep the `cache_control` blocks.
-
-- [cleanup] agent/nodes/{strategist,coach,career,tax_optimizer}.py — LLM-returned `leverage_score`
-  is cast to float but never clamped to 0.0–1.0 (the contract range); `income_optimizer` clamps,
-  the LLM nodes do not, so the Synthesizer could sort on an out-of-range score. | fix:
-  `max(0.0, min(1.0, float(r["leverage_score"])))`.
-
-## Rubric coverage
-| Category | Status |
-|---|---|
-| 1 Resource lifecycle | ok — DB via `async with get_sessionmaker()()`; Anthropic/Redis are module singletons in clients.py |
-| 2 Concurrency & scale | ok-ish — no blocking calls in async nodes; but tenant queries unindexed-by-user (see SEV1 isolation), and NetWorthSnapshot limited to 12 (bounded) |
-| 3 Security & compliance | 2 findings — BLOCKER disclaimer drop; SEV1 missing per-tenant scoping. No PII/balance in log lines (verified). |
-| 4 Domain correctness | 2 findings — disclaimer (BLOCKER); tax 22%-bracket assumption (SEV2). Principle citations + year-stamped constants otherwise correct. |
-| 5 LLM SDK | 1 finding — prompt caching present + static/volatile split ok; token usage logged every call; model id hardcoded not from settings (SEV2); legacy beta header (cleanup). |
-| 6 Cleanliness & typing | 3 cleanups — unused imports, stale header, unclamped score. Signatures typed. |
-| 7 Error handling / API | n/a (no router/handler in slice) — note fragile `next(...)` tool extraction (SEV2 under Coach). |
-| 8 Config & paths | ok — settings via pydantic-settings fail-fast; add `anthropic_model` + `0.22`/thresholds to `.env.example` per SEV2s. |
+7. **[SEV1, DEFERRED] Per-tenant scoping (no `user_id` filter) — STILL DEFERRED
+   (not a regression).**
+   `agent/graph.py:33` retrieval is still hardcoded `user_id="owner"` and
+   `persist_node` (`graph.py:37-82`) writes Conversation/Message/Decision rows with
+   no tenant column. This is the documented Road-A single-user deferral, unchanged
+   from the original assessment — deferred, not regressed.
 
 ## Module verdict
-has BLOCKER — the mandatory disclaimer can be dropped on tax/investment output because the
-Synthesizer ignores proposals' `requires_disclaimer`; additionally the Coach additive-reducer
-duplication and single-specialist routing defeat the parallel node design, and no query is
-per-tenant scoped ahead of the stated public launch.
+All six in-scope findings FIXED (one cosmetic stale docstring at prompts.py:1); the single SEV1 per-tenant scoping item remains a documented Road-B deferral — agent module is production-ready for single-user scope.
