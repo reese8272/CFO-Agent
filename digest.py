@@ -128,7 +128,9 @@ def _send_email_sync(subject: str, body: str, settings) -> None:
     msg["To"] = settings.digest_recipient
     msg.attach(MIMEText(body, "plain"))
 
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as smtp:
+    # timeout so a wedged/blackholed SMTP host can't hang the worker thread (and
+    # the awaiting /digest/run-now request) forever.
+    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as smtp:
         smtp.starttls()
         smtp.login(settings.smtp_user, settings.smtp_password)
         smtp.send_message(msg)

@@ -110,7 +110,7 @@ async def test_strategist_emits_proposal():
         "proposals": [],
     }
 
-    with patch("agent.nodes.strategist.get_anthropic", return_value=mock_client):
+    with patch("agent.nodes._llm.get_anthropic", return_value=mock_client):
         result = await strategist_node(state)
 
     assert len(result["proposals"]) == 1
@@ -119,6 +119,40 @@ async def test_strategist_emits_proposal():
     assert proposal["principle"] == "tax_arbitrage"
     assert 0.0 <= proposal["leverage_score"] <= 1.0
     assert isinstance(proposal["requires_disclaimer"], bool)
+    # token usage flows back into state (accumulated across nodes via the reducer)
+    assert result["tokens_in"] == 100
+    assert result["tokens_out"] == 50
+
+
+@pytest.mark.asyncio
+async def test_proposal_node_survives_max_tokens_truncation():
+    """A response with no tool_use block (max_tokens truncation) must NOT raise
+    StopIteration — the specialist skips its proposal and the turn continues,
+    still accounting the tokens it spent."""
+    from agent.nodes.strategist import strategist_node
+
+    text_block = MagicMock()
+    text_block.type = "text"  # no tool_use block at all
+    mock_resp = MagicMock()
+    mock_resp.content = [text_block]
+    mock_resp.stop_reason = "max_tokens"
+    mock_resp.usage = MagicMock(input_tokens=120, output_tokens=512)
+
+    mock_client = AsyncMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_resp)
+
+    state = {
+        "user_message": "?",
+        "wealth_position": {"step": 3, "step_name": "x", "rationale": "", "next_move": ""},
+        "active_decisions": [],
+        "proposals": [],
+    }
+    with patch("agent.nodes._llm.get_anthropic", return_value=mock_client):
+        result = await strategist_node(state)
+
+    assert result["proposals"] == []          # skipped, not crashed
+    assert result["tokens_in"] == 120         # tokens still counted
+    assert result["tokens_out"] == 512
 
 
 # --- Coach node ---
@@ -261,7 +295,7 @@ async def test_career_node_emits_proposal():
         "proposals": [],
     }
 
-    with patch("agent.nodes.career.get_anthropic", return_value=mock_client):
+    with patch("agent.nodes._llm.get_anthropic", return_value=mock_client):
         result = await career_node(state)
 
     assert len(result["proposals"]) == 1
@@ -297,7 +331,7 @@ async def test_tax_optimizer_sets_disclaimer():
         "proposals": [],
     }
 
-    with patch("agent.nodes.tax_optimizer.get_anthropic", return_value=mock_client):
+    with patch("agent.nodes._llm.get_anthropic", return_value=mock_client):
         result = await tax_optimizer_node(state)
 
     assert len(result["proposals"]) == 1

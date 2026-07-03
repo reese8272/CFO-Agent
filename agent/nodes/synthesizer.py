@@ -21,6 +21,37 @@ MODEL = get_settings().anthropic_model_smart
 MAX_TOKENS = 1024
 
 
+def _fallback_from_proposals(state: AgentState, *, tokens_in: int, tokens_out: int) -> dict:
+    """Terminal-safe response when the Synthesizer's tool output truncates.
+
+    Renders the highest-leverage specialist proposal directly rather than 500-ing.
+    Preserves the mandatory-disclaimer invariant (CONTRACTS §2).
+    """
+    proposals = state.get("proposals", [])
+    top = max(proposals, key=lambda p: p.get("leverage_score", 0.0), default=None)
+    needs_disclaimer = any(p.get("requires_disclaimer") for p in proposals)
+    disclaimer = get_disclaimer() if needs_disclaimer else None
+    if top is None:
+        recommendation = (
+            "I couldn't fully synthesize a recommendation this turn — please ask again."
+        )
+        principle = ""
+    else:
+        recommendation = top["move"]
+        principle = top["principle"]
+    return {
+        "recommendation": recommendation,
+        "reasoning": top["rationale"] if top else "",
+        "principle": principle,
+        "disclaimer": disclaimer,
+        "vision_stamp": "",
+        "is_decision": False,
+        "decision_summary": None,
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
+    }
+
+
 async def synthesizer_node(state: AgentState) -> dict:
     """Call Anthropic with cached user profile; return terminal fields."""
     client = get_anthropic()
@@ -65,8 +96,20 @@ async def synthesizer_node(state: AgentState) -> dict:
     )
     latency_ms = int((time.monotonic() - t0) * 1000)
 
-    # extract tool call result
-    tool_block = next(b for b in response.content if b.type == "tool_use")
+    # extract tool call result — guard against a max_tokens truncation leaving no
+    # tool_use block. This is the terminal node, so a crash here 500s the whole
+    # chat; fall back to the highest-leverage specialist proposal instead.
+    tool_block = next((b for b in response.content if b.type == "tool_use"), None)
+    if tool_block is None:
+        logger.warning(
+            "synthesizer: no tool_use block (stop_reason=%s) — falling back to top proposal",
+            getattr(response, "stop_reason", "?"),
+        )
+        return _fallback_from_proposals(
+            state,
+            tokens_in=response.usage.input_tokens,
+            tokens_out=response.usage.output_tokens,
+        )
     result = tool_block.input
 
     cache_read = getattr(response.usage, "cache_read_input_tokens", 0) or 0

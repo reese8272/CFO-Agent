@@ -72,14 +72,37 @@ async def analyzer_node(state: AgentState) -> dict:
         tool_choice={"type": "tool", "name": "classify_turn"},
     )
     latency_ms = int((time.monotonic() - t0) * 1000)
-    tool_block = next(b for b in response.content if b.type == "tool_use")
+    tokens_in = response.usage.input_tokens
+    tokens_out = response.usage.output_tokens
+
+    # Guard the extraction: a max_tokens truncation would leave no tool_use block.
+    # Classification is cheap (256 tokens) so this is unlikely, but fall back to a
+    # both-track turn rather than raising StopIteration and 500-ing the whole chat.
+    tool_block = next((b for b in response.content if b.type == "tool_use"), None)
+    if tool_block is None:
+        logger.warning(
+            "analyzer: no tool_use block (stop_reason=%s) — defaulting to a both-track turn",
+            getattr(response, "stop_reason", "?"),
+        )
+        return {
+            "turn_kind": "both",
+            "routes": ["allocation", "income"],
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+        }
+
     result = tool_block.input
     logger.info(
         "analyzer: turn_kind=%s routes=%s tokens_in=%d tokens_out=%d latency_ms=%d",
         result["turn_kind"],
         result["routes"],
-        response.usage.input_tokens,
-        response.usage.output_tokens,
+        tokens_in,
+        tokens_out,
         latency_ms,
     )
-    return {"turn_kind": result["turn_kind"], "routes": result["routes"]}
+    return {
+        "turn_kind": result["turn_kind"],
+        "routes": result["routes"],
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
+    }

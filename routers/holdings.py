@@ -10,12 +10,13 @@ import logging
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user
 from db import get_session
+from rate_limit import limiter
 from integrations.market_data import fetch_price_async
 from vault import crud
 from vault.models import Holdings
@@ -84,7 +85,8 @@ async def delete_holding(holding_id: int, session: Session, user: CurrentUser):
 # ---------------------------------------------------------------------------
 
 @router.post("/refresh-prices", status_code=200, response_model=PriceRefreshSummary)
-async def refresh_all_prices(session: Session, user: CurrentUser) -> dict:
+@limiter.limit("6/hour")
+async def refresh_all_prices(request: Request, session: Session, user: CurrentUser) -> dict:
     """Pull latest price for every distinct ticker in holdings.
 
     Per-ticker errors are isolated — one failure does not abort the batch.

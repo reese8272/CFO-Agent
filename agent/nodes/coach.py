@@ -111,6 +111,8 @@ async def coach_node(state: AgentState) -> dict:
         tool_choice={"type": "tool", "name": "coach_output"},
     )
     latency_ms = int((time.monotonic() - t0) * 1000)
+    tokens_in = response.usage.input_tokens
+    tokens_out = response.usage.output_tokens
     # Guard the extraction: an array-valued tool output can truncate at max_tokens,
     # leaving no/incomplete tool_use. Fall back to the raw proposals rather than 500.
     tool_block = next((b for b in response.content if b.type == "tool_use"), None)
@@ -120,7 +122,7 @@ async def coach_node(state: AgentState) -> dict:
             "coach: no usable enriched_proposals (stop_reason=%s); passing proposals through",
             response.stop_reason,
         )
-        return {"proposals": proposals}
+        return {"proposals": proposals, "tokens_in": tokens_in, "tokens_out": tokens_out}
 
     new_proposals = [
         NodeProposal(
@@ -136,9 +138,9 @@ async def coach_node(state: AgentState) -> dict:
     logger.info(
         "coach: enriched %d proposals tokens_in=%d tokens_out=%d latency_ms=%d",
         len(new_proposals),
-        response.usage.input_tokens,
-        response.usage.output_tokens,
+        tokens_in,
+        tokens_out,
         latency_ms,
     )
     # Return enriched proposals — replace existing ones (Coach is the authority on final cite)
-    return {"proposals": new_proposals}
+    return {"proposals": new_proposals, "tokens_in": tokens_in, "tokens_out": tokens_out}

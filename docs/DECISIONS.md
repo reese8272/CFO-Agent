@@ -14,6 +14,53 @@ Format:
 
 ---
 
+## 2026-07-03 — Showcase pass: Top-5 assessment fixes (money truth, token accounting, resilience, observability)
+
+**Context**: The 2026-07-03 `/assess` returned YES (Road A) with 0 BLOCKER/SEV1 but an 18-item SEV2
+backlog. The user prioritized the report's Top-5 actions for the portfolio/resume-showcase goal.
+
+**Decisions**:
+- **One source of truth for money** (vault): `wealth_position.py` now imports the year-versioned tax
+  constants from `agent/principles.py` (was re-hardcoded → drift risk at 2027). Expense-summing is a
+  single `vault/_money.sum_monthly_expenses(session, fallback=DEFAULT_MONTHLY_EXPENSES)` helper called
+  by the snapshot **and** the wealth ladder, so they can't disagree (the snapshot previously lacked the
+  `$3000` floor → reported `savings_rate=100%` while the ladder showed an emergency-fund gap). The dead
+  expense computation in `income_position.py` (never consumed) was deleted. Nested money in
+  `financial_snapshot.analysis_jsonb` keeps `Decimal` (serialized to str by `EncryptedJSON`) instead of
+  `float(...)` — the LLM/UI reason over exact values.
+- **Token accounting reducer (amends CONTRACTS §1)**: `tokens_in`/`tokens_out` changed from plain `int`
+  to `Annotated[int, operator.add]`; every LLM node returns its usage so the per-turn total (Analyzer +
+  specialists + Coach + Synthesizer) sums into what `persist_node` writes — previously only the
+  Synthesizer's tokens were recorded. `tax_optimizer` now logs tokens (it was the one node that didn't).
+- **Truncation resilience via a shared helper**: extracted `agent/nodes/_llm.run_proposal_node` for the
+  3 single-proposal nodes (Strategist/Career/Tax). It guards the `tool_use` extraction with
+  `next(..., None)` — on a `max_tokens` truncation it **skips that specialist's proposal** (returns
+  `{"proposals": []}`, a no-op under the reducer) rather than raising `StopIteration` → 500. Analyzer
+  falls back to a both-track turn; the Synthesizer (terminal) falls back to the highest-leverage
+  proposal, preserving the mandatory-disclaimer invariant. *(The Coach `principle` enum tightening —
+  SEV2 #6 — was NOT in the Top-5 and is deferred.)*
+- **Cost/timeout guards**: the two paid-external-API endpoints (`/vault/real-estate/refresh-values`
+  RentCast, `/holdings/refresh-prices` yfinance) now carry `@limiter.limit("6/hour")`. `smtplib.SMTP`
+  gets `timeout=30`. yfinance runs through a timeout-enforcing `requests.Session` subclass so a hung
+  Yahoo endpoint can't leak a `to_thread` worker (the `wait_for` cancels the coroutine, not the thread).
+- **Disclaimer override** now reads `get_settings().wealth_disclaimer_text` (was `os.environ` — which
+  pydantic-settings never populates from `.env`, so the documented override silently no-op'd).
+- **Import N+1**: the CSV/OFX import loop pre-loads existing hashes in one query, filters in memory,
+  `add_all()`s, and writes one summary audit row — was a `SELECT` + `flush` + audit `INSERT` per row.
+- **Observability**: a per-request correlation id (`observability.py` + middleware) is minted/propagated
+  via `X-Request-ID` and injected into every log line. *(Sentry and setting the `HEALTHCHECK_PING_URL`
+  prod secret remain owner-side activation steps — external service / secret I can't provision.)*
+
+**Reasoning**: These are the fixes a senior reviewer expects — inconsistent user-facing dollar figures,
+undercounted LLM cost, crash-on-truncation, unthrottled paid APIs, and untraceable requests all read as
+unfinished. All are backed by the assessment register.
+
+**Trade-offs**: `analysis_jsonb` numeric fields are now JSON strings (exact) rather than JSON numbers —
+consumers already treat them as display/LLM context. Skipping a truncated specialist's proposal means a
+degraded (not failed) turn, logged at WARNING.
+
+**Owner**: reese (approved 2026-07-03, "fix the top 5 needed to be done for the showcase")
+
 ## 2026-07-02 — Phase 5b: response_model enforces the *actual* wire shape, not the frozen CONTRACTS §3 draft
 
 **Context**: Phase 5b declared `response_model` on the bare-dict endpoints (`routers/wealth.py` ×4,

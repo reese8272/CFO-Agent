@@ -9,7 +9,7 @@ import html as html_mod
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth import get_current_user
 from config import get_settings
 from db import get_session
+from rate_limit import limiter
 from integrations.property_data import fetch_property_estimate
 from vault import crud
 from vault.models import RealEstate as RealEstateModel
@@ -484,7 +485,8 @@ async def delete_real_estate(re_id: int, session: Session, user: CurrentUser):
 
 
 @router.post("/real-estate/refresh-values", status_code=200)
-async def refresh_real_estate_values(session: Session, user: CurrentUser) -> dict:
+@limiter.limit("6/hour")
+async def refresh_real_estate_values(request: Request, session: Session, user: CurrentUser) -> dict:
     """Pull Zestimate-equivalent AVM for every real estate address via RentCast.
 
     Requires RENTCAST_API_KEY. Returns 503 if the key is absent.

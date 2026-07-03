@@ -100,3 +100,15 @@ async def test_security_headers_present() -> None:
     assert resp.headers["Referrer-Policy"] == "no-referrer"
     # HSTS is prod-only; the test env is not production.
     assert "Strict-Transport-Security" not in resp.headers
+
+
+async def test_request_id_minted_and_echoed() -> None:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # no inbound id → one is minted
+        minted = await client.get("/", follow_redirects=False)
+        assert minted.headers.get("X-Request-ID")
+        # inbound id → echoed back verbatim (correlation across a proxy hop)
+        echoed = await client.get(
+            "/", follow_redirects=False, headers={"X-Request-ID": "trace-abc-123"}
+        )
+    assert echoed.headers["X-Request-ID"] == "trace-abc-123"

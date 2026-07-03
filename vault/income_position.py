@@ -47,19 +47,7 @@ async def compute_income_position(session: AsyncSession, user_id: str) -> Income
 
 
 async def _build_income_ladder(session: AsyncSession) -> tuple[list[IncomeStep], Decimal]:
-    from vault.models import IncomeStream, Expense, SideIncomeEconomics, TaxDeduction1099, NegotiationMilestone
-
-    # Monthly expenses baseline
-    result = await session.execute(select(Expense))
-    expense_rows = result.scalars().all()
-    monthly_expenses = Decimal("0")
-    for r in expense_rows:
-        amt = getattr(r, "typical_amount", None)
-        cadence = getattr(r, "cadence", "monthly") or "monthly"
-        if amt is not None:
-            monthly_expenses += _to_monthly(Decimal(str(amt)), cadence)
-    if monthly_expenses == Decimal("0"):
-        monthly_expenses = Decimal("3000")
+    from vault.models import IncomeStream, SideIncomeEconomics, TaxDeduction1099, NegotiationMilestone
 
     # Income streams
     result = await session.execute(select(IncomeStream))
