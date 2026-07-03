@@ -55,6 +55,9 @@ class Settings(BaseSettings):
 
     healthcheck_ping_url: str | None = None
 
+    # Error tracking. Inert unless a DSN is set (Sentry is initialized only then).
+    sentry_dsn: str | None = None
+
     plaid_client_id: str | None = None
     plaid_secret: str | None = None
     plaid_env: str | None = None

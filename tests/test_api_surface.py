@@ -102,6 +102,14 @@ async def test_security_headers_present() -> None:
     assert "Strict-Transport-Security" not in resp.headers
 
 
+def test_error_tracking_init_is_noop_without_dsn() -> None:
+    """init_error_tracking must be safe to call with no SENTRY_DSN (the test env
+    sets none) — an optional observability dep can never block startup."""
+    from observability import init_error_tracking
+
+    init_error_tracking()  # must not raise
+
+
 async def test_request_id_minted_and_echoed() -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # no inbound id → one is minted
