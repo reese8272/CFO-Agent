@@ -260,8 +260,10 @@ still fails and the site can 502 for a minute.
   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # persist across reboot
   free -h                                                       # confirm Swap: 2.0Gi
   ```
-- **Longer-term:** slim what `migrations/env.py` imports so the migration process doesn't pull the
-  full agent graph (ops backlog).
+- **Done (Phase 5b, PR #38):** `migrations/env.py` imports the model modules only for
+  `--autogenerate`, so the deploy-time `alembic upgrade` no longer pulls the FastAPI/agent import
+  graph via `import auth`. Reduces (does not eliminate) the rollover RAM spike — apply the swap above
+  regardless.
 
 ---
 
