@@ -243,6 +243,26 @@ python3 scripts/check_env.py --live      # verify every credential actually work
   [healthchecks.io](https://healthchecks.io) check. The worker pings it every 5 min; if pings
   stop (whole VM down), you get an email/SMS alert. See `docs/ENV_CHECKLIST.md`.
 
+### 7.1 Deploy OOM / 502 on the ARM VM (ISSUE-2026-07-02-02)
+
+A deploy can transiently return **502** if the `app` container is OOM-killed during rollover
+(status `137` + `Temporary failure in name resolution` in the deploy log). The small ARM VM runs
+low on RAM when the heavy import graph (langgraph + pandas/numpy) loads while the old and new app
+containers briefly coexist. `restart: unless-stopped` + autoheal recover it, but the deploy job
+still fails and the site can 502 for a minute.
+
+- **Immediate recovery:** re-run the failed deploy — `gh run rerun <run-id> --failed` (lighter
+  recreate, no second rollover). `/health` returns to ok.
+- **Prevention (do once, on the VM):** add swap so the OOM has headroom —
+  ```bash
+  sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+  sudo mkswap /swapfile && sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # persist across reboot
+  free -h                                                       # confirm Swap: 2.0Gi
+  ```
+- **Longer-term:** slim what `migrations/env.py` imports so the migration process doesn't pull the
+  full agent graph (ops backlog).
+
 ---
 
 ## 8. `VAULT_ENCRYPTION_KEY` rotation runbook
