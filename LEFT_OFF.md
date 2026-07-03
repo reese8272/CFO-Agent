@@ -3,11 +3,11 @@
 > **Read this first.** Living "where we are right now" file — NOT a source of truth (those live in
 > `docs/`). Update whenever the active goal changes; run `/close-out` at the end of every session.
 
-**Last updated:** 2026-07-03 (session 2 — Phase 5b shipped + prod outage recovered)
-**Branch:** `main` HEAD `8fcd3b5` (Phase 5b #38). Working tree clean.
-**CI/Deploy:** **Phase 5b is LIVE + verified** (`x-frame-options: DENY` header confirmed on prod).
-Site ✅ `/health` ok, stable. Survived a full prod outage this session (see §5 — Oracle VM OOM-thrash,
-recovered by `oci` reboot). **Open prevention item: swap on the Oracle VM (129.80.102.20) — see §1.**
+**Last updated:** 2026-07-03 (session 2 — Phase 5b, outage recovery, /assess, Top-5 showcase fixes)
+**Branch:** `main` HEAD `1450b87` (Sentry #40). Working tree clean.
+**CI/Deploy:** all LIVE + verified in prod (`x-request-id` + `x-frame-options: DENY` headers confirmed).
+Site ✅ `/health` ok, stable. Survived a full prod outage this session (Oracle VM OOM-thrash → `oci`
+reboot); swap now auto-ensured by the deploy, so deploys are clean. Latest `/assess` = **YES (Road A)**.
 
 ---
 
@@ -29,12 +29,23 @@ housekeeping + optional polish remains.
    Verified live on `129.80.102.20`: deploy log showed `no swap present — creating 2G /swapfile` →
    `/swapfile file 2G` active, and the rollover reached HTTP 200 with no OOM. Self-heals every deploy.
    (Direct SSH + OCI Run Command were both unavailable to local ops — the pipeline was the way in.)
-3. **(Optional) Phase 4b polish** — SEV2, none gate the YES verdict: `limit` cap on the ~17 vault GET
-   list endpoints; encrypt `Account.plaid_account_id`. (5b is done — #38.)
-4. **Doc reconcile (small):** the prod-host docs are actually *correct* (Oracle `129.80.102.20`); the
-   confusion today was a second, unrelated box. No doc change needed beyond this note — but consider
-   adding "there are TWO boxes" to `docs/DEPLOYMENT.md` so a future session doesn't SSH the wrong one.
-5. **(Future) Road B** — real second users needs the full CLAUDE.md Pre-GA block; **tenant isolation**
+3. ✅ **DONE — ran full `/assess` (2026-07-03)** → **YES (Road A)**, 0 BLOCKER/0 SEV1, 18 SEV2 backlog.
+   Report + per-module files refreshed in `docs/assessment/`. Then shipped the **Top-5 showcase fixes
+   (#39)** + **Sentry (#40)**, all live:
+   - money source-of-truth (tax constants + shared `sum_monthly_expenses`; Decimal in `analysis_jsonb`)
+   - agent token accounting (`operator.add` reducers, amends CONTRACTS §1) + `run_proposal_node`
+     truncation guard (no more StopIteration→500)
+   - `X-Request-ID` request-id logging + DSN-gated Sentry
+   - `6/hour` limits on paid-API refresh endpoints; SMTP + yfinance timeouts
+   - disclaimer override via settings; CSV/OFX import N+1 → batched
+4. **⚠️ OPEN — two owner-only activations** (code shipped, just need prod secrets set):
+   - **`HEALTHCHECK_PING_URL`** (healthchecks.io) — dead-man's-switch alerting. **Highest-value** — it's
+     how you'd learn the site is down unattended (this session's outage was caught by chance).
+   - **`SENTRY_DSN`** (sentry.io) — turns on error tracking (inert until set).
+5. **(Optional) remaining SEV2 backlog** — see `docs/assessment/REPORT.md` register: Coach `principle`
+   enum tightening, `defusedxml` for OFX, `Account.plaid_account_id` encryption, list pagination (4b),
+   the `CurrentUser=str` annotation cleanup, etc. None gate the YES verdict.
+6. **(Future) Road B** — real second users needs the full CLAUDE.md Pre-GA block; **tenant isolation**
    (`user_id` on every table + owner filter, ideally Postgres RLS) is the headline. Deferred by the
    `docs/DECISIONS.md` 2026-07-02 Road-A scope decision.
 
