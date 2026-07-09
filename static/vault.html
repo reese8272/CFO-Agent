@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <script src="https://unpkg.com/htmx-ext-json-enc@2.0.2/json-enc.js"></script>
   <style>
     :root {
       --bg: #E4EDE6;
@@ -25,6 +26,24 @@
       --text-dim: #A8BDB2;
       --danger: #A05050;
     }
+    .form-error {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 8px; padding: 8px 12px;
+      background: #F6E8E8; border: 1px solid var(--danger); border-radius: 6px;
+      color: var(--danger); font-size: 13px;
+    }
+    .form-error button {
+      margin-left: auto; background: none; border: none; cursor: pointer;
+      color: var(--danger); font-size: 15px; line-height: 1; padding: 2px 4px;
+    }
+    form.htmx-request button[type=submit] {
+      opacity: 0.6; pointer-events: none;
+    }
+    form.htmx-request button[type=submit]::after {
+      content: '…'; display: inline-block; margin-left: 4px;
+      animation: form-busy 1s steps(4) infinite;
+    }
+    @keyframes form-busy { from { opacity: 0.2; } to { opacity: 1; } }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; }
     header {
@@ -121,7 +140,7 @@
     .text-note { font-size: 0.73rem; color: #8A7B40; background: #FAF6E8; border: 1px solid #E2D9A8; border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 1rem; }
   </style>
 </head>
-<body>
+<body hx-ext="json-enc">
 
   <header>
     <span class="logo">Personal CFO</span>
@@ -171,7 +190,7 @@
           <h2 class="section-title">Accounts</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-accounts')">Duplicate last</button>
         </div>
-        <form id="form-accounts" hx-post="/vault/accounts" hx-target="#list-accounts tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-accounts" hx-post="/vault/accounts" hx-target="#list-accounts tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Institution</span><input name="institution" required placeholder="Chase" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Nickname</span><input name="nickname" required placeholder="Main checking" tabindex="2" /></div>
@@ -195,7 +214,7 @@
           <h2 class="section-title">Cards</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-cards')">Duplicate last</button>
         </div>
-        <form id="form-cards" hx-post="/vault/cards" hx-target="#list-cards tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-cards" hx-post="/vault/cards" hx-target="#list-cards tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Account ID</span><input name="account_id" type="number" required placeholder="1" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Issuer</span><input name="issuer" required placeholder="Chase" tabindex="2" /></div>
@@ -222,7 +241,7 @@
           <h2 class="section-title">Income Streams</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-income-streams')">Duplicate last</button>
         </div>
-        <form id="form-income-streams" hx-post="/vault/income-streams" hx-target="#list-income-streams tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-income-streams" hx-post="/vault/income-streams" hx-target="#list-income-streams tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Source</span><input name="source" required placeholder="Employer Inc." tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Type</span><select name="source_type" tabindex="2"><option value="w2">W-2</option><option value="1099">1099</option><option value="gig">Gig</option><option value="coaching">Coaching</option><option value="business">Business</option><option value="cash">Cash</option><option value="other">Other</option></select></div>
@@ -262,7 +281,7 @@
           <h2 class="section-title">Business Income</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-business-income')">Duplicate last</button>
         </div>
-        <form id="form-business-income" hx-post="/vault/business-income" hx-target="#list-business-income tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-business-income" hx-post="/vault/business-income" hx-target="#list-business-income tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Business Name</span><input name="business_name" required placeholder="Acme LLC" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Entity</span><select name="entity_type" tabindex="2"><option value="sole_prop">Sole Prop</option><option value="llc">LLC</option><option value="scorp">S-Corp</option><option value="other">Other</option></select></div>
@@ -284,7 +303,7 @@
           <h2 class="section-title">Expenses</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-expenses')">Duplicate last</button>
         </div>
-        <form id="form-expenses" hx-post="/vault/expenses" hx-target="#list-expenses tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-expenses" hx-post="/vault/expenses" hx-target="#list-expenses tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Name</span><input name="name" required placeholder="Rent" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Category</span><input name="category" required placeholder="Housing" tabindex="2" /></div>
@@ -306,7 +325,7 @@
           <h2 class="section-title">Debts</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-debts')">Duplicate last</button>
         </div>
-        <form id="form-debts" hx-post="/vault/debts" hx-target="#list-debts tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-debts" hx-post="/vault/debts" hx-target="#list-debts tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Name</span><input name="name" required placeholder="Student loan" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Balance ($)</span><input name="balance" type="number" step="0.01" placeholder="0.00" tabindex="2" /></div>
@@ -328,7 +347,7 @@
           <h2 class="section-title">Other Assets</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-assets')">Duplicate last</button>
         </div>
-        <form id="form-assets" hx-post="/vault/assets" hx-target="#list-assets tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-assets" hx-post="/vault/assets" hx-target="#list-assets tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Kind</span><select name="kind" tabindex="1" autofocus><option value="vehicle">Vehicle</option><option value="equipment">Equipment</option><option value="other">Other</option></select></div>
             <div class="field"><span class="field-label">Nickname</span><input name="nickname" required placeholder="2020 Camry" tabindex="2" /></div>
@@ -349,7 +368,7 @@
           <h2 class="section-title">Real Estate</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-real-estate')">Duplicate last</button>
         </div>
-        <form id="form-real-estate" hx-post="/vault/real-estate" hx-target="#list-real-estate tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-real-estate" hx-post="/vault/real-estate" hx-target="#list-real-estate tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field" style="flex:2;min-width:200px"><span class="field-label">Address</span><input name="address" placeholder="123 Main St" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Type</span><select name="property_type" tabindex="2"><option value="primary">Primary</option><option value="rental">Rental</option><option value="other">Other</option></select></div>
@@ -374,7 +393,7 @@
           <h2 class="section-title">Retirement Accounts</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-retirement-accounts')">Duplicate last</button>
         </div>
-        <form id="form-retirement-accounts" hx-post="/vault/retirement-accounts" hx-target="#list-retirement-accounts tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-retirement-accounts" hx-post="/vault/retirement-accounts" hx-target="#list-retirement-accounts tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Kind</span><select name="kind" tabindex="1" autofocus><option value="roth_ira">Roth IRA</option><option value="traditional_ira">Traditional IRA</option><option value="401k">401(k)</option><option value="solo_401k">Solo 401(k)</option><option value="sep_ira">SEP IRA</option><option value="hsa">HSA</option></select></div>
             <div class="field"><span class="field-label">Institution</span><input name="institution" required placeholder="Fidelity" tabindex="2" /></div>
@@ -393,7 +412,7 @@
       <!-- NET WORTH -->
       <section id="tab-net-worth-snapshots" class="tab-section">
         <div class="section-header"><h2 class="section-title">Net Worth Snapshots</h2></div>
-        <form id="form-net-worth-snapshots" hx-post="/vault/net-worth-snapshots" hx-target="#list-net-worth-snapshots tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-net-worth-snapshots" hx-post="/vault/net-worth-snapshots" hx-target="#list-net-worth-snapshots tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Snapshot Date</span><input name="snapshot_at" type="datetime-local" required tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Total Assets ($)</span><input name="assets_total" type="number" step="0.01" placeholder="0.00" tabindex="2" /></div>
@@ -412,7 +431,7 @@
       <!-- CAREER POSITION -->
       <section id="tab-career-position" class="tab-section">
         <div class="section-header"><h2 class="section-title">Current Position</h2></div>
-        <form id="form-career-position" hx-post="/vault/career-position" hx-target="#list-career-position tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-career-position" hx-post="/vault/career-position" hx-target="#list-career-position tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Current Role</span><input name="current_role" required placeholder="Software Engineer" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Employer</span><input name="current_employer" required placeholder="Acme Corp" tabindex="2" /></div>
@@ -435,7 +454,7 @@
           <h2 class="section-title">Career History</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-career-history')">Duplicate last</button>
         </div>
-        <form id="form-career-history" hx-post="/vault/career-history" hx-target="#list-career-history tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-career-history" hx-post="/vault/career-history" hx-target="#list-career-history tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Role</span><input name="role" required placeholder="Engineer" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Employer</span><input name="employer" required placeholder="Acme Corp" tabindex="2" /></div>
@@ -458,7 +477,7 @@
           <h2 class="section-title">Comp Benchmarks</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-comp-benchmarks')">Duplicate last</button>
         </div>
-        <form id="form-comp-benchmarks" hx-post="/vault/comp-benchmarks" hx-target="#list-comp-benchmarks tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-comp-benchmarks" hx-post="/vault/comp-benchmarks" hx-target="#list-comp-benchmarks tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Role</span><input name="role" required placeholder="Software Engineer" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Metro</span><input name="metro" required placeholder="San Francisco" tabindex="2" /></div>
@@ -482,7 +501,7 @@
           <h2 class="section-title">Negotiation Milestones</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-negotiation-milestones')">Duplicate last</button>
         </div>
-        <form id="form-negotiation-milestones" hx-post="/vault/negotiation-milestones" hx-target="#list-negotiation-milestones tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-negotiation-milestones" hx-post="/vault/negotiation-milestones" hx-target="#list-negotiation-milestones tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Kind</span><select name="kind" tabindex="1" autofocus><option value="annual_review">Annual Review</option><option value="contract_renewal">Contract Renewal</option><option value="raise_eligibility">Raise Eligibility</option><option value="other">Other</option></select></div>
             <div class="field"><span class="field-label">Trigger Date</span><input name="trigger_date" type="date" required tabindex="2" /></div>
@@ -504,7 +523,7 @@
           <button class="btn-ghost" onclick="duplicateLast('form-tax-deductions')">Duplicate last</button>
         </div>
         <p class="text-note">For education and tracking only. Consult a CPA before filing.</p>
-        <form id="form-tax-deductions" hx-post="/vault/tax-deductions" hx-target="#list-tax-deductions tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-tax-deductions" hx-post="/vault/tax-deductions" hx-target="#list-tax-deductions tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field"><span class="field-label">Tax Year</span><input name="tax_year" type="number" required placeholder="2026" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Category</span><select name="category" tabindex="2"><option value="mileage">Mileage</option><option value="home_office">Home Office</option><option value="equipment">Equipment</option><option value="education">Education</option><option value="other">Other</option></select></div>
@@ -525,7 +544,7 @@
           <h2 class="section-title">Goals</h2>
           <button class="btn-ghost" onclick="duplicateLast('form-goals')">Duplicate last</button>
         </div>
-        <form id="form-goals" hx-post="/vault/goals" hx-target="#list-goals tbody" hx-swap="beforeend" hx-on::after-request="this.reset(); focusFirst(this)" class="add-form">
+        <form id="form-goals" hx-post="/vault/goals" hx-target="#list-goals tbody" hx-swap="beforeend" hx-on::after-request="if(event.detail.successful) { this.reset(); focusFirst(this); }" class="add-form">
           <div class="form-row">
             <div class="field" style="flex:2"><span class="field-label">Title</span><input name="title" required placeholder="$1M net worth by 2031" tabindex="1" autofocus /></div>
             <div class="field"><span class="field-label">Kind</span><select name="kind" tabindex="2"><option value="emergency_fund">Emergency Fund</option><option value="debt_payoff">Debt Payoff</option><option value="roth_max">Roth Max</option><option value="solo_401k_max">Solo 401k Max</option><option value="index_fund_contribution">Index Fund</option><option value="real_estate_down">RE Down Payment</option><option value="business_milestone">Business Milestone</option><option value="net_worth">Net Worth</option><option value="custom">Custom</option></select></div>
@@ -602,19 +621,80 @@
           if (el.value) payload[el.name] = el.type === 'number' ? parseFloat(el.value) : el.value;
         });
         if (!payload.income_stream_id) continue;
-        await fetch('/vault/side-income-economics', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify(payload),
-        });
+        try {
+          const resp = await fetch('/vault/side-income-economics', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(payload),
+          });
+          if (!resp.ok) {
+            showFormError(row, describeApiError({ status: resp.status, responseText: await resp.text() }));
+            htmx.trigger('#list-side-income-economics tbody', 'load');
+            return; // keep this row and the rest so the user can fix and retry
+          }
+        } catch (e) {
+          showFormError(row, 'Network error — check your connection and try again.');
+          return;
+        }
+        row.remove(); // saved — drop it so a later failure doesn't re-submit it
       }
-      document.getElementById('sie-rows').innerHTML = '';
       sieRowCount = 0;
       htmx.trigger('#list-side-income-economics tbody', 'load');
     }
+    function describeApiError(xhr) {
+      // FastAPI errors: 422 → {detail: [{loc, msg}, ...]}; others → {detail: "..."}
+      try {
+        const body = JSON.parse(xhr.responseText);
+        if (Array.isArray(body.detail)) {
+          return body.detail.map(d => {
+            const field = Array.isArray(d.loc) ? d.loc[d.loc.length - 1] : '';
+            return field ? field + ': ' + d.msg : d.msg;
+          }).join('; ');
+        }
+        if (body.detail) return String(body.detail);
+      } catch (e) { /* non-JSON body */ }
+      return xhr.status ? 'Request failed (HTTP ' + xhr.status + ')' : 'Request failed';
+    }
+    function showFormError(elt, message) {
+      const form = elt && elt.closest ? elt.closest('form') : null;
+      const host = form || (elt && elt.insertAdjacentElement ? elt : document.querySelector('main') || document.body);
+      let box = host.nextElementSibling;
+      if (!box || !box.classList.contains('form-error')) {
+        box = document.createElement('div');
+        box.className = 'form-error';
+        box.setAttribute('role', 'alert');
+        host.insertAdjacentElement('afterend', box);
+      }
+      box.innerHTML = '';
+      const text = document.createElement('span');
+      text.textContent = message;
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.setAttribute('aria-label', 'Dismiss');
+      close.textContent = '\u00d7';
+      close.onclick = () => box.remove();
+      box.append(text, close);
+    }
+    document.body.addEventListener('htmx:responseError', function(evt) {
+      showFormError(evt.detail.elt, describeApiError(evt.detail.xhr));
+    });
+    document.body.addEventListener('htmx:sendError', function(evt) {
+      showFormError(evt.detail.elt, 'Network error \u2014 check your connection and try again.');
+    });
+    document.body.addEventListener('htmx:beforeRequest', function(evt) {
+      // clear a stale error for the form being retried
+      const form = evt.detail.elt && evt.detail.elt.closest ? evt.detail.elt.closest('form') : null;
+      if (form && form.nextElementSibling && form.nextElementSibling.classList.contains('form-error')) {
+        form.nextElementSibling.remove();
+      }
+    });
     document.body.addEventListener('htmx:configRequest', function(evt) {
       const token = localStorage.getItem('cfo_token');
       if (token) evt.detail.headers['Authorization'] = 'Bearer ' + token;
+      // drop untouched optional fields — "" is not a valid Decimal/date for the API
+      for (const k of Object.keys(evt.detail.parameters)) {
+        if (evt.detail.parameters[k] === '') delete evt.detail.parameters[k];
+      }
     });
   </script>
 </body>
