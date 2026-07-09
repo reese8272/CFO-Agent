@@ -29,9 +29,14 @@ two observability secrets. Nothing is in flight; nothing is blocked on code.
    dispatched + green. The Sentry project shows "waiting for events" until the first unhandled
    error occurs — that's expected (init is confirmed by the same .env pipeline that delivers the
    healthcheck ping, which is proven working).
-3. **(Next feature work) Issue #44** — HTMX form error states (422/500 feedback on vault/intake
-   forms), carried over from #28 P3. Small, self-contained, per WEB_STANDARDS §5.
-4. **(Future) Road B** — multi-tenant: tenant isolation (`user_id` + RLS), cursor pagination,
+3. ✅ **DONE — Issue #44 shipped (PR #46, 2026-07-09).** Inline dismissible error banners on all
+   vault HTMX forms (422 field detail + network errors), input preserved on failure, busy state.
+   **Also fixed a latent SEV it exposed: vault HTMX creates NEVER worked** (urlencoded vs Pydantic
+   JSON — logged as ISSUE-2026-07-09-01; fixed via `htmx-ext-json-enc@2.0.2` + empty-param strip).
+   Verified point-and-click via Playwright (happy/422/dismiss/retry/offline) and live in prod.
+4. **(Next, if desired)** Gate 2 manual walkthrough in prod — vault creates now actually work in
+   the browser, so the owner can populate the vault per `docs/PROJECT_STATE.md` "Next Up".
+5. **(Future) Road B** — multi-tenant: tenant isolation (`user_id` + RLS), cursor pagination,
    licensed market-data path (yfinance is personal-use only — see DECISIONS 2026-07-09), full
    CLAUDE.md Pre-GA block. Deferred by the `docs/DECISIONS.md` 2026-07-02 Road-A scope decision.
 
