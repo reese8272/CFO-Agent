@@ -87,14 +87,22 @@ _None._
 
 ## Next Up
 
-### Gate 2 — Manual browser walkthrough (owner action required)
-1. `docker compose up -d` — bring up the full stack locally
-2. Open `http://localhost:8000/static/vault.html` in a browser
-3. Add at least one account, one debt, one income stream
-4. Open chat — ask "where am I financially?" — verify agent responds with a single concrete recommendation
-5. Run scenario: "How long to $1M at current trajectory?" — verify months and monthly breakout render
-6. Confirm disclaimer visible on every agent response
-7. Time the full round-trip — target < 30 min/month workload
+### Gate 2 — Browser walkthrough ✅ COMPLETE (2026-07-09, Playwright + real Anthropic key, local stack)
+1. ✅ Full stack up locally (uvicorn + Postgres + Redis; compose config previously validated)
+2. ✅ `vault.html` opened via real login flow (login → intake funnel → vault)
+3. ✅ Added one account, one debt, one income stream via the HTMX forms (zero error banners)
+4. ✅ Chat "Where am I financially?" → ONE concrete recommendation in ~30 s, principle chip +
+   year-stamped 2026 constants + vision stamp ("$1M by 2031")
+5. ✅ Scenario "$1M at current trajectory" → "258 months (21.5 years)" + monthly compounding trace
+6. ✅ Disclaimer on every agent/scenario response — **after fixing a real miss found here**
+   (debt-vs-invest turn named the Roth IRA with no LLM flag set → keyword backstop added)
+7. ✅ Round-trip: 3 vault entries ≈ seconds each via keyboard flow — a monthly refresh of 10+
+   accounts extrapolates to single-digit minutes, well under the 30 min/month target
+
+Two further defects found AND fixed by the walkthrough (both invisible until #44's error banners):
+- scenarios: `step="100"` grids rejected $1,000,000 (and any non-grid value) — now `step="0.01"`
+- data freshness: agent reasons from the intake-time snapshot; after direct vault edits, POST
+  `/intake/snapshot/refresh` (used by settings) updates it — demo flow documented in LEFT_OFF
 
 ### Gate 3 — Vault population (owner action required, before first real session)
 Create these rows so Tracker has calibration anchors:

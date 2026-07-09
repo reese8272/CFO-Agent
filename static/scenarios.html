@@ -101,13 +101,13 @@
         <div class="card">
           <form id="form-tti" onsubmit="submitScenario(event, 'tti', 'time_to_target')">
             <label for="tti-current">Current balance ($)</label>
-            <input type="number" id="tti-current" name="current_amount" min="0" step="100" value="0" required>
+            <input type="number" id="tti-current" name="current_amount" min="0" step="0.01" value="0" required>
             <label for="tti-contrib">Monthly contribution ($)</label>
-            <input type="number" id="tti-contrib" name="monthly_contribution" min="0" step="50" value="500" required>
+            <input type="number" id="tti-contrib" name="monthly_contribution" min="0" step="0.01" value="500" required>
             <label for="tti-return">Annual return (%) — use 0 for cash / savings</label>
             <input type="number" id="tti-return" name="annual_return_pct" min="0" max="50" step="0.1" value="7">
             <label for="tti-target">Target amount ($)</label>
-            <input type="number" id="tti-target" name="target_amount" min="1" step="100" value="100000" required>
+            <input type="number" id="tti-target" name="target_amount" min="1" step="0.01" value="100000" required>
             <button type="submit" class="btn" id="btn-tti">Calculate</button>
           </form>
         </div>
@@ -118,9 +118,9 @@
         <div class="card">
           <form id="form-ic" onsubmit="submitScenario(event, 'ic', 'income_change')">
             <label for="ic-current">Current monthly income ($)</label>
-            <input type="number" id="ic-current" name="current_monthly_income" min="0" step="100" value="5000" required>
+            <input type="number" id="ic-current" name="current_monthly_income" min="0" step="0.01" value="5000" required>
             <label for="ic-delta">Monthly change ($, use negative for a cut)</label>
-            <input type="number" id="ic-delta" name="delta_monthly" step="50" value="-500" required>
+            <input type="number" id="ic-delta" name="delta_monthly" step="0.01" value="-500" required>
             <button type="submit" class="btn" id="btn-ic">Calculate</button>
           </form>
         </div>

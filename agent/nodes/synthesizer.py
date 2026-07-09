@@ -10,7 +10,7 @@ import logging
 import time
 
 from clients import get_anthropic
-from disclaimer import get_disclaimer
+from disclaimer import get_disclaimer, text_requires_disclaimer
 from agent.state import AgentState
 from agent.prompts import CFO_SYSTEM_PROMPT, RESPONSE_TOOL
 from memory.retrieval import build_profile_block
@@ -29,8 +29,6 @@ def _fallback_from_proposals(state: AgentState, *, tokens_in: int, tokens_out: i
     """
     proposals = state.get("proposals", [])
     top = max(proposals, key=lambda p: p.get("leverage_score", 0.0), default=None)
-    needs_disclaimer = any(p.get("requires_disclaimer") for p in proposals)
-    disclaimer = get_disclaimer() if needs_disclaimer else None
     if top is None:
         recommendation = (
             "I couldn't fully synthesize a recommendation this turn — please ask again."
@@ -39,9 +37,15 @@ def _fallback_from_proposals(state: AgentState, *, tokens_in: int, tokens_out: i
     else:
         recommendation = top["move"]
         principle = top["principle"]
+    reasoning = top["rationale"] if top else ""
+    needs_disclaimer = (
+        any(p.get("requires_disclaimer") for p in proposals)
+        or text_requires_disclaimer(recommendation + " " + reasoning)
+    )
+    disclaimer = get_disclaimer() if needs_disclaimer else None
     return {
         "recommendation": recommendation,
-        "reasoning": top["rationale"] if top else "",
+        "reasoning": reasoning,
         "principle": principle,
         "disclaimer": disclaimer,
         "vision_stamp": "",
@@ -125,9 +129,15 @@ async def synthesizer_node(state: AgentState) -> dict:
 
     # The disclaimer is mandatory whenever ANY contributing proposal set
     # requires_disclaimer (CONTRACTS.md §2) — never trust the final LLM's flag
-    # alone, or a tax/investment recommendation can ship without it.
-    needs_disclaimer = bool(result.get("requires_disclaimer")) or any(
-        p.get("requires_disclaimer") for p in state.get("proposals", [])
+    # alone, or a tax/investment recommendation can ship without it. The keyword
+    # backstop catches turns where every LLM flag misses (Gate 2, 2026-07-09:
+    # a debt-vs-invest answer named the Roth IRA with no flag set).
+    needs_disclaimer = (
+        bool(result.get("requires_disclaimer"))
+        or any(p.get("requires_disclaimer") for p in state.get("proposals", []))
+        or text_requires_disclaimer(
+            f"{result['recommendation']} {result['reasoning']} {result['vision_stamp']}"
+        )
     )
     disclaimer = get_disclaimer() if needs_disclaimer else None
 
