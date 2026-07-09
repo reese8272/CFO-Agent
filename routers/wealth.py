@@ -17,13 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from db import get_session
-from auth import get_current_user
+from auth import User, get_current_user
 from vault.wealth_position import compute_wealth_position
 from vault.income_position import compute_income_position
 
 router = APIRouter(prefix="/wealth", tags=["wealth"])
 Session = Annotated[AsyncSession, Depends(get_session)]
-CurrentUser = Annotated[str, Depends(get_current_user)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 # --- Response models (mirror the WealthLadder / IncomeLadder TypedDicts) -----

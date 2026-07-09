@@ -14,6 +14,23 @@ Format:
 
 ---
 
+## 2026-07-09 — yfinance is personal-use only (licensing posture)
+
+**Context**: Assessment SEV2 flagged that yfinance scrapes Yahoo Finance, whose TOS prohibit
+redistribution and commercial use — load-bearing for the portfolio/showcase framing and any
+future second user.
+
+**Decision**: Keep yfinance as the primary price source for Road A (personal use), with the
+posture documented in `integrations/market_data.py` and a revisit trigger in
+`docs/THREAT_MODEL.md`. Any second user or commercial use moves the market-data path to
+Alpha Vantage (already wired as fallback) or a paid API.
+
+**Reasoning**: $0-budget constraint; personal use of public quotes is the accepted-risk norm.
+**Trade-offs**: the showcase demo must stay single-user; Alpha Vantage free tier (25 req/day)
+would need an upgrade at real usage. **Owner**: reese (session approval of PR 3 scope).
+
+---
+
 ## 2026-07-09 — Phase 4b closeout: offset pagination (not cursor) + plaid_account_id encryption
 
 **Context**: The two deferred Phase-4b assessment items (unbounded list endpoints; plaintext

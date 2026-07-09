@@ -2,7 +2,7 @@
 
 Live snapshot of where the build stands. Update at every issue close.
 
-**Last updated**: 2026-07-02
+**Last updated**: 2026-07-09
 
 ---
 
@@ -11,8 +11,17 @@ Live snapshot of where the build stands. Update at every issue close.
 **Phase**: **PRODUCTION-READY: YES (Road A)** — single-user/portfolio. Live at
 `https://cfo.agenticlips.com`. A full `/assess` took the app from VERDICT: NO (1 BLOCKER + ~20 SEV1)
 through an 8-phase hardening roadmap (`docs/PRODUCTION_ROADMAP.md`); Phases 0–6 are merged + deployed,
-Phase 7 re-assessment returned YES (`docs/assessment/REPORT.md`). Test suite: **177 passed, 4 skipped**
+Phase 7 re-assessment returned YES (`docs/assessment/REPORT.md`). Test suite: **191 passed, 3 skipped**
 against live Postgres + Redis (py3.13). Layer-0 clean: ruff 0, bandit 0/0, pip-audit clean.
+
+**SEV2 register cleared (2026-07-09, PRs #41/#42/#43)**: all remaining code SEV2s from the
+2026-07-03 assessment are closed — Coach principle enum pinned to the §4 registry (arena keys
+registered), import 404 validation, idempotent weekly digest (`digest_sent_log`), distinct-ticker
+price refresh, defusedxml on OFX uploads, async scheduler shutdown, pagination caps on all 20 list
+endpoints (`routers/pagination.py`), `plaid_account_id` encrypted at rest, `Cache-Control: no-store`
+on API responses, `CurrentUser` annotations corrected, yfinance personal-use-only licensing posture
+documented. Remaining open work: owner secrets (`HEALTHCHECK_PING_URL`, `SENTRY_DSN`), HTMX form
+error states (small issue), Road B multi-tenant (deferred by decision).
 
 **Hardening arc (Road A, 2026-07-02)** — see `docs/PRODUCTION_ROADMAP.md` for per-phase detail:
 - Phases 0–6 (PRs #30–#35): assessment + BLOCKER fix; LLM safety (rate limits/timeout/caching);
@@ -66,7 +75,7 @@ Synthesizer commits to ONE move across both tracks.
 | 11 | Scenario modeling engine + endpoint + UI | **Closed 2026-05-25** |
 | 12 | Weekly digest cron + email | **Closed 2026-05-25** |
 | 13 | Plaid integration | **Deferred indefinitely 2026-05-24** — preserved as escape hatch |
-| **15** | **Financial Intake Wizard — backend (models, migration, analysis engine, router)** | **In Progress 2026-05-26** — broken tests repaired 2026-05-27 (see Issue 16) |
+| **15** | **Financial Intake Wizard — backend (models, migration, analysis engine, router)** | **Closed 2026-07-09** — all criteria verified incl. `tests/test_intake.py` (12 tests); had been stale-marked In Progress |
 | **16** | **Secrets & deploy operations hardening** *(merged PR #24)* | **Closed 2026-05-27** — production deploy live & green |
 | **17** | **UX: global navigation + settings / re-run intake** | **Closed 2026-05-27** — nav on all pages, settings.html, intake reset endpoint, token bug fixed |
 | **18** | **docs: web standards reference — evergreen technical + style** | **Closed 2026-05-28** — `docs/WEB_STANDARDS.md` created; CLAUDE.md read-order updated |

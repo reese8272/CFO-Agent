@@ -68,7 +68,9 @@ The above mitigations are calibrated to a personal threat model. Encrypt at rest
 
 Redo this file when any of the following occurs:
 
-- A second user (anyone other than the owner) is given access
+- A second user (anyone other than the owner) is given access — this ALSO breaks the
+  yfinance licensing posture: Yahoo's TOS bar redistribution/commercial use, so the
+  market-data path must move to Alpha Vantage or a paid API (see `integrations/market_data.py`)
 - Plaid integration ships (Issue 13)
 - Any new third-party API integration is added
 - The hosting host changes (e.g., off Oracle Cloud)

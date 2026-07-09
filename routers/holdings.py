@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth import get_current_user
+from auth import User, get_current_user
 from db import get_session
 from rate_limit import limiter
 from routers.pagination import DEFAULT_PAGE_SIZE, LimitParam, OffsetParam
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/holdings", tags=["holdings"])
 
 Session = Annotated[AsyncSession, Depends(get_session)]
-CurrentUser = Annotated[str, Depends(get_current_user)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 class PriceRefreshSummary(BaseModel):

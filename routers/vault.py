@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth import get_current_user
+from auth import User, get_current_user
 from config import get_settings
 from db import get_session
 from rate_limit import limiter
@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/vault", tags=["vault"])
 
 Session = Annotated[AsyncSession, Depends(get_session)]
-CurrentUser = Annotated[str, Depends(get_current_user)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 def _is_htmx(hx_request: str | None) -> bool:

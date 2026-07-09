@@ -8,13 +8,13 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from auth import get_current_user
+from auth import User, get_current_user
 from db import get_session
 from memory.models import Conversation, Decision, Message, Pattern
 
 router = APIRouter(prefix="/memory", tags=["memory"])
 Session = Annotated[AsyncSession, Depends(get_session)]
-CurrentUser = Annotated[str, Depends(get_current_user)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 class DecisionRead(BaseModel):
