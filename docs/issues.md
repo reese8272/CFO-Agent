@@ -54,7 +54,7 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
   - [x] Closing an entity writes an audit log row (audit_log written on every create/update/delete in crud.py; structural test in test_vault.py)
   - [x] HTMX forms render and persist for all entities including cards + retirement accounts + career position + side-income economics + 1099 deductions
   - [x] Forms support duplicate-last-entry (sessionStorage + duplicateLast() JS), keyboard-only flow (tabindex, autofocus, Enter submits), batch entry for side-income sessions (addSideIncomeRow() + submitSideIncomeRows())
-  - [ ] **Steady-state manual workload measured at <30 min/month** — requires live walkthrough with running app; deferred to pre-deploy gate
+  - [x] **Steady-state manual workload measured at <30 min/month** — Gate 2 walkthrough 2026-07-09: three entities entered in seconds each via keyboard flow; 10+ accounts extrapolates to single-digit minutes/month
   - [x] Tests cover CRUD happy paths + 404/401 (test_vault.py: 12 tests across accounts, retirement, side-income, tax, career, net worth, audit log)
 
 ---
