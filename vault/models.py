@@ -31,7 +31,9 @@ class Account(Base):
         "current_balance_encrypted", EncryptedNumeric(), nullable=True
     )
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    plaid_account_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    plaid_account_id: Mapped[str | None] = mapped_column(
+        "plaid_account_id_encrypted", EncryptedString(), nullable=True
+    )
     status: Mapped[str] = mapped_column(String(32), default="active")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

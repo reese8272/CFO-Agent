@@ -82,6 +82,26 @@ async def test_account_crud(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_account_list_pagination(auth_client: AsyncClient):
+    """List endpoints honor limit/offset and reject out-of-range values."""
+    ids = []
+    for i in range(3):
+        resp = await auth_client.post("/vault/accounts", json={
+            "institution": f"Bank {i}", "nickname": f"Acct {i}", "type": "checking",
+        })
+        assert resp.status_code == 201
+        ids.append(resp.json()["id"])
+
+    resp = await auth_client.get("/vault/accounts?limit=2&offset=1")
+    assert resp.status_code == 200
+    assert [a["id"] for a in resp.json()] == ids[1:3]
+
+    assert (await auth_client.get("/vault/accounts?limit=0")).status_code == 422
+    assert (await auth_client.get("/vault/accounts?limit=1001")).status_code == 422
+    assert (await auth_client.get("/vault/accounts?offset=-1")).status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_account_401(anon_client: AsyncClient):
     resp = await anon_client.get("/vault/accounts")
     assert resp.status_code == 401
