@@ -105,13 +105,15 @@ jobs:
           SECRET_SMTP_USER:               ${{ secrets.SMTP_USER }}
           SECRET_SMTP_PASSWORD:           ${{ secrets.SMTP_PASSWORD }}
           SECRET_SMTP_FROM:               ${{ secrets.SMTP_FROM }}
+          SECRET_HEALTHCHECK_PING_URL:    ${{ secrets.HEALTHCHECK_PING_URL }}
+          SECRET_SENTRY_DSN:              ${{ secrets.SENTRY_DSN }}
           DEPLOY_SHA:                     ${{ github.sha }}
         with:
           host: ${{ steps.host.outputs.value }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           command_timeout: 20m  # alembic startup is ~5min on the ARM VM (ISSUE-2026-07-02-01); headroom so a real migration can't blow the ceiling
-          envs: SECRET_ANTHROPIC_API_KEY,SECRET_VAULT_ENCRYPTION_KEY,SECRET_CLOUDFLARE_TUNNEL_TOKEN,SECRET_GH_PAT,SECRET_DEPLOY_PATH,SECRET_SMTP_HOST,SECRET_SMTP_PORT,SECRET_SMTP_USER,SECRET_SMTP_PASSWORD,SECRET_SMTP_FROM,DEPLOY_SHA
+          envs: SECRET_ANTHROPIC_API_KEY,SECRET_VAULT_ENCRYPTION_KEY,SECRET_CLOUDFLARE_TUNNEL_TOKEN,SECRET_GH_PAT,SECRET_DEPLOY_PATH,SECRET_SMTP_HOST,SECRET_SMTP_PORT,SECRET_SMTP_USER,SECRET_SMTP_PASSWORD,SECRET_SMTP_FROM,SECRET_HEALTHCHECK_PING_URL,SECRET_SENTRY_DSN,DEPLOY_SHA
           script: |
             set -euo pipefail
             export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
@@ -187,6 +189,10 @@ jobs:
               printf 'LANGGRAPH_CHECKPOINT_BACKEND=%s\n' "redis"
               printf 'ALERT_DRIFT_PCT_THRESHOLD=%s\n'    "25"
               printf 'ALERT_INCOME_DROP_PCT_THRESHOLD=%s\n' "30"
+              # Optional observability — empty until the GitHub secrets are set
+              # (empty is falsy in config.py, so both features stay inert)
+              printf 'HEALTHCHECK_PING_URL=%s\n'     "${SECRET_HEALTHCHECK_PING_URL:-}"
+              printf 'SENTRY_DSN=%s\n'               "${SECRET_SENTRY_DSN:-}"
               printf 'POSTGRES_USER=%s\n'            "cfo"
               printf 'POSTGRES_PASSWORD=%s\n'        "cfo"
               printf 'POSTGRES_DB=%s\n'              "personal_cfo"
