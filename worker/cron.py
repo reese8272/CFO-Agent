@@ -24,7 +24,12 @@ async def _run_weekly_digest() -> None:
     from digest import generate_and_send_digest
     try:
         # Bound the whole job so a hung LLM/SMTP call can't wedge the scheduler.
-        await asyncio.wait_for(generate_and_send_digest(), timeout=_DIGEST_TIMEOUT_SECONDS)
+        # skip_if_already_sent: a /run-now this week (or a misfire replay) must
+        # not produce a duplicate email.
+        await asyncio.wait_for(
+            generate_and_send_digest(skip_if_already_sent=True),
+            timeout=_DIGEST_TIMEOUT_SECONDS,
+        )
     except asyncio.TimeoutError:
         logger.error("weekly digest job timed out after %ss", _DIGEST_TIMEOUT_SECONDS)
     except Exception as exc:
@@ -84,9 +89,12 @@ def start_scheduler() -> None:
         logger.info("scheduler started")
 
 
-def stop_scheduler() -> None:
-    global _scheduler
+async def stop_scheduler() -> None:
+    global _scheduler, _http
     if _scheduler and _scheduler.running:
         _scheduler.shutdown(wait=False)
         logger.info("scheduler stopped")
     _scheduler = None
+    if _http is not None:
+        await _http.aclose()
+        _http = None

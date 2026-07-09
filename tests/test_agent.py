@@ -24,6 +24,19 @@ def test_get_principle_unknown_key_raises():
         p.get_principle("not_a_real_key")
 
 
+def test_coach_tool_principle_enum_pinned_and_resolvable():
+    """Coach's tool schema must pin `principle` to the registry, and every key
+    in that enum (universal + arena) must resolve via get_principle()."""
+    from agent.nodes.coach import _TOOL
+
+    enum = _TOOL["input_schema"]["properties"]["enriched_proposals"]["items"][
+        "properties"]["principle"]["enum"]
+    assert set(enum) == set(p.get_all_keys())
+    assert "house_hacking" in enum  # arena keys are registered
+    for key in enum:
+        assert isinstance(p.get_principle(key), str)
+
+
 def test_tax_constants_are_positive():
     assert p.ROTH_IRA_LIMIT_2026 > 0
     assert p.K401_EMPLOYEE_LIMIT_2026 > 0

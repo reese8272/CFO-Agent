@@ -166,6 +166,32 @@ async def test_refresh_prices_isolates_per_ticker_failure(auth_client: AsyncClie
 
 
 @pytest.mark.asyncio
+async def test_refresh_prices_fetches_each_ticker_once(auth_client: AsyncClient):
+    """Two holdings of the same ticker → ONE price fetch, both rows updated."""
+    account_id = await _create_account(auth_client)
+    for shares in ("3", "7"):
+        resp = await auth_client.post("/holdings", json={
+            "account_id": account_id, "ticker": "VTI", "share_count": shares,
+        })
+        assert resp.status_code == 201
+
+    with patch(
+        "integrations.market_data._fetch_yfinance", return_value=Decimal("100.00")
+    ) as mock_fetch:
+        resp = await auth_client.post("/holdings/refresh-prices")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["updated"] == ["VTI"]
+    assert data["total"] == 1
+    assert mock_fetch.call_count == 1
+
+    listing = (await auth_client.get("/holdings")).json()
+    assert len(listing) == 2
+    assert all(h["last_known_price"] == "100.00" for h in listing)
+
+
+@pytest.mark.asyncio
 async def test_refresh_single_price(auth_client: AsyncClient):
     account_id = await _create_account(auth_client)
     resp = await auth_client.post("/holdings", json={

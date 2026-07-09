@@ -181,8 +181,19 @@ deduction_discipline_1099      side_income_hourly_truth    quarterly_estimated_t
 comp_negotiation_anchor_high
 ```
 
-Arena-specific keys (real estate / SaaS / investing) are added when those libraries land
-(Issue 8). Year-versioned tax constants are **not** principles — they live in
+Arena-specific keys (registered 2026-07-09; cite text lives in the three
+`agent/principles_*.py` modules, resolvable via `get_principle()` / `get_all_keys()`):
+
+```
+real estate:  house_hacking  brrrr  one_percent_rule  cap_rate  cash_on_cash
+              market_analysis  reits_vs_direct  common_re_mistakes
+saas:         mrr_arr  churn  cac_ltv  distribution_first  pricing
+              bootstrapping_vs_vc  when_to_leave_w2
+investing:    three_fund  target_date_funds  tax_loss_harvesting  asset_allocation
+              rebalancing  cost_matters  bonds_purpose
+```
+
+Year-versioned tax constants are **not** principles — they live in
 `agent/principles.py`, stamped with the year, and the agent says "for <year>…" when citing one.
 
 ---

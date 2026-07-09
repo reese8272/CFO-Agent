@@ -14,6 +14,29 @@ Format:
 
 ---
 
+## 2026-07-09 — SEV2 correctness batch (arena keys registered, digest idempotency semantics)
+
+**Context**: Post-YES cleanup of the remaining assessment SEV2 register (PR: fix/sev2-correctness-batch).
+Two of the six fixes involved a design choice worth recording.
+
+**Decisions**:
+- **Arena principle keys registered in CONTRACTS §4** (was "added when those libraries land" — never
+  done). `get_principle()`/`get_all_keys()` now resolve universal + arena keys, and the Coach tool
+  schema pins `principle` to that enum, so an off-registry citation is structurally impossible. The
+  enum is constant (all keys, not per-route) to keep the tool block prompt-cache-stable.
+- **Digest idempotency is cron-side, not global**: new `digest_sent_log` table (UNIQUE `year_week`);
+  the weekly cron passes `skip_if_already_sent=True` and skips a week already logged, while
+  `POST /digest/run-now` always sends (explicit user intent) but still logs the week. Chosen over the
+  assessment's alternative (gating every send) so a manual re-run stays possible; over documenting the
+  single-container assumption because the gate also covers the run-now→cron duplicate.
+
+**Reasoning**: Both are the smallest designs that close the defect without changing user-visible
+behavior. **Trade-offs**: two same-week manual run-nows still both send (intentional); the sent-log
+check-then-send is not race-proof across simultaneous senders — the UNIQUE constraint is the backstop
+and the deployment is single-container. **Owner**: reese (session approval of PR 1 scope).
+
+---
+
 ## 2026-07-03 — Showcase pass: Top-5 assessment fixes (money truth, token accounting, resilience, observability)
 
 **Context**: The 2026-07-03 `/assess` returned YES (Road A) with 0 BLOCKER/SEV1 but an 18-item SEV2

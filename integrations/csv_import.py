@@ -115,6 +115,10 @@ def _import_ofxtools() -> type:
 
 
 def parse_ofx(content: bytes) -> list[ParsedRow]:
+    # Uploads are untrusted: defuse stdlib XML (entity expansion / external
+    # entities) before ofxtools touches the bytes. Idempotent, process-wide.
+    import defusedxml
+    defusedxml.defuse_stdlib()
     try:
         OFXTree = _import_ofxtools()
     except ImportError:

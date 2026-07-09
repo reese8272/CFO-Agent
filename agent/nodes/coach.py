@@ -10,7 +10,7 @@ import time
 
 from clients import get_anthropic
 from agent.state import AgentState, NodeProposal
-from agent.principles import PRINCIPLES
+from agent.principles import PRINCIPLES, get_all_keys
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,9 @@ _TOOL = {
                     "properties": {
                         "node": {"type": "string"},
                         "move": {"type": "string"},
-                        "principle": {"type": "string"},
+                        # Pinned to the §4 registry (universal + arena) so Coach
+                        # can never emit an off-registry key.
+                        "principle": {"type": "string", "enum": get_all_keys()},
                         "leverage_score": {"type": "number"},
                         "rationale": {"type": "string"},
                         "requires_disclaimer": {"type": "boolean"},
@@ -72,13 +74,13 @@ def _load_arena_context(routes: list[str]) -> str:
     parts = []
     if "real_estate" in routes:
         from agent.principles_real_estate import ARENA_PRINCIPLES
-        parts.append("Real estate principles:\n" + "\n".join(f"- {v}" for v in ARENA_PRINCIPLES.values()))
+        parts.append("Real estate principles:\n" + "\n".join(f"- {k}: {v}" for k, v in ARENA_PRINCIPLES.items()))
     if "saas" in routes:
         from agent.principles_saas import ARENA_PRINCIPLES
-        parts.append("SaaS/business principles:\n" + "\n".join(f"- {v}" for v in ARENA_PRINCIPLES.values()))
+        parts.append("SaaS/business principles:\n" + "\n".join(f"- {k}: {v}" for k, v in ARENA_PRINCIPLES.items()))
     if "investing" in routes:
         from agent.principles_investing import ARENA_PRINCIPLES
-        parts.append("Investing principles:\n" + "\n".join(f"- {v}" for v in ARENA_PRINCIPLES.values()))
+        parts.append("Investing principles:\n" + "\n".join(f"- {k}: {v}" for k, v in ARENA_PRINCIPLES.items()))
     return "\n\n".join(parts)
 
 

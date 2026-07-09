@@ -456,6 +456,19 @@ class ImportBatch(Base):
     )
 
 
+class DigestSentLog(Base):
+    """One row per ISO week a digest email was sent — the cron path skips weeks
+    already present, so cron + /digest/run-now (or a second replica) can't send
+    duplicates. UNIQUE on year_week is the backstop for concurrent senders."""
+    __tablename__ = "digest_sent_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    year_week: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
+    sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class CategoryMapping(Base):
     __tablename__ = "category_mappings"
 
