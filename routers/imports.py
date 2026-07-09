@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db import get_session
 from auth import get_current_user
+from routers.pagination import DEFAULT_PAGE_SIZE, LimitParam, OffsetParam
 from vault.crud import write_audit_log
 from vault.models import Account, Transaction, ImportBatch, CategoryMapping
 from vault.schemas import ImportBatchRead, CategoryMappingCreate, CategoryMappingRead
@@ -116,8 +117,12 @@ async def import_transactions(
 
 
 @router.get("/category-mappings", response_model=list[CategoryMappingRead])
-async def list_category_mappings(session: Session, _user: CurrentUser):
-    result = await session.execute(select(CategoryMapping).order_by(CategoryMapping.id))
+async def list_category_mappings(session: Session, _user: CurrentUser,
+                                 limit: LimitParam = DEFAULT_PAGE_SIZE,
+                                 offset: OffsetParam = 0):
+    result = await session.execute(
+        select(CategoryMapping).order_by(CategoryMapping.id).offset(offset).limit(limit)
+    )
     return result.scalars().all()
 
 

@@ -18,6 +18,7 @@ from auth import get_current_user
 from config import get_settings
 from db import get_session
 from rate_limit import limiter
+from routers.pagination import DEFAULT_PAGE_SIZE, LimitParam, OffsetParam
 from integrations.property_data import fetch_property_estimate
 from vault import crud
 from vault.models import RealEstate as RealEstateModel
@@ -107,8 +108,9 @@ async def create_account(
 
 @router.get("/accounts", response_model=list[AccountRead])
 async def list_accounts(session: Session, user: CurrentUser,
-                        hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_accounts(session)
+                        hx_request: Annotated[str | None, Header()] = None,
+                        limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_accounts(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("accounts", objs, [
             ("Institution", "institution"), ("Nickname", "nickname"),
@@ -166,8 +168,9 @@ async def create_card(
 
 @router.get("/cards", response_model=list[CardRead])
 async def list_cards(session: Session, user: CurrentUser,
-                     hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_cards(session)
+                     hx_request: Annotated[str | None, Header()] = None,
+                     limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_cards(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("cards", objs, [
             ("Issuer", "issuer"), ("Network", "network"), ("Last 4", "last4"),
@@ -223,8 +226,9 @@ async def create_income_stream(
 
 @router.get("/income-streams", response_model=list[IncomeStreamRead])
 async def list_income_streams(session: Session, user: CurrentUser,
-                               hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_income_streams(session)
+                               hx_request: Annotated[str | None, Header()] = None,
+                               limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_income_streams(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("income-streams", objs, [
             ("Source", "source"), ("Type", "source_type"), ("Cadence", "cadence"),
@@ -280,8 +284,9 @@ async def create_expense(
 
 @router.get("/expenses", response_model=list[ExpenseRead])
 async def list_expenses(session: Session, user: CurrentUser,
-                        hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_expenses(session)
+                        hx_request: Annotated[str | None, Header()] = None,
+                        limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_expenses(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("expenses", objs, [
             ("Name", "name"), ("Category", "category"), ("Cadence", "cadence"),
@@ -337,8 +342,9 @@ async def create_debt(
 
 @router.get("/debts", response_model=list[DebtRead])
 async def list_debts(session: Session, user: CurrentUser,
-                     hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_debts(session)
+                     hx_request: Annotated[str | None, Header()] = None,
+                     limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_debts(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("debts", objs, [
             ("Name", "name"), ("Balance", "balance"), ("APR", "apr"),
@@ -393,8 +399,9 @@ async def create_asset(
 
 @router.get("/assets", response_model=list[AssetRead])
 async def list_assets(session: Session, user: CurrentUser,
-                      hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_assets(session)
+                      hx_request: Annotated[str | None, Header()] = None,
+                      limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_assets(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("assets", objs, [
             ("Kind", "kind"), ("Nickname", "nickname"), ("Value", "value_estimate"),
@@ -449,8 +456,9 @@ async def create_real_estate(
 
 @router.get("/real-estate", response_model=list[RealEstateRead])
 async def list_real_estate(session: Session, user: CurrentUser,
-                            hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_real_estate(session)
+                            hx_request: Annotated[str | None, Header()] = None,
+                            limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_real_estate(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("real-estate", objs, [
             ("Address", "address"), ("Type", "property_type"),
@@ -551,8 +559,9 @@ async def create_business_income(
 
 @router.get("/business-income", response_model=list[BusinessIncomeRead])
 async def list_business_income(session: Session, user: CurrentUser,
-                                hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_business_income(session)
+                                hx_request: Annotated[str | None, Header()] = None,
+                                limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_business_income(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("business-income", objs, [
             ("Name", "business_name"), ("Entity", "entity_type"),
@@ -608,8 +617,9 @@ async def create_retirement_account(
 
 @router.get("/retirement-accounts", response_model=list[RetirementAccountRead])
 async def list_retirement_accounts(session: Session, user: CurrentUser,
-                                    hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_retirement_accounts(session)
+                                    hx_request: Annotated[str | None, Header()] = None,
+                                    limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_retirement_accounts(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("retirement-accounts", objs, [
             ("Kind", "kind"), ("Institution", "institution"),
@@ -665,8 +675,9 @@ async def create_goal(
 
 @router.get("/goals", response_model=list[GoalRead])
 async def list_goals(session: Session, user: CurrentUser,
-                     hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_goals(session)
+                     hx_request: Annotated[str | None, Header()] = None,
+                     limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_goals(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("goals", objs, [
             ("Title", "title"), ("Kind", "kind"),
@@ -722,8 +733,9 @@ async def create_career_position(
 
 @router.get("/career-position", response_model=list[CareerPositionRead])
 async def list_career_positions(session: Session, user: CurrentUser,
-                                 hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_career_positions(session)
+                                 hx_request: Annotated[str | None, Header()] = None,
+                                 limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_career_positions(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("career-position", objs, [
             ("Role", "current_role"), ("Employer", "current_employer"),
@@ -779,8 +791,9 @@ async def create_career_history(
 
 @router.get("/career-history", response_model=list[CareerHistoryRead])
 async def list_career_history(session: Session, user: CurrentUser,
-                               hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_career_history(session)
+                               hx_request: Annotated[str | None, Header()] = None,
+                               limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_career_history(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("career-history", objs, [
             ("Role", "role"), ("Employer", "employer"),
@@ -836,8 +849,9 @@ async def create_comp_benchmark(
 
 @router.get("/comp-benchmarks", response_model=list[CompBenchmarkRead])
 async def list_comp_benchmarks(session: Session, user: CurrentUser,
-                                hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_comp_benchmarks(session)
+                                hx_request: Annotated[str | None, Header()] = None,
+                                limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_comp_benchmarks(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("comp-benchmarks", objs, [
             ("Role", "role"), ("Metro", "metro"), ("Source", "source"),
@@ -894,8 +908,10 @@ async def create_side_income_economics(
 
 @router.get("/side-income-economics", response_model=list[SideIncomeEconomicsRead])
 async def list_side_income_economics(session: Session, user: CurrentUser,
-                                      hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_side_income_economics(session)
+                                      hx_request: Annotated[str | None, Header()] = None,
+                                      limit: LimitParam = DEFAULT_PAGE_SIZE,
+                                      offset: OffsetParam = 0):
+    objs = await crud.list_side_income_economics(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("side-income-economics", objs, [
             ("Period Start", "period_start"), ("Period End", "period_end"),
@@ -951,8 +967,9 @@ async def create_tax_deduction(
 
 @router.get("/tax-deductions", response_model=list[TaxDeduction1099Read])
 async def list_tax_deductions(session: Session, user: CurrentUser,
-                               hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_tax_deductions(session)
+                               hx_request: Annotated[str | None, Header()] = None,
+                               limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_tax_deductions(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("tax-deductions", objs, [
             ("Year", "tax_year"), ("Category", "category"), ("Amount", "amount"),
@@ -1007,8 +1024,10 @@ async def create_negotiation_milestone(
 
 @router.get("/negotiation-milestones", response_model=list[NegotiationMilestoneRead])
 async def list_negotiation_milestones(session: Session, user: CurrentUser,
-                                       hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_negotiation_milestones(session)
+                                       hx_request: Annotated[str | None, Header()] = None,
+                                       limit: LimitParam = DEFAULT_PAGE_SIZE,
+                                       offset: OffsetParam = 0):
+    objs = await crud.list_negotiation_milestones(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("negotiation-milestones", objs, [
             ("Kind", "kind"), ("Date", "trigger_date"),
@@ -1064,8 +1083,9 @@ async def create_net_worth_snapshot(
 
 @router.get("/net-worth-snapshots", response_model=list[NetWorthSnapshotRead])
 async def list_net_worth_snapshots(session: Session, user: CurrentUser,
-                                    hx_request: Annotated[str | None, Header()] = None):
-    objs = await crud.list_net_worth_snapshots(session)
+                                    hx_request: Annotated[str | None, Header()] = None,
+                                    limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    objs = await crud.list_net_worth_snapshots(session, limit=limit, offset=offset)
     if _is_htmx(hx_request):
         return _htmx_list("net-worth-snapshots", objs, [
             ("Date", "snapshot_at"), ("Assets", "assets_total"),

@@ -41,7 +41,8 @@
 ### 5. Plaid breach (phase 2)
 - **Risk**: Plaid is compromised; access tokens or account metadata exposed.
 - **Mitigations** (in our control):
-  - Plaid access tokens encrypted in `accounts.plaid_access_token_encrypted`
+  - Plaid access tokens encrypted in `accounts.plaid_access_token_encrypted`;
+    account identifiers encrypted in `accounts.plaid_account_id_encrypted` (2026-07-09)
   - Rotate on `ITEM_LOGIN_REQUIRED` webhook; user re-links via standard Plaid Link flow
   - Single bank link minimization — link only accounts the agent needs
 

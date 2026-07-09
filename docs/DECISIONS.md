@@ -14,6 +14,25 @@ Format:
 
 ---
 
+## 2026-07-09 — Phase 4b closeout: offset pagination (not cursor) + plaid_account_id encryption
+
+**Context**: The two deferred Phase-4b assessment items (unbounded list endpoints; plaintext
+`accounts.plaid_account_id`). `docs/WEB_STANDARDS.md` §4 marks *cursor-based* pagination as the
+✦ standard for unbounded lists.
+
+**Decision**: Capped **limit/offset** pagination (`routers/pagination.py`: default 200, max 1000,
+422 outside bounds) on all 20 list endpoints instead of cursor pagination. `plaid_account_id`
+moved to `EncryptedString` (`plaid_account_id_encrypted`, migration `b9d3e6f1a825`) with in-place
+encryption of existing rows, mirroring the `d4e7f2a1b9c3` transactions.amount pattern.
+
+**Reasoning**: Single-user tables are hundreds of rows at most — offset degradation is
+immeasurable here, and limit/offset needs no schema or client changes (the HTMX UI keeps loading
+full lists under the 200-row default). Cursor pagination lands with Road B if multi-tenant scale
+arrives. **Trade-offs**: a client paging past 200 rows must pass explicit params; deep-offset
+scans degrade linearly (acceptable at this scale). **Owner**: reese (session approval of PR 2 scope).
+
+---
+
 ## 2026-07-09 — SEV2 correctness batch (arena keys registered, digest idempotency semantics)
 
 **Context**: Post-YES cleanup of the remaining assessment SEV2 register (PR: fix/sev2-correctness-batch).

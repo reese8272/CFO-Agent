@@ -58,6 +58,15 @@ from vault.schemas import (
 
 logger = logging.getLogger(__name__)
 
+
+def _paginate(q, limit: int | None, offset: int):
+    """Apply capped limit/offset (see routers/pagination.py) to a select."""
+    if offset:
+        q = q.offset(offset)
+    if limit is not None:
+        q = q.limit(limit)
+    return q
+
 M = TypeVar("M")
 
 
@@ -105,8 +114,10 @@ async def create_account(session: AsyncSession, data: AccountCreate, actor: str)
     return obj
 
 
-async def list_accounts(session: AsyncSession) -> list[Account]:
-    result = await session.execute(select(Account).order_by(Account.id))
+async def list_accounts(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[Account]:
+    result = await session.execute(_paginate(select(Account).order_by(Account.id), limit, offset))
     return list(result.scalars().all())
 
 
@@ -148,8 +159,10 @@ async def create_card(session: AsyncSession, data: CardCreate, actor: str) -> Ca
     return obj
 
 
-async def list_cards(session: AsyncSession) -> list[Card]:
-    result = await session.execute(select(Card).order_by(Card.id))
+async def list_cards(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[Card]:
+    result = await session.execute(_paginate(select(Card).order_by(Card.id), limit, offset))
     return list(result.scalars().all())
 
 
@@ -191,8 +204,12 @@ async def create_income_stream(session: AsyncSession, data: IncomeStreamCreate, 
     return obj
 
 
-async def list_income_streams(session: AsyncSession) -> list[IncomeStream]:
-    result = await session.execute(select(IncomeStream).order_by(IncomeStream.id))
+async def list_income_streams(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[IncomeStream]:
+    result = await session.execute(
+        _paginate(select(IncomeStream).order_by(IncomeStream.id), limit, offset)
+    )
     return list(result.scalars().all())
 
 
@@ -234,8 +251,10 @@ async def create_expense(session: AsyncSession, data: ExpenseCreate, actor: str)
     return obj
 
 
-async def list_expenses(session: AsyncSession) -> list[Expense]:
-    result = await session.execute(select(Expense).order_by(Expense.id))
+async def list_expenses(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[Expense]:
+    result = await session.execute(_paginate(select(Expense).order_by(Expense.id), limit, offset))
     return list(result.scalars().all())
 
 
@@ -277,8 +296,10 @@ async def create_debt(session: AsyncSession, data: DebtCreate, actor: str) -> De
     return obj
 
 
-async def list_debts(session: AsyncSession) -> list[Debt]:
-    result = await session.execute(select(Debt).order_by(Debt.id))
+async def list_debts(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[Debt]:
+    result = await session.execute(_paginate(select(Debt).order_by(Debt.id), limit, offset))
     return list(result.scalars().all())
 
 
@@ -320,8 +341,10 @@ async def create_asset(session: AsyncSession, data: AssetCreate, actor: str) -> 
     return obj
 
 
-async def list_assets(session: AsyncSession) -> list[Asset]:
-    result = await session.execute(select(Asset).order_by(Asset.id))
+async def list_assets(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[Asset]:
+    result = await session.execute(_paginate(select(Asset).order_by(Asset.id), limit, offset))
     return list(result.scalars().all())
 
 
@@ -363,8 +386,12 @@ async def create_real_estate(session: AsyncSession, data: RealEstateCreate, acto
     return obj
 
 
-async def list_real_estate(session: AsyncSession) -> list[RealEstate]:
-    result = await session.execute(select(RealEstate).order_by(RealEstate.id))
+async def list_real_estate(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[RealEstate]:
+    result = await session.execute(
+        _paginate(select(RealEstate).order_by(RealEstate.id), limit, offset)
+    )
     return list(result.scalars().all())
 
 
@@ -406,8 +433,12 @@ async def create_business_income(session: AsyncSession, data: BusinessIncomeCrea
     return obj
 
 
-async def list_business_income(session: AsyncSession) -> list[BusinessIncome]:
-    result = await session.execute(select(BusinessIncome).order_by(BusinessIncome.id))
+async def list_business_income(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[BusinessIncome]:
+    result = await session.execute(
+        _paginate(select(BusinessIncome).order_by(BusinessIncome.id), limit, offset)
+    )
     return list(result.scalars().all())
 
 
@@ -449,8 +480,12 @@ async def create_retirement_account(session: AsyncSession, data: RetirementAccou
     return obj
 
 
-async def list_retirement_accounts(session: AsyncSession) -> list[RetirementAccount]:
-    result = await session.execute(select(RetirementAccount).order_by(RetirementAccount.id))
+async def list_retirement_accounts(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[RetirementAccount]:
+    result = await session.execute(
+        _paginate(select(RetirementAccount).order_by(RetirementAccount.id), limit, offset)
+    )
     return list(result.scalars().all())
 
 
@@ -492,8 +527,10 @@ async def create_goal(session: AsyncSession, data: GoalCreate, actor: str) -> Go
     return obj
 
 
-async def list_goals(session: AsyncSession) -> list[Goal]:
-    result = await session.execute(select(Goal).order_by(Goal.id))
+async def list_goals(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[Goal]:
+    result = await session.execute(_paginate(select(Goal).order_by(Goal.id), limit, offset))
     return list(result.scalars().all())
 
 
@@ -535,8 +572,12 @@ async def create_career_position(session: AsyncSession, data: CareerPositionCrea
     return obj
 
 
-async def list_career_positions(session: AsyncSession) -> list[CareerPosition]:
-    result = await session.execute(select(CareerPosition).order_by(CareerPosition.id))
+async def list_career_positions(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[CareerPosition]:
+    result = await session.execute(
+        _paginate(select(CareerPosition).order_by(CareerPosition.id), limit, offset)
+    )
     return list(result.scalars().all())
 
 
@@ -578,8 +619,12 @@ async def create_career_history(session: AsyncSession, data: CareerHistoryCreate
     return obj
 
 
-async def list_career_history(session: AsyncSession) -> list[CareerHistory]:
-    result = await session.execute(select(CareerHistory).order_by(CareerHistory.id))
+async def list_career_history(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[CareerHistory]:
+    result = await session.execute(
+        _paginate(select(CareerHistory).order_by(CareerHistory.id), limit, offset)
+    )
     return list(result.scalars().all())
 
 
@@ -621,8 +666,12 @@ async def create_comp_benchmark(session: AsyncSession, data: CompBenchmarkCreate
     return obj
 
 
-async def list_comp_benchmarks(session: AsyncSession) -> list[CompBenchmark]:
-    result = await session.execute(select(CompBenchmark).order_by(CompBenchmark.id))
+async def list_comp_benchmarks(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[CompBenchmark]:
+    result = await session.execute(
+        _paginate(select(CompBenchmark).order_by(CompBenchmark.id), limit, offset)
+    )
     return list(result.scalars().all())
 
 
@@ -664,8 +713,12 @@ async def create_side_income_economics(session: AsyncSession, data: SideIncomeEc
     return obj
 
 
-async def list_side_income_economics(session: AsyncSession) -> list[SideIncomeEconomics]:
-    result = await session.execute(select(SideIncomeEconomics).order_by(SideIncomeEconomics.id))
+async def list_side_income_economics(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[SideIncomeEconomics]:
+    result = await session.execute(
+        _paginate(select(SideIncomeEconomics).order_by(SideIncomeEconomics.id), limit, offset)
+    )
     return list(result.scalars().all())
 
 
@@ -707,8 +760,12 @@ async def create_tax_deduction(session: AsyncSession, data: TaxDeduction1099Crea
     return obj
 
 
-async def list_tax_deductions(session: AsyncSession) -> list[TaxDeduction1099]:
-    result = await session.execute(select(TaxDeduction1099).order_by(TaxDeduction1099.id))
+async def list_tax_deductions(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[TaxDeduction1099]:
+    result = await session.execute(
+        _paginate(select(TaxDeduction1099).order_by(TaxDeduction1099.id), limit, offset)
+    )
     return list(result.scalars().all())
 
 
@@ -750,8 +807,16 @@ async def create_negotiation_milestone(session: AsyncSession, data: NegotiationM
     return obj
 
 
-async def list_negotiation_milestones(session: AsyncSession) -> list[NegotiationMilestone]:
-    result = await session.execute(select(NegotiationMilestone).order_by(NegotiationMilestone.trigger_date))
+async def list_negotiation_milestones(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[NegotiationMilestone]:
+    result = await session.execute(
+        _paginate(
+            select(NegotiationMilestone).order_by(NegotiationMilestone.trigger_date),
+            limit,
+            offset,
+        )
+    )
     return list(result.scalars().all())
 
 
@@ -793,8 +858,12 @@ async def create_net_worth_snapshot(session: AsyncSession, data: NetWorthSnapsho
     return obj
 
 
-async def list_net_worth_snapshots(session: AsyncSession) -> list[NetWorthSnapshot]:
-    result = await session.execute(select(NetWorthSnapshot).order_by(NetWorthSnapshot.snapshot_at))
+async def list_net_worth_snapshots(
+    session: AsyncSession, *, limit: int | None = None, offset: int = 0
+) -> list[NetWorthSnapshot]:
+    result = await session.execute(
+        _paginate(select(NetWorthSnapshot).order_by(NetWorthSnapshot.snapshot_at), limit, offset)
+    )
     return list(result.scalars().all())
 
 
@@ -836,11 +905,14 @@ async def create_holding(session: AsyncSession, data: HoldingsCreate, actor: str
     return obj
 
 
-async def list_holdings(session: AsyncSession, account_id: int | None = None) -> list[Holdings]:
+async def list_holdings(
+    session: AsyncSession, account_id: int | None = None,
+    *, limit: int | None = None, offset: int = 0
+) -> list[Holdings]:
     q = select(Holdings).order_by(Holdings.account_id, Holdings.ticker)
     if account_id is not None:
         q = q.where(Holdings.account_id == account_id)
-    result = await session.execute(q)
+    result = await session.execute(_paginate(q, limit, offset))
     return list(result.scalars().all())
 
 
@@ -890,11 +962,14 @@ async def create_side_income_event(session: AsyncSession, data: SideIncomeEventC
     return obj
 
 
-async def list_side_income_events(session: AsyncSession, stream_id: int | None = None) -> list[SideIncomeEvent]:
+async def list_side_income_events(
+    session: AsyncSession, stream_id: int | None = None,
+    *, limit: int | None = None, offset: int = 0
+) -> list[SideIncomeEvent]:
     q = select(SideIncomeEvent).order_by(SideIncomeEvent.occurred_at.desc())
     if stream_id is not None:
         q = q.where(SideIncomeEvent.income_stream_id == stream_id)
-    result = await session.execute(q)
+    result = await session.execute(_paginate(q, limit, offset))
     return list(result.scalars().all())
 
 

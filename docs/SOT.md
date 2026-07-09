@@ -129,6 +129,7 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │   ├── wealth.py               # GET /wealth/position, /allocation-position, /income-position,
 │   │                           # /net-worth-trajectory (Issue 5)
 │   ├── imports.py              # POST /import/<entity_type> CSV/OFX bulk ingest (Issue 4c)
+│   ├── pagination.py           # shared limit/offset Query params + caps for list endpoints (4b)
 │   └── plaid.py                # (deferred indefinitely 2026-05-24) Link, webhook, sync
 │
 ├── worker/
@@ -179,7 +180,7 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 accounts
   id, type (checking/savings/credit/loan/retirement/cash/business),
   institution, nickname, current_balance_encrypted,
-  last_synced_at, plaid_account_id (nullable), status, created_at
+  last_synced_at, plaid_account_id_encrypted (nullable), status, created_at
 
 cards
   id, account_id (FK), issuer, network, last4_encrypted,

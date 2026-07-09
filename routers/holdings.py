@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth import get_current_user
 from db import get_session
 from rate_limit import limiter
+from routers.pagination import DEFAULT_PAGE_SIZE, LimitParam, OffsetParam
 from integrations.market_data import fetch_price_async
 from vault import crud
 from vault.models import Holdings
@@ -52,8 +53,9 @@ async def create_holding(body: HoldingsCreate, session: Session, user: CurrentUs
 
 
 @router.get("", response_model=list[HoldingsRead])
-async def list_holdings(session: Session, user: CurrentUser, account_id: int | None = None):
-    return await crud.list_holdings(session, account_id=account_id)
+async def list_holdings(session: Session, user: CurrentUser, account_id: int | None = None,
+                        limit: LimitParam = DEFAULT_PAGE_SIZE, offset: OffsetParam = 0):
+    return await crud.list_holdings(session, account_id=account_id, limit=limit, offset=offset)
 
 
 @router.get("/{holding_id}", response_model=HoldingsRead)
@@ -148,8 +150,13 @@ async def create_side_income_event(body: SideIncomeEventCreate, session: Session
 
 
 @side_event_router.get("", response_model=list[SideIncomeEventRead])
-async def list_side_income_events(session: Session, user: CurrentUser, stream_id: int | None = None):
-    return await crud.list_side_income_events(session, stream_id=stream_id)
+async def list_side_income_events(session: Session, user: CurrentUser,
+                                  stream_id: int | None = None,
+                                  limit: LimitParam = DEFAULT_PAGE_SIZE,
+                                  offset: OffsetParam = 0):
+    return await crud.list_side_income_events(
+        session, stream_id=stream_id, limit=limit, offset=offset
+    )
 
 
 @side_event_router.get("/{event_id}", response_model=SideIncomeEventRead)

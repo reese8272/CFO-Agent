@@ -97,6 +97,35 @@ async def test_account_round_trip_encrypts_balance(session: AsyncSession) -> Non
 
 
 @pytest.mark.asyncio
+async def test_account_round_trip_encrypts_plaid_account_id(session: AsyncSession) -> None:
+    """plaid_account_id reads back as str while the DB column stores Fernet ciphertext."""
+    account = Account(
+        type="checking",
+        institution="Test Bank",
+        nickname="Plaid round-trip",
+        plaid_account_id="plaid-abc-123",
+        status="active",
+    )
+    session.add(account)
+    await session.flush()
+    account_id = account.id
+
+    session.expire_all()
+    fetched = (await session.execute(select(Account).where(Account.id == account_id))).scalar_one()
+    assert fetched.plaid_account_id == "plaid-abc-123"
+
+    raw = (
+        await session.execute(
+            text("SELECT plaid_account_id_encrypted FROM accounts WHERE id = :id"),
+            {"id": account_id},
+        )
+    ).scalar_one()
+    raw_bytes = bytes(raw)
+    assert b"plaid-abc-123" not in raw_bytes
+    assert raw_bytes.startswith(b"gAAAAA")
+
+
+@pytest.mark.asyncio
 async def test_null_encrypted_columns_round_trip(session: AsyncSession) -> None:
     account = RetirementAccount(
         kind="roth_ira",
