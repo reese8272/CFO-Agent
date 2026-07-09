@@ -142,9 +142,67 @@ async def test_generate_and_send_digest_raises_on_smtp_error():
             await generate_and_send_digest()
 
 
+# ── Idempotency (sent log) ─────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_cron_path_skips_when_already_sent_this_week():
+    """skip_if_already_sent (cron) must not re-send a week already logged."""
+    from digest import generate_and_send_digest
+
+    mock_smtp_class = MagicMock()
+    mock_ctx = AsyncMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=AsyncMock())
+    mock_ctx.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("digest.get_sessionmaker", return_value=lambda: mock_ctx), \
+         patch("digest._already_sent", AsyncMock(return_value=True)), \
+         patch("smtplib.SMTP", mock_smtp_class):
+        result = await generate_and_send_digest(skip_if_already_sent=True)
+
+    assert result == ""
+    mock_smtp_class.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_run_now_path_sends_and_marks_sent():
+    """The default (manual /run-now) path always sends, then logs the week."""
+    from digest import generate_and_send_digest
+
+    mock_smtp_instance = MagicMock()
+    mock_smtp_instance.__enter__ = MagicMock(return_value=mock_smtp_instance)
+    mock_smtp_instance.__exit__ = MagicMock(return_value=False)
+    mock_ctx = AsyncMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=AsyncMock())
+    mock_ctx.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("digest.generate_digest", AsyncMock(return_value="# Digest")), \
+         patch("digest.get_sessionmaker", return_value=lambda: mock_ctx), \
+         patch("digest._mark_sent", AsyncMock()) as mark_sent, \
+         patch("smtplib.SMTP", MagicMock(return_value=mock_smtp_instance)):
+        result = await generate_and_send_digest()
+
+    assert result == "# Digest"
+    mock_smtp_instance.send_message.assert_called_once()
+    mark_sent.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_sent_log_round_trip(clean_db):
+    """_mark_sent is idempotent (ON CONFLICT DO NOTHING) and _already_sent sees it."""
+    from db import get_sessionmaker
+    from digest import _already_sent, _mark_sent
+
+    async with get_sessionmaker()() as session:
+        assert not await _already_sent(session, "2099-W01")
+        await _mark_sent(session, "2099-W01")
+        await _mark_sent(session, "2099-W01")  # second claim must not raise
+        assert await _already_sent(session, "2099-W01")
+
+
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 
-def test_scheduler_has_weekly_digest_job():
+@pytest.mark.asyncio
+async def test_scheduler_has_weekly_digest_job():
     """APScheduler is configured with a weekly_digest job."""
     from worker.cron import get_scheduler, stop_scheduler
 
@@ -154,7 +212,7 @@ def test_scheduler_has_weekly_digest_job():
         job_ids = [j.id for j in jobs]
         assert "weekly_digest" in job_ids
     finally:
-        stop_scheduler()
+        await stop_scheduler()
 
 
 @pytest.mark.asyncio
@@ -169,4 +227,4 @@ async def test_start_stop_scheduler():
     from worker.cron import start_scheduler, stop_scheduler
 
     start_scheduler()
-    stop_scheduler()  # should not raise
+    await stop_scheduler()  # should not raise; also closes the ping http client

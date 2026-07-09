@@ -12,6 +12,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user
@@ -92,26 +93,27 @@ async def refresh_all_prices(request: Request, session: Session, user: CurrentUs
     Per-ticker errors are isolated — one failure does not abort the batch.
     Returns a summary of updated, skipped, and failed tickers.
     """
-    rows = await crud.list_distinct_tickers(session)
+    tickers = await crud.list_distinct_tickers(session)
     updated: list[str] = []
     failed: list[str] = []
     now = datetime.now(timezone.utc)
 
-    for holding_id, ticker in rows:
+    for ticker in tickers:
         price = await fetch_price_async(ticker)
         if price is None:
             logger.warning("price refresh: no price returned for ticker %s", ticker)
             failed.append(ticker)
             continue
-        obj = await session.get(Holdings, holding_id)
-        if obj is None:
-            continue
-        obj.last_known_price = price
-        obj.last_priced_at = now
+        # One fetch per ticker; apply it to every holding row of that ticker.
+        await session.execute(
+            update(Holdings)
+            .where(Holdings.ticker == ticker)
+            .values(last_known_price=price, last_priced_at=now)
+        )
         updated.append(ticker)
 
     await session.commit()
-    return {"updated": updated, "failed": failed, "total": len(rows)}
+    return {"updated": updated, "failed": failed, "total": len(tickers)}
 
 
 @router.post("/{holding_id}/refresh-price", response_model=HoldingsRead)

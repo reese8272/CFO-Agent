@@ -104,6 +104,12 @@ Gross pay lies. The true comparison across income streams is **net hourly** — 
 ### Comp negotiation: anchor high, ask in writing
 Compensation moves on three signals: market data (your benchmark), tenure (time in role), and demonstrable delivery (recent wins). Anchor the conversation at the top of your benchmark band, not the middle. Get every offer in writing before responding. Never accept on the call. The agent tracks negotiation milestones and surfaces them 30 days ahead so you have time to prep, not react.
 
+### Arena principles (real estate / SaaS / investing)
+The Coach can also cite the arena-specific principles registered in `docs/CONTRACTS.md` §4
+(e.g. `house_hacking`, `cac_ltv`, `three_fund`). Their full cite text lives in
+`agent/principles_real_estate.py`, `agent/principles_saas.py`, and `agent/principles_investing.py` —
+that code is the source of truth; they are not duplicated here.
+
 ---
 
 ## Debt-Payoff vs Invest-Now Heuristic

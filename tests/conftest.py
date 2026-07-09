@@ -49,7 +49,7 @@ _TRUNCATE_ALL = text("""
         career_position, career_history, comp_benchmarks,
         side_income_economics, side_income_events, holdings,
         net_worth_snapshots, tax_deductions_1099, negotiation_milestones,
-        transactions, import_batches, category_mappings,
+        transactions, import_batches, category_mappings, digest_sent_log,
         audit_log, conversations, messages, decisions, patterns,
         user_profile, financial_snapshots, intake_submissions
     RESTART IDENTITY CASCADE

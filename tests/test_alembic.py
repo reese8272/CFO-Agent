@@ -35,7 +35,8 @@ async def test_all_expected_tables_after_upgrade() -> None:
     expected = {
         "accounts", "assets", "audit_log", "business_income", "cards",
         "career_history", "career_position", "category_mappings", "comp_benchmarks",
-        "conversations", "debts", "decisions", "expenses", "goals", "holdings",
+        "conversations", "debts", "decisions", "digest_sent_log", "expenses",
+        "goals", "holdings",
         "import_batches", "income_streams", "messages", "negotiation_milestones",
         "net_worth_snapshots", "patterns", "real_estate", "retirement_accounts",
         "side_income_economics", "side_income_events", "tax_deductions_1099",

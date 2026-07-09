@@ -8,7 +8,7 @@ from sqlalchemy import select
 from db import get_session
 from auth import get_current_user
 from vault.crud import write_audit_log
-from vault.models import Transaction, ImportBatch, CategoryMapping
+from vault.models import Account, Transaction, ImportBatch, CategoryMapping
 from vault.schemas import ImportBatchRead, CategoryMappingCreate, CategoryMappingRead
 from integrations.csv_import import parse_csv, parse_ofx, compute_hash, _apply_mappings_raw
 
@@ -28,6 +28,10 @@ async def import_transactions(
     session: Session,
     _user: CurrentUser,
 ):
+    # Validate the target account up front — an unknown id must be a 404, not an
+    # IntegrityError-at-COMMIT 500.
+    if await session.get(Account, account_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
     if (file.size or 0) > MAX_UPLOAD_BYTES:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "file too large (max 10 MB)")
     content = await file.read()

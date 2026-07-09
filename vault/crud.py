@@ -9,7 +9,7 @@ Callers are responsible for committing the session.
 import logging
 from typing import Any, TypeVar
 
-from sqlalchemy import select
+from sqlalchemy import distinct, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vault.models import (
@@ -870,12 +870,12 @@ async def delete_holding(session: AsyncSession, holding_id: int, actor: str) -> 
     return True
 
 
-async def list_distinct_tickers(session: AsyncSession) -> list[tuple[int, str]]:
-    """Return (holding_id, ticker) for every row — used by batch price refresh."""
+async def list_distinct_tickers(session: AsyncSession) -> list[str]:
+    """Return each distinct ticker exactly once — used by batch price refresh."""
     result = await session.execute(
-        select(Holdings.id, Holdings.ticker).order_by(Holdings.ticker)
+        select(distinct(Holdings.ticker)).order_by(Holdings.ticker)
     )
-    return list(result.all())
+    return list(result.scalars().all())
 
 
 # ---------------------------------------------------------------------------

@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     clients.get_redis()
     start_scheduler()
     yield
-    stop_scheduler()
+    await stop_scheduler()
     await clients.close_redis()
     await db.dispose_engine()
     logger.info("shutdown complete")

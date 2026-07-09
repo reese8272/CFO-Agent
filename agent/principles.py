@@ -108,10 +108,21 @@ PRINCIPLES: dict[str, dict[str, str]] = {
 }
 
 
+def get_arena_principles() -> dict[str, str]:
+    """Aggregate the three arena libraries (keys registered in CONTRACTS §4)."""
+    from agent.principles_real_estate import ARENA_PRINCIPLES as real_estate
+    from agent.principles_saas import ARENA_PRINCIPLES as saas
+    from agent.principles_investing import ARENA_PRINCIPLES as investing
+    return {**real_estate, **saas, **investing}
+
+
 def get_principle(key: str) -> str:
     """Return the cite string for a principle key. Raises KeyError on unknown key."""
-    return PRINCIPLES[key]["cite"]
+    if key in PRINCIPLES:
+        return PRINCIPLES[key]["cite"]
+    return get_arena_principles()[key]
 
 
 def get_all_keys() -> list[str]:
-    return list(PRINCIPLES.keys())
+    """Every citable key: universal registry + the three arena libraries."""
+    return list(PRINCIPLES.keys()) + list(get_arena_principles())

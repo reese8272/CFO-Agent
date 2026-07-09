@@ -12,6 +12,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import get_settings
@@ -136,10 +137,41 @@ def _send_email_sync(subject: str, body: str, settings) -> None:
         smtp.send_message(msg)
 
 
-async def generate_and_send_digest() -> str:
-    """Build the digest and send it. Returns the Markdown body."""
+async def _already_sent(session: AsyncSession, year_week: str) -> bool:
+    from vault.models import DigestSentLog
+
+    result = await session.execute(
+        select(DigestSentLog.id).where(DigestSentLog.year_week == year_week)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _mark_sent(session: AsyncSession, year_week: str) -> None:
+    from vault.models import DigestSentLog
+
+    stmt = (
+        pg_insert(DigestSentLog)
+        .values(year_week=year_week)
+        .on_conflict_do_nothing(index_elements=["year_week"])
+    )
+    await session.execute(stmt)
+    await session.commit()
+
+
+async def generate_and_send_digest(*, skip_if_already_sent: bool = False) -> str:
+    """Build the digest and send it. Returns the Markdown body.
+
+    With skip_if_already_sent (the cron path), a digest already logged for this
+    ISO week is not re-sent — /digest/run-now and a cron misfire replay can't
+    stack duplicate emails. The manual /run-now path always sends (explicit user
+    intent) but still logs, so the following cron fire skips.
+    """
     settings = get_settings()
+    year_week = datetime.now(timezone.utc).strftime("%G-W%V")
     async with get_sessionmaker()() as session:
+        if skip_if_already_sent and await _already_sent(session, year_week):
+            logger.info("digest for %s already sent — skipping", year_week)
+            return ""
         body = await generate_digest(session)
 
     subject = f"Personal CFO Digest — {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
@@ -150,4 +182,6 @@ async def generate_and_send_digest() -> str:
         logger.error("digest email failed: %s", exc)
         raise
 
+    async with get_sessionmaker()() as session:
+        await _mark_sent(session, year_week)
     return body

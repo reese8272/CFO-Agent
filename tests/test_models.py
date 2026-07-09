@@ -24,6 +24,7 @@ EXPECTED_TABLES = {
     "conversations",
     "debts",
     "decisions",
+    "digest_sent_log",
     "expenses",
     "financial_snapshots",
     "goals",
