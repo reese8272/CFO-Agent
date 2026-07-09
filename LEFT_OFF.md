@@ -34,8 +34,14 @@ two observability secrets. Nothing is in flight; nothing is blocked on code.
    **Also fixed a latent SEV it exposed: vault HTMX creates NEVER worked** (urlencoded vs Pydantic
    JSON — logged as ISSUE-2026-07-09-01; fixed via `htmx-ext-json-enc@2.0.2` + empty-param strip).
    Verified point-and-click via Playwright (happy/422/dismiss/retry/offline) and live in prod.
-4. **(Next, if desired)** Gate 2 manual walkthrough in prod — vault creates now actually work in
-   the browser, so the owner can populate the vault per `docs/PROJECT_STATE.md` "Next Up".
+4. ✅ **DONE — Gate 2 walkthrough COMPLETE (PR #47, 2026-07-09).** All seven checks pass (login →
+   vault forms → chat single-recommendation w/ principle+vision+disclaimer → $1M scenario →
+   workload). Caught + fixed two real defects: a **disclaimer miss** (debt-vs-invest turn named
+   Roth IRA, all LLM flags false → added deterministic keyword backstop
+   `disclaimer.text_requires_disclaimer()`, both synthesizer paths) and **scenario step-grids
+   rejecting $1,000,000** (min/step 100-grids → step="0.01"). Details in `docs/PROJECT_STATE.md`.
+   **Demo tip:** after editing the vault directly, hit `POST /intake/snapshot/refresh` (settings)
+   so the agent reasons over current data — the snapshot is computed at intake time.
 5. **(Future) Road B** — multi-tenant: tenant isolation (`user_id` + RLS), cursor pagination,
    licensed market-data path (yfinance is personal-use only — see DECISIONS 2026-07-09), full
    CLAUDE.md Pre-GA block. Deferred by the `docs/DECISIONS.md` 2026-07-02 Road-A scope decision.
