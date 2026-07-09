@@ -3,7 +3,7 @@
 > **Read this first.** Living "where we are right now" file — NOT a source of truth (those live in
 > `docs/`). Update whenever the active goal changes; run `/close-out` at the end of every session.
 
-**Last updated:** 2026-07-09 (session 3 — SEV2 register cleared, Phase 4b closed, secrets plumbing)
+**Last updated:** 2026-07-09 (session 3 — SEV2 register cleared, Phase 4b closed, dead-man's-switch LIVE)
 **Branch:** `main` HEAD `b39899f` (deploy-secrets forwarding #45). Working tree clean; in sync with origin.
 **CI/Deploy:** all green. Four PRs merged + deployed + verified live this session (#41, #42, #43, #45).
 Site ✅ `/health` `{"status":"ok","postgres":"ok","redis":"ok"}`; `cache-control: no-store` confirmed live.
@@ -19,17 +19,18 @@ two observability secrets. Nothing is in flight; nothing is blocked on code.
 
 ### → NEXT ACTION
 
-1. **⚠️ OWNER-ONLY — activate the two observability secrets** (~10 min; plumbing shipped in #45,
-   inert until set):
-   - https://healthchecks.io → create free check (period 5 min, grace 5 min) → copy ping URL →
-     repo Settings → Secrets and variables → Actions → new secret **`HEALTHCHECK_PING_URL`**
-   - https://sentry.io → create free Python/FastAPI project → copy DSN → new secret **`SENTRY_DSN`**
-   - Re-run the latest Deploy workflow (`gh run rerun <deploy-run-id>` or push any code change);
-     verify: healthchecks.io shows pings arriving every 5 min.
-   - This is the **highest-value open item** — the 2026-07-03 outage was caught by chance.
-2. **(Next feature work) Issue #44** — HTMX form error states (422/500 feedback on vault/intake
+1. ✅ **DONE — dead-man's-switch LIVE (2026-07-09).** healthchecks.io account created under
+   reesepludwick@gmail.com (passwordless magic-link login); check **"CFO prod ping"** period 5 min /
+   grace 5 min, email alerts on; `HEALTHCHECK_PING_URL` set as a repo GitHub secret; deploy
+   dispatched; **verified: "Last Ping: a minute ago"** on the dashboard. Project id
+   `7db194d0-f8c1-43ff-8eba-a3e355323770`, check uuid `31c1d142-e68d-4e5b-b747-ae23a5f0315a`.
+2. **⚠️ OWNER-ONLY — Sentry** (~2 min; automation blocked by reCAPTCHA at signup):
+   https://sentry.io/signup/ → "Sign up with Google" → org e.g. `personal-cfo` → platform FastAPI →
+   copy DSN → `gh secret set SENTRY_DSN --body "<dsn>"` → re-run Deploy
+   (`gh workflow run Deploy --ref main`). Optional — error tracking only; everything else works.
+3. **(Next feature work) Issue #44** — HTMX form error states (422/500 feedback on vault/intake
    forms), carried over from #28 P3. Small, self-contained, per WEB_STANDARDS §5.
-3. **(Future) Road B** — multi-tenant: tenant isolation (`user_id` + RLS), cursor pagination,
+4. **(Future) Road B** — multi-tenant: tenant isolation (`user_id` + RLS), cursor pagination,
    licensed market-data path (yfinance is personal-use only — see DECISIONS 2026-07-09), full
    CLAUDE.md Pre-GA block. Deferred by the `docs/DECISIONS.md` 2026-07-02 Road-A scope decision.
 
