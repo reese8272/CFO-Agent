@@ -24,10 +24,11 @@ two observability secrets. Nothing is in flight; nothing is blocked on code.
    grace 5 min, email alerts on; `HEALTHCHECK_PING_URL` set as a repo GitHub secret; deploy
    dispatched; **verified: "Last Ping: a minute ago"** on the dashboard. Project id
    `7db194d0-f8c1-43ff-8eba-a3e355323770`, check uuid `31c1d142-e68d-4e5b-b747-ae23a5f0315a`.
-2. **⚠️ OWNER-ONLY — Sentry** (~2 min; automation blocked by reCAPTCHA at signup):
-   https://sentry.io/signup/ → "Sign up with Google" → org e.g. `personal-cfo` → platform FastAPI →
-   copy DSN → `gh secret set SENTRY_DSN --body "<dsn>"` → re-run Deploy
-   (`gh workflow run Deploy --ref main`). Optional — error tracking only; everything else works.
+2. ✅ **DONE — Sentry error tracking activated (2026-07-09).** Owner created the account
+   (Sentry org `o4511706759888896`, US region); `SENTRY_DSN` set as a repo GitHub secret; deploy
+   dispatched + green. The Sentry project shows "waiting for events" until the first unhandled
+   error occurs — that's expected (init is confirmed by the same .env pipeline that delivers the
+   healthcheck ping, which is proven working).
 3. **(Next feature work) Issue #44** — HTMX form error states (422/500 feedback on vault/intake
    forms), carried over from #28 P3. Small, self-contained, per WEB_STANDARDS §5.
 4. **(Future) Road B** — multi-tenant: tenant isolation (`user_id` + RLS), cursor pagination,
@@ -80,7 +81,7 @@ two observability secrets. Nothing is in flight; nothing is blocked on code.
 | **Cloudflare Tunnel ID (CFO)** | `daba5893-bdc4-4104-bb9c-90668bbd85a6` |
 | **Alembic head** | `b9d3e6f1a825` (encrypt plaid_account_id) ← `f2c8a1b7d403` (digest_sent_log) |
 | **Assessment output** | `docs/assessment/REPORT.md` (+ `modules/`, `history/`) — register now fully cleared |
-| **Secrets (names only)** | repo: `VAULT_ENCRYPTION_KEY`, `GH_PAT`; Prod env: `ANTHROPIC_API_KEY`, `CLOUDFLARE_TUNNEL_TOKEN`, `SSH_PRIVATE_KEY`, `DEPLOY_*`, `SMTP_*`. **Pending owner creation: `HEALTHCHECK_PING_URL`, `SENTRY_DSN`** (forwarded by deploy.yml since #45). Optional: `VAULT_ENCRYPTION_KEYS` (rotation) |
+| **Secrets (names only)** | repo: `VAULT_ENCRYPTION_KEY`, `GH_PAT`; Prod env: `ANTHROPIC_API_KEY`, `CLOUDFLARE_TUNNEL_TOKEN`, `SSH_PRIVATE_KEY`, `DEPLOY_*`, `SMTP_*`. **`HEALTHCHECK_PING_URL` + `SENTRY_DSN` both set (repo-level, 2026-07-09) and live.** Optional: `VAULT_ENCRYPTION_KEYS` (rotation) |
 | **Local test venv** | `/tmp/cfo_venv` (py3.13; cleared on reboot — rebuild from `requirements.txt`). Playwright: `~/playwright-venv` (persistent) |
 
 ---
