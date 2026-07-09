@@ -3,76 +3,66 @@
 > **Read this first.** Living "where we are right now" file — NOT a source of truth (those live in
 > `docs/`). Update whenever the active goal changes; run `/close-out` at the end of every session.
 
-**Last updated:** 2026-07-03 (session 2 — Phase 5b, outage recovery, /assess, Top-5 showcase fixes)
-**Branch:** `main` HEAD `1450b87` (Sentry #40). Working tree clean.
-**CI/Deploy:** all LIVE + verified in prod (`x-request-id` + `x-frame-options: DENY` headers confirmed).
-Site ✅ `/health` ok, stable. Survived a full prod outage this session (Oracle VM OOM-thrash → `oci`
-reboot); swap now auto-ensured by the deploy, so deploys are clean. Latest `/assess` = **YES (Road A)**.
+**Last updated:** 2026-07-09 (session 3 — SEV2 register cleared, Phase 4b closed, secrets plumbing)
+**Branch:** `main` HEAD `b39899f` (deploy-secrets forwarding #45). Working tree clean; in sync with origin.
+**CI/Deploy:** all green. Four PRs merged + deployed + verified live this session (#41, #42, #43, #45).
+Site ✅ `/health` `{"status":"ok","postgres":"ok","redis":"ok"}`; `cache-control: no-store` confirmed live.
 
 ---
 
 ## 1. CURRENT FOCUS
 
-**The Road-A production-hardening roadmap is COMPLETE.** A full `/assess` (Phases 0–6) took the app
-from **VERDICT: NO** (1 BLOCKER + ~20 SEV1) to **PRODUCTION-READY: YES (Road A)** — see
-`docs/assessment/REPORT.md`. Phases 0–6 are all merged to `main` and **live in production**. Only
-housekeeping + optional polish remains.
+**The entire assessment backlog is CLOSED.** Every code SEV2 from the 2026-07-03 `/assess` register
+is shipped and live (see `docs/PROJECT_STATE.md` for the itemized list), Phase 4b (pagination +
+plaid_account_id encryption) is done, GitHub #28 is closed, and the deploy pipeline now forwards the
+two observability secrets. Nothing is in flight; nothing is blocked on code.
 
 ### → NEXT ACTION
 
-1. ✅ **DONE this session** — merged PR #37 + #36; closed stale #29. Built, merged, and **DEPLOYED
-   Phase 5b (#38)** — response_model on bare-dict endpoints, security-headers middleware, slim
-   `migrations/env.py`. Suite 177 passed / 4 skipped. **Confirmed live in prod.** Then recovered a
-   full outage that hit mid-deploy (§5).
-2. ✅ **DONE — swap now auto-ensured by the deploy.** `deploy.yml` gained an idempotent, non-fatal
-   `[0/6] Ensuring swap` step that creates + persists a 2G `/swapfile` before the container rollover.
-   Verified live on `129.80.102.20`: deploy log showed `no swap present — creating 2G /swapfile` →
-   `/swapfile file 2G` active, and the rollover reached HTTP 200 with no OOM. Self-heals every deploy.
-   (Direct SSH + OCI Run Command were both unavailable to local ops — the pipeline was the way in.)
-3. ✅ **DONE — ran full `/assess` (2026-07-03)** → **YES (Road A)**, 0 BLOCKER/0 SEV1, 18 SEV2 backlog.
-   Report + per-module files refreshed in `docs/assessment/`. Then shipped the **Top-5 showcase fixes
-   (#39)** + **Sentry (#40)**, all live:
-   - money source-of-truth (tax constants + shared `sum_monthly_expenses`; Decimal in `analysis_jsonb`)
-   - agent token accounting (`operator.add` reducers, amends CONTRACTS §1) + `run_proposal_node`
-     truncation guard (no more StopIteration→500)
-   - `X-Request-ID` request-id logging + DSN-gated Sentry
-   - `6/hour` limits on paid-API refresh endpoints; SMTP + yfinance timeouts
-   - disclaimer override via settings; CSV/OFX import N+1 → batched
-4. **⚠️ OPEN — two owner-only activations** (code shipped, just need prod secrets set):
-   - **`HEALTHCHECK_PING_URL`** (healthchecks.io) — dead-man's-switch alerting. **Highest-value** — it's
-     how you'd learn the site is down unattended (this session's outage was caught by chance).
-   - **`SENTRY_DSN`** (sentry.io) — turns on error tracking (inert until set).
-5. **(Optional) remaining SEV2 backlog** — see `docs/assessment/REPORT.md` register: Coach `principle`
-   enum tightening, `defusedxml` for OFX, `Account.plaid_account_id` encryption, list pagination (4b),
-   the `CurrentUser=str` annotation cleanup, etc. None gate the YES verdict.
-6. **(Future) Road B** — real second users needs the full CLAUDE.md Pre-GA block; **tenant isolation**
-   (`user_id` on every table + owner filter, ideally Postgres RLS) is the headline. Deferred by the
-   `docs/DECISIONS.md` 2026-07-02 Road-A scope decision.
+1. **⚠️ OWNER-ONLY — activate the two observability secrets** (~10 min; plumbing shipped in #45,
+   inert until set):
+   - https://healthchecks.io → create free check (period 5 min, grace 5 min) → copy ping URL →
+     repo Settings → Secrets and variables → Actions → new secret **`HEALTHCHECK_PING_URL`**
+   - https://sentry.io → create free Python/FastAPI project → copy DSN → new secret **`SENTRY_DSN`**
+   - Re-run the latest Deploy workflow (`gh run rerun <deploy-run-id>` or push any code change);
+     verify: healthchecks.io shows pings arriving every 5 min.
+   - This is the **highest-value open item** — the 2026-07-03 outage was caught by chance.
+2. **(Next feature work) Issue #44** — HTMX form error states (422/500 feedback on vault/intake
+   forms), carried over from #28 P3. Small, self-contained, per WEB_STANDARDS §5.
+3. **(Future) Road B** — multi-tenant: tenant isolation (`user_id` + RLS), cursor pagination,
+   licensed market-data path (yfinance is personal-use only — see DECISIONS 2026-07-09), full
+   CLAUDE.md Pre-GA block. Deferred by the `docs/DECISIONS.md` 2026-07-02 Road-A scope decision.
 
 ---
 
 ## 2. WHAT WORKS NOW (do not re-investigate)
 
-- ✅ **`https://cfo.agenticlips.com` is live** — `/health` `{"status":"ok","postgres":"ok","redis":"ok"}`; `/docs` correctly **404 in prod** (gated).
-- ✅ **Phases 0–6 merged + deployed** (PRs #30–#35): assessment+BLOCKER fix, LLM safety (rate limits/timeout/caching), async hygiene, data-layer migration, prod hardening (MultiFernet rotation, /docs gate, graceful shutdown, timing-safe login), agent correctness (multi-specialist routing + no-dup reducer).
-- ✅ **Layer 0 clean:** ruff 0 (was 32), bandit 0/0, `requirements.txt` pip-audit clean (7 CVE'd deps bumped: fastapi 0.139, starlette 1.3.1, cryptography 48.0.1, pyjwt 2.13.0, …). mypy 152 (permissive ceiling).
-- ✅ **Tests:** 172 passed / 4 skipped in CI and locally (py3.13).
-- ✅ **Playwright installed** for point-and-click testing — persistent venv at `~/playwright-venv` (headless Chromium, no sudo needed); verified against live URLs.
-- ✅ **Local test harness works** despite the documented starlette pin issue — build a py3.13 venv + a throwaway Postgres on port 5433 (see gotchas). This is how the suite + migrations were run all session.
+- ✅ **`https://cfo.agenticlips.com` live**; `/docs` correctly 404 in prod; security headers incl.
+  `Cache-Control: no-store` (non-static) verified on the live origin.
+- ✅ **SEV2 register cleared (session 3)** — #41: Coach principle enum pinned (arena keys registered
+  in CONTRACTS §4), import 404 validation, idempotent digest (`digest_sent_log`), distinct-ticker
+  refresh, defusedxml, async scheduler shutdown. #42: pagination caps on all 20 list endpoints
+  (`routers/pagination.py`, default 200 / max 1000), `plaid_account_id_encrypted` (migration
+  `b9d3e6f1a825`, in-place-encrypt verified). #43: no-store, `CurrentUser=User` in 8 routers,
+  yfinance TOS posture, doc currency (Issue 15 closed). #45: deploy.yml forwards
+  `HEALTHCHECK_PING_URL`/`SENTRY_DSN` into the prod `.env` (empty → inert).
+- ✅ **Tests: 191 passed / 3 skipped** (py3.13, live PG/Redis); `tests/eval/` 4/4; ruff clean.
+- ✅ **Migrations at head `b9d3e6f1a825`** in prod (deploy logs confirmed both new migrations); the
+  slim `env.py` means prod migration steps now take ~15 s, not ~5 min.
+- ✅ Local test harness recipe (venv + throwaway Postgres on 5433) works — see gotchas §5.
 
 ---
 
 ## 3. THE ARC THAT LED HERE
 
-1. Issues 1–19 — full stack built + first production deploy (pre-this-session; see `docs/PROJECT_STATE.md`).
-2. This session: ran `/assess` → **VERDICT: NO** (1 BLOCKER: disclaimer drop; ~20 SEV1). Scoped to **Road A** (portfolio/single-user) via `docs/DECISIONS.md`.
-3. Built `docs/PRODUCTION_ROADMAP.md` (8 phases) and executed Phases 0–6, each: code → local test → smoke → CI → merge → deploy → verify live.
-4. Phase 6 deploy briefly 502'd (ARM-VM OOM, not code) — recovered via re-run; logged ISSUE-2026-07-02-02 + swap runbook.
-5. Phase 7 re-assessment → **VERDICT: YES (Road A)**.
-6. Session 2 (2026-07-03): merged #37/#36, closed #29, shipped Phase 5b (#38, live). **Mid-session prod
-   outage** — the Oracle VM OOM-thrashed → cloudflared unregistered (site 530/502), SSH unresponsive.
-   Recovered by rebooting the VM via the `oci` API (SOFTRESET hung → OCI force-completed). Logged
-   ISSUE-2026-07-03-01. Root prevention (swap on the Oracle VM) still open.
+1. Issues 1–19: full stack built + first prod deploy. Sessions 1–2: `/assess` NO → 8-phase Road-A
+   hardening → re-assess **YES** → Top-5 showcase fixes (#39) + Sentry (#40) (see history in
+   `docs/PRODUCTION_ROADMAP.md` / `docs/assessment/`).
+2. Session 3 (2026-07-09): severity-ordered the remaining backlog, then shipped it all —
+   PR #41 (six code SEV2s) → PR #42 (Phase 4b closeout) → PR #43 (final sweep + doc currency,
+   closed GitHub #28, opened #44) → PR #45 (deploy-secrets forwarding, found while writing the
+   owner activation steps: setting the secrets would have silently no-op'd).
+3. Each PR: local suite green → PR CI green → squash-merge → Deploy green → live verification.
 
 ---
 
@@ -80,30 +70,45 @@ housekeeping + optional polish remains.
 
 | Thing | Value |
 |---|---|
-| **Public URL** | `https://cfo.agenticlips.com` ✅ LIVE (Phase 5b) |
+| **Public URL** | `https://cfo.agenticlips.com` ✅ LIVE |
 | **GitHub repo** | `github.com/reese8272/CFO-Agent` |
-| **Open PRs** | none — #37/#36/#38 merged, #29 closed |
-| **Prod host (CFO)** | Oracle VM **`129.80.102.20`** = `instance-20260526-0052` (US-Ashburn). SSH `ubuntu@` — but the working key is the GitHub `SSH_PRIVATE_KEY` secret, **not** in local `~/.oci`/`~/.ssh` (local `~/.oci/vm-key*` get permission-denied). **Reboot/manage via `oci` CLI** (`~/.oci/config` works): `oci compute instance action --instance-id <ocid> --action SOFTRESET`. |
-| **⚠️ NOT the CFO host** | `ssh creatorclip-vm` (DigitalOcean `ubuntu-s-4vcpu-8gb-nyc1`) runs **AutoClip/CreatorClip**, not CFO. Don't apply CFO swap/reboot there (that mistake happened this session). Its tunnel is `db79b904-…`. |
+| **Open PRs** | none — #41/#42/#43/#45 merged; open issue: **#44** (HTMX error states) |
+| **Prod host (CFO)** | Oracle VM **`129.80.102.20`** = `instance-20260526-0052` (US-Ashburn). SSH `ubuntu@` works only with the GitHub `SSH_PRIVATE_KEY` secret (local keys denied). **Manage via `oci` CLI** (`~/.oci/config` works): `oci compute instance action --instance-id <ocid> --action SOFTRESET`. |
+| **⚠️ NOT the CFO host** | `ssh creatorclip-vm` (DigitalOcean) runs AutoClip/CreatorClip. Verify before touching. |
 | **GHCR image** | `ghcr.io/reese8272/cfo-agent:latest` |
 | **Cloudflare Tunnel ID (CFO)** | `daba5893-bdc4-4104-bb9c-90668bbd85a6` |
-| **Assessment output** | `docs/assessment/REPORT.md` + `modules/*.md` + `history/2026-07-02-REPORT-post-remediation.md` |
-| **Secrets (names only)** | repo: `VAULT_ENCRYPTION_KEY`, `GH_PAT`; Prod env: `ANTHROPIC_API_KEY`, `CLOUDFLARE_TUNNEL_TOKEN`, `SSH_PRIVATE_KEY`, `DEPLOY_*`, `SMTP_*`. New (optional): `VAULT_ENCRYPTION_KEYS` (comma-sep, for rotation) |
+| **Alembic head** | `b9d3e6f1a825` (encrypt plaid_account_id) ← `f2c8a1b7d403` (digest_sent_log) |
+| **Assessment output** | `docs/assessment/REPORT.md` (+ `modules/`, `history/`) — register now fully cleared |
+| **Secrets (names only)** | repo: `VAULT_ENCRYPTION_KEY`, `GH_PAT`; Prod env: `ANTHROPIC_API_KEY`, `CLOUDFLARE_TUNNEL_TOKEN`, `SSH_PRIVATE_KEY`, `DEPLOY_*`, `SMTP_*`. **Pending owner creation: `HEALTHCHECK_PING_URL`, `SENTRY_DSN`** (forwarded by deploy.yml since #45). Optional: `VAULT_ENCRYPTION_KEYS` (rotation) |
 | **Local test venv** | `/tmp/cfo_venv` (py3.13; cleared on reboot — rebuild from `requirements.txt`). Playwright: `~/playwright-venv` (persistent) |
 
 ---
 
 ## 5. CONSTRAINTS & GOTCHAS
 
-- **Verify `origin/main` first** — parallel Claude branches merge to main; run `git fetch origin && git rev-list --left-right --count origin/main...HEAD` before planning.
-- **Pushing to `main` triggers Deploy** — EXCEPT doc-only pushes (`**.md`, `docs/**` are `paths-ignore`d). PRs #36/#37 are doc-only → safe to merge with no deploy.
-- **Deploy can transiently 502 (ARM-VM OOM)** — ISSUE-2026-07-02-02: a rollout OOM-kills the app (`status 137` + "name resolution" in the deploy log) → 502. **Recover: `gh run rerun <run-id> --failed`. Prevent: add VM swap (`docs/DEPLOYMENT.md §7.1`) — still pending.** Distinguish from ISSUE-2026-07-02-01 (command_timeout; app stays up).
-- **Full outage = Oracle VM OOM-thrash (ISSUE-2026-07-03-01)** — if the site flaps `530`/`1033`/"unregistered from Argo Tunnel" ↔ `502` ↔ `000` AND `ssh ubuntu@129.80.102.20` banner-times-out, the VM is thrashing (not a network/code fault). **Recover out-of-band via `oci` (SSH is unusable): `oci compute instance action --instance-id <ocid> --action SOFTRESET`** (find OCID via `oci compute instance list -c <tenancy> --all`). SOFTRESET may hang in STOPPING ~5min (OS wedged) — OCII force-completes it to RUNNING; containers auto-start, tunnel re-registers, `/health` green ~2min. Then re-run the deploy. **Mitigated 2026-07-03:** `deploy.yml`'s `[0/6] Ensuring swap` now guarantees 2G swap on the host, so the rollover has headroom (recurrence risk much lower).
-- **TWO boxes exist — don't confuse them.** Prod CFO = Oracle `129.80.102.20`. `ssh creatorclip-vm` = a *different* DigitalOcean box (AutoClip/CreatorClip). Verify a host runs CFO (checkout dir + `*cfo*` container + tunnel `daba5893-…`) before touching it.
-- **Local pytest needs a real DB** — no local Postgres role exists. Spin a throwaway: `initdb -D /tmp/cfo_pg -U cfo --auth=trust`; `pg_ctl -D /tmp/cfo_pg -o "-p 5433 -k /tmp" start`; `createdb -h localhost -p 5433 -U cfo personal_cfo`; then `DATABASE_URL=postgresql+psycopg://cfo:cfo@localhost:5433/personal_cfo REDIS_URL=redis://localhost:6379/15 TESTING=true` + the conftest env defaults, `alembic upgrade head`, `pytest`. Build the venv with `python3.13` (system python is 3.14 → no psycopg wheel).
-- **SSH to the Oracle VM is GitHub-secret-only** — local `~/.oci/vm-key*` are not authorized (`ubuntu@` → permission denied), so the swap must be applied by the owner or baked into `deploy.yml`. BUT VM power management works via the `oci` CLI locally (reboot without SSH — see the outage gotcha above).
-- **Single-user auth** — registration closes after the first user (409). The prod login credential exists (set at Gate 2) but is **unrecoverable** (bcrypt-hashed); no password-reset endpoint. Local point-and-click uses a fresh throwaway user.
-- **Alembic startup is slow (~5min on the VM)** — heavy `env.py` import; `command_timeout` is now 20m and `lock_timeout` bounds locks. A bigger migration should still budget for it.
+- **Verify `origin/main` first** — parallel Claude branches merge to main; run
+  `git fetch origin && git rev-list --left-right --count origin/main...HEAD` before planning.
+- **Pushing to `main` triggers Deploy** — EXCEPT doc-only pushes (`**.md`, `docs/**` are
+  `paths-ignore`d). `.github/**` changes DO deploy (#45 did).
+- **Merging PRs needs explicit user approval** — the permission gate blocks self-merge to main;
+  this session the owner authorized the merge flow per-PR ("go ahead and merge").
+- **Deploy can transiently 502 (ARM-VM OOM)** — ISSUE-2026-07-02-02. Recover:
+  `gh run rerun <run-id> --failed`. Swap is auto-ensured by deploy.yml `[0/6]` since 2026-07-03.
+- **Full outage = VM OOM-thrash (ISSUE-2026-07-03-01)** — site flaps 530/502/000 AND SSH
+  banner-times-out → reboot via `oci` (SOFTRESET; OCI force-completes if it hangs ~5 min).
+- **Local pytest needs a real DB** — `initdb -D /tmp/cfo_pg -U cfo --auth=trust`;
+  `pg_ctl -D /tmp/cfo_pg -o "-p 5433 -k /tmp" start`; `createdb -h localhost -p 5433 -U cfo
+  personal_cfo`; venv from **python3.13** (system 3.14 has no psycopg wheel); then
+  `DATABASE_URL=postgresql+psycopg://cfo:cfo@localhost:5433/personal_cfo
+  REDIS_URL=redis://localhost:6379/15 alembic upgrade head && pytest`. Redis via
+  `redis-server --daemonize yes`.
+- **Single-user auth** — registration closes after the first user (409); prod credential
+  unrecoverable (no reset endpoint). Local testing uses a fresh throwaway user per run.
+- **Digest idempotency semantics** — cron skips a week already in `digest_sent_log`;
+  `/digest/run-now` always sends but logs. Don't "fix" one to behave like the other
+  (DECISIONS 2026-07-09).
+- **yfinance is personal-use only** (Yahoo TOS) — any second user/commercial framing must switch
+  to Alpha Vantage or a paid API (`integrations/market_data.py` docstring).
 
 ---
 
@@ -111,11 +116,12 @@ housekeeping + optional polish remains.
 
 | Doc | Purpose |
 |---|---|
-| `docs/assessment/REPORT.md` | Latest verdict (YES Road A) + module register + scale checklist |
-| `docs/PRODUCTION_ROADMAP.md` | The 8-phase plan; Phases 0–6 done, 4b/5b deferred |
-| `docs/DECISIONS.md` | Road-A scope decision + per-phase deviations (index scope, reducer amendment, etc.) |
-| `docs/CONTRACTS.md` | Frozen agent-state contract (§1 amended 2026-07-02 for the proposals reducer) |
-| `docs/DEPLOYMENT.md` | Ops runbook — §7.1 deploy-OOM/swap, §8 MultiFernet key-rotation |
-| `docs/PROJECT_STATE.md` · `docs/SOT.md` | Issue table + architecture/stack |
-| `~/.claude/ISSUES_LOG.md` | Cross-project issue log — ISSUE-2026-07-02-01/-02 are this project's deploy gotchas |
+| `docs/PROJECT_STATE.md` | Issue table + status snapshot (refreshed 2026-07-09) |
+| `docs/assessment/REPORT.md` | Latest verdict (YES Road A) + the now-cleared SEV2 register |
+| `docs/DECISIONS.md` | 3 new 2026-07-09 entries: SEV2 batch semantics, 4b pagination/encryption, yfinance TOS |
+| `docs/CONTRACTS.md` | Frozen contracts — §4 now includes the arena principle keys |
+| `docs/SOT.md` | Architecture/stack/tree (now incl. `routers/pagination.py`) |
+| `docs/THREAT_MODEL.md` | §5 plaid ids encrypted; revisit-triggers incl. yfinance licensing |
+| `docs/DEPLOYMENT.md` | Ops runbook — §7.1 deploy-OOM/swap, §8 key rotation |
+| `~/.claude/ISSUES_LOG.md` | Cross-project issue log (deploy/outage gotchas) |
 | `~/.claude/projects/-home-reese-workspace-CFO-analyzer/memory/MEMORY.md` | User profile + session prefs |
