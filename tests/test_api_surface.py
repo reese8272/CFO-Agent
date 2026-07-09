@@ -98,6 +98,8 @@ async def test_security_headers_present() -> None:
     assert resp.headers["X-Content-Type-Options"] == "nosniff"
     assert resp.headers["X-Frame-Options"] == "DENY"
     assert resp.headers["Referrer-Policy"] == "no-referrer"
+    # Financial API responses must never be cached (static paths are exempt).
+    assert resp.headers["Cache-Control"] == "no-store"
     # HSTS is prod-only; the test env is not production.
     assert "Strict-Transport-Security" not in resp.headers
 

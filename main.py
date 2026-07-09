@@ -123,6 +123,10 @@ async def security_headers(request: Request, call_next: RequestResponseEndpoint)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
+    # Financial API responses must never land in shared/browser caches; static
+    # assets are exempt so the HTMX pages stay cacheable.
+    if not request.url.path.startswith("/static"):
+        response.headers["Cache-Control"] = "no-store"
     if _prod:
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response

@@ -6,6 +6,11 @@ these functions.
 
 Alpha Vantage fallback: free tier supports 25 requests/day. Set ALPHA_VANTAGE_KEY
 in .env to enable. If absent, fallback is skipped and the function returns None.
+
+LICENSING: yfinance scrapes Yahoo Finance, whose TOS prohibit redistribution and
+commercial use. This integration is PERSONAL-USE ONLY (Road A). Any second user
+or commercial framing must switch to the licensed path (Alpha Vantage or a paid
+market-data API) — see docs/THREAT_MODEL.md and docs/DECISIONS.md 2026-07-09.
 """
 import asyncio
 import logging

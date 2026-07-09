@@ -241,7 +241,7 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
 ---
 
 ## Issue 15: Financial Intake Wizard — backend (models, migration, analysis engine, router)
-- [ ] In Progress (2026-05-26)
+- [x] Closed (2026-07-09 — all criteria verified; tests had landed with Issue 16/17 work)
 - **Depends on**: 14
 - **What**: Three new DB tables (`user_profile`, `financial_snapshots`, `intake_submissions`), Alembic migration `c9f3a1d8e520`, deterministic financial analysis engine (`vault/financial_snapshot.py`), and REST router (`routers/intake.py`). No frontend work. Retrieval node updated to include pre-computed snapshot in prompt context.
 - **Acceptance criteria**:
@@ -258,7 +258,7 @@ Mark `[ ]` → `[x]` when an issue is closed; update `docs/PROJECT_STATE.md` at 
   - [x] `main.py` registers `intake_router`
   - [x] All endpoints auth-protected via `get_current_user`
   - [x] No sensitive fields (balance, account numbers, AGI) logged
-  - [ ] Tests: happy path for submit + status + snapshot + refresh + archive; snapshot math verified against known inputs
+  - [x] Tests: happy path for submit + status + snapshot + refresh + archive; snapshot math verified against known inputs (`tests/test_intake.py` — 12 tests incl. `test_snapshot_math`)
 
 ---
 

@@ -4,12 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from auth import get_current_user
+from auth import User, get_current_user
 from scenarios.models import ScenarioInput, ScenarioOutput
 from scenarios.engine import run_scenario
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
-CurrentUser = Annotated[str, Depends(get_current_user)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 @router.post("/run", response_model=ScenarioOutput)

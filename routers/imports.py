@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db import get_session
-from auth import get_current_user
+from auth import User, get_current_user
 from routers.pagination import DEFAULT_PAGE_SIZE, LimitParam, OffsetParam
 from vault.crud import write_audit_log
 from vault.models import Account, Transaction, ImportBatch, CategoryMapping
@@ -16,7 +16,7 @@ from integrations.csv_import import parse_csv, parse_ofx, compute_hash, _apply_m
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/import", tags=["import"])
 Session = Annotated[AsyncSession, Depends(get_session)]
-CurrentUser = Annotated[str, Depends(get_current_user)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
