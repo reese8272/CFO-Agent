@@ -156,8 +156,11 @@ This describes how the personal-cfo agent **will be built**. Update on every arc
 │   ├── test_digest.py
 │   ├── test_chat.py
 │   ├── test_disclaimer.py      # Structural: disclaimer present when required
-│   └── eval/                   # Agent eval harness — canned vault states + expected facts
-│       └── scenarios/*.yaml
+│   ├── eval/                   # Agent eval harness — canned vault states + expected facts
+│   │   └── scenarios/*.yaml
+│   └── e2e/                    # Browser-level Gate 2 harness (Playwright; not pytest-collected)
+│       ├── run_e2e.sh          # Stands up throwaway PG/Redis/uvicorn, runs suite, tears down
+│       └── verify_ui.py        # Real-Chromium checks: auth, HTMX forms, intake, chat, sign-out
 │
 └── docs/
     ├── PRD.md

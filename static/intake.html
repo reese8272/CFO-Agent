@@ -2510,12 +2510,15 @@
       }
     }
 
-    document.getElementById('cfo-chat-input').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDrawerMessage(); }
-    });
-    document.getElementById('cfo-chat-input').addEventListener('input', function() {
-      this.style.height = 'auto';
-      this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+    // #cfo-chat-input is parsed after this script block — attach once the DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('cfo-chat-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDrawerMessage(); }
+      });
+      document.getElementById('cfo-chat-input').addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+      });
     });
   </script>
 
