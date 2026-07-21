@@ -73,6 +73,16 @@ with sync_playwright() as p:
     )
     check("stale token: form still usable", page.locator("#username").is_visible())
 
+    # --- 2b. Stale token on vault: 401 signs out to login, no orphaned banners ---
+    page.evaluate("localStorage.setItem('cfo_token', 'stale.dead.token')")
+    page.goto(f"{BASE}/static/vault.html")
+    page.wait_for_url("**/login.html", timeout=10000)
+    check("stale token on vault: redirected to sign-in", True)
+    check(
+        "stale token on vault: token cleared",
+        page.evaluate("localStorage.getItem('cfo_token')") is None,
+    )
+
     # --- 3. Register a new user -> lands on intake (not chat) ---
     page.fill("#username", USER)
     page.fill("#password", PW)
