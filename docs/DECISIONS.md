@@ -14,6 +14,26 @@ Format:
 
 ---
 
+## 2026-07-21 — Gate 2 browser verification runs on brew services, not docker-compose
+
+**Context**: CLAUDE.md's testing rules say "real Postgres via docker-compose", and Gate 2
+requires exercising changes in a browser. The dev WSL distro has no Docker Desktop
+integration, so neither was runnable locally — Gate 2 was previously manual-only, and
+ISSUE-2026-07-09-01 showed TestClient-only suites miss browser-encoding bugs entirely.
+
+**Decision**: Add `tests/e2e/` — a Playwright suite (`verify_ui.py`) driving real Chromium,
+plus `run_e2e.sh` which stands up a throwaway Postgres 16 + Redis + uvicorn stack from
+brew-installed services (mktemp dir, trap-teardown) instead of docker-compose. Not
+pytest-collected (needs a live server; chat step spends real Anthropic tokens —
+`CFO_E2E_SKIP_CHAT=1` skips it). Local venv at `.venv` (Python 3.13 via uv; 3.14 breaks
+pinned psycopg/langgraph-checkpoint-redis wheels).
+
+**Reasoning**: repeatable one-command Gate 2 beats manual browser walkthroughs; the same
+suite caught a real bug on day one (intake.html drawer listeners attached before the
+element was parsed). **Trade-offs**: e2e runs only on machines with brew Postgres/Redis;
+not wired into CI (would need service containers + a key-less chat skip).
+**Owner**: reese ("find a way to test everything, whether that's say playwright", 2026-07-21).
+
 ## 2026-07-09 — yfinance is personal-use only (licensing posture)
 
 **Context**: Assessment SEV2 flagged that yfinance scrapes Yahoo Finance, whose TOS prohibit
