@@ -49,20 +49,23 @@
   </div>
 
   <script>
-    if (localStorage.getItem('cfo_token')) { checkIntakeAndRedirect(localStorage.getItem('cfo_token')); }
+    const storedToken = localStorage.getItem('cfo_token');
+    if (storedToken) { checkIntakeAndRedirect(storedToken).catch(() => {}); }
 
     async function checkIntakeAndRedirect(token) {
-      try {
-        const resp = await fetch('/intake/status', { headers: { Authorization: 'Bearer ' + token } });
-        if (resp.ok) {
-          const data = await resp.json();
-          window.location.href = data.intake_completed ? '/static/chat.html' : '/static/intake.html';
-        } else {
-          window.location.href = '/static/chat.html';
-        }
-      } catch (_) {
-        window.location.href = '/static/chat.html';
+      const resp = await fetch('/intake/status', { headers: { Authorization: 'Bearer ' + token } });
+      if (resp.status === 401) {
+        localStorage.removeItem('cfo_token');
+        return false;
       }
+      if (resp.ok) {
+        const data = await resp.json();
+        window.location.href = data.intake_completed ? '/static/chat.html' : '/static/intake.html';
+        return true;
+      }
+      // Non-auth failure (e.g. transient 5xx): token may still be good; chat.html signs out on 401
+      window.location.href = '/static/chat.html';
+      return true;
     }
 
     async function handleSubmit(evt) {
@@ -75,7 +78,11 @@
       try {
         let token = await tryRegister(username, password);
         if (!token) token = await tryLogin(username, password);
-        if (token) { localStorage.setItem('cfo_token', token); await checkIntakeAndRedirect(token); }
+        if (token) {
+          localStorage.setItem('cfo_token', token);
+          const redirected = await checkIntakeAndRedirect(token);
+          if (!redirected) throw new Error('Session could not be validated — please sign in again.');
+        }
       } catch (e) {
         errEl.textContent = e.message; errEl.style.display = 'block';
         btn.disabled = false; btn.textContent = 'Sign in';
